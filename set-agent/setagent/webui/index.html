@@ -27,7 +27,8 @@ button,select,input{font-family:inherit;font-size:13px}
 .app{display:flex;flex-direction:column;height:100vh}
 
 /* ---- control bar ---- */
-.bar{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s3);flex:none;
+/* one row at the panel's 380px floor: tabs + four buttons, undo/redo as glyphs */
+.bar{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s2);flex:none;
   padding:var(--s3) var(--s4);border-bottom:1px solid var(--line);background:var(--surface)}
 .bar label{display:flex;align-items:center;gap:6px;color:var(--ink-3);font-size:12px}
 .bar select,.bar input[type=text]{background:var(--raised);color:var(--ink);
@@ -318,7 +319,9 @@ button,select,input{font-family:inherit;font-size:13px}
 .fresh{display:flex;align-items:center;gap:var(--s3);flex-wrap:wrap;margin-bottom:var(--s3)}
 .fresh .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#1fb013;margin-right:6px}
 .fresh .dot.rb{background:var(--caution)}
-.views button{padding:5px 12px}
+.views button{padding:5px 10px}
+.bar .btn{padding:5px 9px;white-space:nowrap}
+.bar .btn.glyph{font-size:15px;line-height:1;padding:3px 8px;min-width:30px}
 
 /* ---- detail view: the analysis, one scrolling column ---- */
 /* one scrolling column: the lanes keep their floor, the rest follows below */
@@ -340,8 +343,9 @@ button,select,input{font-family:inherit;font-size:13px}
         title="詳細画面: 曲ごとの尺と展開（エネルギー）の対応、区間の予算">詳細</button>
     </div>
     <span class="spacer"></span>
-    <button class="btn" id="undo" title="Set Agent 内での試行を 1 つ戻します（rekordbox には影響しません）">元に戻す</button>
-    <button class="btn" id="redo" title="戻した試行をもう一度行います">やり直す</button>
+    <button class="btn glyph" id="undo" aria-label="元に戻す"
+      title="元に戻す: Set Agent 内での試行を 1 つ戻します（rekordbox には影響しません）">↶</button>
+    <button class="btn glyph" id="redo" aria-label="やり直す" title="やり直す: 戻した試行をもう一度行います">↷</button>
     <button class="btn" id="agentBtn"
       title="エージェント: 分析の数値をもとに質問に答え、提案（チェックして適用）を出します">エージェント</button>
     <button class="btn" id="settings"
