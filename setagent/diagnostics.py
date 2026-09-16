@@ -46,7 +46,7 @@ class Report:
         if self.hints:
             lines += ["", "次にやること:"] + [f"  - {h}" for h in self.hints]
         if not self.failed:
-            lines += ["", "致命的な問題は無い。"]
+            lines += ["", "致命的な問題はありません。"]
         return "\n".join(lines)
 
 
@@ -74,8 +74,8 @@ def run(master_db: str | None = None, sample: int = 200) -> Report:
         r.add("master.db", True, f"{mdb}  ({size_mb:.1f} MB / 最終更新 {age:.1f} 時間前)")
     except LibraryNotFound as ex:
         r.add("master.db", False, str(ex))
-        r.hints.append("rekordbox 6 か 7 をこの PC にインストールして一度起動しろ。"
-                       "場所が普通と違うなら、GUI の起動時に master.db を手で指定できる")
+        r.hints.append("rekordbox 6 か 7 をこの PC にインストールして一度起動してください。"
+                       "場所が標準と違う場合は、GUI の起動時に master.db を指定できます")
         for p in default_master_db_candidates():
             r.add("  探した場所", None, str(p))
         return r
@@ -100,8 +100,8 @@ def run(master_db: str | None = None, sample: int = 200) -> Report:
         r.add("復号と読み取り", True, f"{time.time() - t0:.1f} 秒")
     except Exception as ex:
         r.add("復号と読み取り", False, f"{type(ex).__name__}: {ex}")
-        r.hints.append("master.db が壊れているか、rekordbox のバージョンが想定外だ。"
-                       "rekordbox のバージョンを添えて報告しろ")
+        r.hints.append("master.db が壊れているか、rekordbox のバージョンが想定外です。"
+                       "rekordbox のバージョンを添えて報告してください")
         return r
 
     r.add("解析データ置き場", lib.share_dir.is_dir(), str(lib.share_dir))
@@ -142,7 +142,7 @@ def run(master_db: str | None = None, sample: int = 200) -> Report:
                        "「フレーズ」をオンにして曲を再解析し、Set Agent の Rescan を押せ")
     elif present < scanned * 0.3:
         r.hints.append("フレーズ解析のある曲が少ない。展開の分析と再生範囲のプリセットは"
-                       "解析のある曲にしか効かない。クラウド保存の曲は rekordbox が解析しない")
+                       "解析のある曲にしか効きません。クラウド保存の曲は rekordbox が解析しません")
     return r
 
 

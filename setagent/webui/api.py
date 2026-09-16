@@ -111,7 +111,7 @@ class Api:
     def load(self, opts: dict | None = None) -> dict:
         opts = opts or {}
         if not self.lib:
-            return {"error": "ライブラリが開かれていない"}
+            return {"error": "ライブラリが開かれていません"}
         try:
             return self._load(opts)
         except Exception as e:
@@ -126,7 +126,7 @@ class Api:
 
         pls = {p.name: p for p in self.lib.playlists()}
         if name not in pls:
-            return {"error": f"プレイリスト「{name}」が見つからない",
+            return {"error": f"プレイリスト「{name}」が見つかりません",
                     "playlists": sorted(pls)}
         pl = pls[name]
 
@@ -174,7 +174,7 @@ class Api:
     # ----------------------------------------------------------------- state
     def state(self) -> dict:
         if not self.draft:
-            return {"error": "セットが読み込まれていない"}
+            return {"error": "セットが読み込まれていません"}
         try:
             s = viewstate.build(self.draft, self.lib, self.anlz,
                                 curve=self.curve, cfg=self.cfg, selected=self.selected)
@@ -206,7 +206,7 @@ class Api:
     # go through History -- same as the Canvas UI did it.
     def move_curve_point(self, index, pos, energy) -> dict:
         if not self.curve:
-            return {"error": "先に目標カーブを選べ"}
+            return {"error": "先に目標カーブを選んでください"}
         try:
             self.curve.move_point(int(index), float(pos), float(energy))
         except IndexError:
@@ -215,17 +215,17 @@ class Api:
 
     def add_curve_point(self, pos, energy) -> dict:
         if not self.curve:
-            return {"error": "先に目標カーブを選べ"}
+            return {"error": "先に目標カーブを選んでください"}
         self.curve.add_point(float(pos), float(energy))
         return self.state()
 
     def remove_curve_point(self, index) -> dict:
         if not self.curve:
-            return {"error": "先に目標カーブを選べ"}
+            return {"error": "先に目標カーブを選んでください"}
         n = len(self.curve.points)
         self.curve.remove_point(int(index))
         if len(self.curve.points) == n:
-            return {**self.state(), "notice": "両端の点は消せない"}
+            return {**self.state(), "notice": "両端の点は削除できません"}
         return self.state()
 
     def set_milestone(self, index, at_s) -> dict:
@@ -234,27 +234,27 @@ class Api:
 
     def set_preset(self, index, name) -> dict:
         if not self.draft:
-            return {"error": "セットが読み込まれていない"}
+            return {"error": "セットが読み込まれていません"}
         e = self.draft.tracks[int(index)]
         if name == "full":
             return self._run(lambda _e: SetRange(_e.track_id, 0, None, "full"), index)
         ta = self.lib.analysis(e.track_id)
         if ta.phrase_status is not PhraseStatus.PRESENT or not ta.anlz:
-            return {"error": "フレーズ解析がないためプリセットを適用できない", **self.state()}
+            return {"error": "フレーズ解析がないためプリセットを適用できません", **self.state()}
         r = preset_range(ta.anlz, name, self.cfg)
         if not r:
-            return {"error": f"{name} に合うドロップが見つからない", **self.state()}
+            return {"error": f"{name} に合うドロップが見つかりません", **self.state()}
         return self._run(lambda _e: SetRange(_e.track_id, r.play_in_ms, r.play_out_ms, name), index)
 
     def set_range(self, index, play_in_ms, play_out_ms) -> dict:
         """Hand-trimmed play range (the edge drag). Marked 'custom', not a preset."""
         if not self.draft:
-            return {"error": "セットが読み込まれていない"}
+            return {"error": "セットが読み込まれていません"}
         try:
             e = self.draft.tracks[int(index)]
             src_len_ms = int((getattr(self.lib.track(e.track_id), "length_s", 0) or 0) * 1000)
         except (IndexError, TypeError, ValueError):
-            return {"error": "その曲は見つからない"}
+            return {"error": "その曲は見つかりません"}
         lo = max(0, int(play_in_ms))
         hi = None if play_out_ms is None else int(play_out_ms)
         if src_len_ms:
@@ -284,16 +284,16 @@ class Api:
     def undo(self) -> dict:
         if self.history and self.history.undo():
             return self.state()
-        return {**self.state(), "notice": "これ以上戻せない"}
+        return {**self.state(), "notice": "これ以上戻せません"}
 
     def redo(self) -> dict:
         if self.history and self.history.redo():
             return self.state()
-        return {**self.state(), "notice": "これ以上やり直せない"}
+        return {**self.state(), "notice": "これ以上やり直せません"}
 
     def rescan(self) -> dict:
         if not self.lib:
-            return {"error": "ライブラリが開かれていない"}
+            return {"error": "ライブラリが開かれていません"}
         self.lib.rescan()
         return self._load({"playlist": self.draft.name if self.draft else None})
 
@@ -332,7 +332,7 @@ class Api:
     def export_preview(self) -> dict:
         """What would actually land in rekordbox, before anything is written (S5-2)."""
         if not self.draft:
-            return {"error": "セットが読み込まれていない"}
+            return {"error": "セットが読み込まれていません"}
         try:
             p = xml_export.export_preview(self.draft, self.lib)
             return {"preview": p, "text": xml_export.describe_preview(p)}
@@ -341,7 +341,7 @@ class Api:
 
     def export_xml(self, path=None) -> dict:
         if not self.draft:
-            return {"error": "セットが読み込まれていない"}
+            return {"error": "セットが読み込まれていません"}
         if not path:
             path = self._ask_save_path()
         if not path:
@@ -420,7 +420,7 @@ class Api:
             "model": cfg.model,
             "masked": (cfg.api_key[:7] + "…" + cfg.api_key[-4:]) if len(cfg.api_key) > 14 else "",
             # The invariant, stated where the DJ can read it (spec B-7).
-            "note": "キーが無くても全機能が動く。決定的アドバイザに落ちるだけだ",
+            "note": "キーがなくても全機能が動きます。決定的アドバイザで動作します",
         }
 
     def set_llm(self, key=None, model=None) -> dict:
@@ -431,10 +431,10 @@ class Api:
         s = self.llm_status()
         s["saved"] = saved
         if how == "plain":
-            s["warning"] = ("この PC では暗号化できなかった（DPAPI が使えない）。"
+            s["warning"] = ("この PC では暗号化できませんでした（DPAPI が使えません）。"
                             "キーは settings.json に平文で入る")
         if not saved:
-            s["warning"] = "設定ファイルに書けなかった。次回起動時には残らない"
+            s["warning"] = "設定ファイルに書き込めませんでした。次回起動時には残りません"
         return s
 
     # --------------------------------------------------------------- agent
@@ -495,7 +495,7 @@ class Api:
 
     def set_level(self, level) -> dict:
         if not self.advisor:
-            return {"error": "セットが読み込まれていない"}
+            return {"error": "セットが読み込まれていません"}
         try:
             self.advisor.level = Intervention(level)
         except ValueError:
@@ -509,7 +509,7 @@ class Api:
 
     def ask(self, text) -> dict:
         if not self.agent:
-            return {"error": "セットが読み込まれていない"}
+            return {"error": "セットが読み込まれていません"}
         text = (text or "").strip()
         if not text:
             return self.state()
@@ -535,7 +535,7 @@ class Api:
 
     def insert_candidate(self, track_id, at=None) -> dict:
         if not self.advisor:
-            return {"error": "セットが読み込まれていない"}
+            return {"error": "セットが読み込まれていません"}
         if at is None:
             at = (self.selected + 1) if self.selected is not None else len(self.draft.tracks)
         try:
@@ -548,20 +548,20 @@ class Api:
 
     def set_item_approved(self, index, approved) -> dict:
         if not self.pending:
-            return {"error": "提案がない"}
+            return {"error": "提案がありません"}
         try:
             self.pending.items[int(index)].approved = bool(approved)
         except (IndexError, TypeError, ValueError):
-            return {"error": "その項目は見つからない"}
+            return {"error": "その項目は見つかりません"}
         return self.state()
 
     def apply_pending(self) -> dict:
         cs = self.pending
         if not cs:
-            return {"error": "提案がない"}
+            return {"error": "提案がありません"}
         cmds = cs.approved_commands()
         if not cmds:
-            return {**self.state(), "notice": "承認された操作がない"}
+            return {**self.state(), "notice": "承認された操作がありません"}
         try:
             self.history.run_all(cmds)
         except LockedError as ex:
@@ -570,28 +570,28 @@ class Api:
             return {**self.state(), "error": f"{type(e).__name__}: {e}"}
         self.plog.record_outcome(cs)
         self.pending = None
-        self._say("meta", f"適用した（{len(cmds)}件）。元に戻すで戻せる")
+        self._say("meta", f"適用しました（{len(cmds)}件）。「元に戻す」で戻せます")
         return self.state()
 
     def reject_pending(self) -> dict:
         cs = self.pending
         if not cs:
-            return {"error": "提案がない"}
+            return {"error": "提案がありません"}
         for i in cs.items:
             i.approved = False
         self.plog.record_outcome(cs)
         self.pending = None
-        self._say("meta", "却下した。同じ案はもう出さない")
+        self._say("meta", "却下しました。同じ案は出しません")
         return self.state()
 
     # --------------------------------------------------------------- helpers
     def _run(self, make_cmd, index) -> dict:
         if not self.draft or not self.history:
-            return {"error": "セットが読み込まれていない"}
+            return {"error": "セットが読み込まれていません"}
         try:
             e = self.draft.tracks[int(index)]
         except (IndexError, TypeError, ValueError):
-            return {"error": "その曲は見つからない"}
+            return {"error": "その曲は見つかりません"}
         try:
             self.history.run(make_cmd(e))
         except LockedError as ex:

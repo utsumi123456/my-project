@@ -22,13 +22,14 @@ import urllib.error
 import urllib.request
 from dataclasses import dataclass, field
 
-from setagent.agent.advisor import Advisor, Intervention, Reply
+from setagent.agent.advisor import Advisor, Intervention, Reply, OFF_TEXT
 from setagent.agent.tools import TOOL_SCHEMA, AgentTools
 
 SYSTEM_PROMPT = """\
 あなたは rekordbox のコンパニオン「Set Agent」です。DJ がセットを組むときの相談相手として、
 セット全体の時間配分と展開を一緒に考えます。セットの主導権は常に DJ にあります。
 あなたの提案は選択肢の一つであり、決定ではありません。
+口調は丁寧語（です・ます）で、簡潔に。命令形や乱暴な言い回しは使いません。
 
 原則:
 1. 数値はツールから取る。尺・開始時刻・BPM・Key・エネルギー・目標カーブとの乖離は、必ず
@@ -113,20 +114,20 @@ class LLMAgent:
 
     def status(self) -> str:
         if not self.cfg.available:
-            return ("LLM は未設定（環境変数 SETAGENT_LLM_KEY）。"
-                    "ルールベースのアドバイザで動いている — 分析・提案・候補出しはすべて使える")
+            return ("LLM は未設定です（環境変数 SETAGENT_LLM_KEY）。"
+                    "ルールベースのアドバイザで動いています。分析・提案・候補出しはすべて使えます")
         return f"LLM: {self.cfg.model}"
 
     def ask(self, text: str, selected_index: int | None = None) -> Reply:
         if self.advisor.level is Intervention.OFF:
-            return Reply("エージェントはオフだ。分析とタイムラインはそのまま使える")
+            return Reply(OFF_TEXT)
         if not self.cfg.available:
             return self.advisor.ask(text, selected_index)
         try:
             return self._loop(text, selected_index)
         except LLMError as ex:
             r = self.advisor.ask(text, selected_index)
-            r.text = f"（LLM に届かなかった: {ex}。ルールベースで答える）\n{r.text}"
+            r.text = f"（LLM に接続できませんでした: {ex}。ルールベースで回答します）\n{r.text}"
             return r
 
     # ------------------------------------------------------------------ loop

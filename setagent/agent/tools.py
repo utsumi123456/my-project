@@ -214,7 +214,7 @@ class AgentTools:
     def get_play_history(self, track_ref: str = "") -> dict:
         """lib.get_play_history — not wired up yet; says so rather than guessing."""
         return {"available": False,
-                "note": "再生履歴はまだ読んでいない。共起統計は使えない"}
+                "note": "再生履歴はまだ読み込んでいません。共起統計は使えません"}
 
     def recommend_candidates(self, duration: str, target_energy: float | None = None,
                              after_index: int | None = None, playlist: str = "",
@@ -249,12 +249,12 @@ class AgentTools:
         except Rejected as ex:
             return {"accepted": False, "reason": str(ex)}
         except Exception as ex:                        # malformed params from the model
-            return {"accepted": False, "reason": f"提案を組み立てられない: {ex}"}
+            return {"accepted": False, "reason": f"提案を組み立てられません: {ex}"}
         if self.on_proposal:
             self.on_proposal(cs)
         return {"accepted": True, "diff": cs.diff_lines,
                 "operations": [i.op.describe(self.title_of) for i in cs.items],
-                "note": "ユーザーに提示した。適用するかはユーザーが決める"}
+                "note": "ユーザーに提示しました。適用するかはユーザーが決めます"}
 
     # ------------------------------------------------------------ dispatch
     def call(self, name: str, args: dict | None = None) -> Any:
@@ -307,9 +307,9 @@ TOOL_SCHEMA: list[dict] = [
      "input_schema": {"type": "object", "properties": {
          "text": {"type": "string"}, "bpm_min": {"type": "number"}, "bpm_max": {"type": "number"},
          "key": {"type": "string"}, "playlist": {"type": "string"}, "limit": {"type": "integer"}}}},
-    {"name": "lib.get_play_history", "description": "演奏履歴と共起統計（未実装。使えないと返る）",
+    {"name": "lib.get_play_history", "description": "演奏履歴と共起統計（未実装。使えない旨を返す）",
      "input_schema": {"type": "object", "properties": {"track_ref": {"type": "string"}}}},
-    {"name": "recommend.candidates", "description": "区間に合う実在曲の候補。曲名を作ってはいけない",
+    {"name": "recommend.candidates", "description": "区間に合う実在曲の候補。曲名を作らないこと",
      "input_schema": {"type": "object", "properties": {
          "duration": {"type": "string", "description": "mm:ss"},
          "target_energy": {"type": "number"}, "after_index": {"type": "integer"},

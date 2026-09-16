@@ -137,7 +137,7 @@ def main(argv=None):
             if r.used_tools:
                 print("tools:", ", ".join(dict.fromkeys(r.used_tools)))
             return
-        print("(--ask \"質問\" で聞ける)")
+        print("(--ask \"質問\" で質問できます)")
         return
 
     tl = compute(d, lib)

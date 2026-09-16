@@ -427,10 +427,10 @@ button,select,input{font-family:inherit;font-size:13px}
 
 <div class="curtain" id="curtain">
   <div class="box">
-    <h1 id="cTitle">ライブラリを読んでいる…</h1>
-    <p id="cMsg">rekordbox の master.db を復号して開いている。初回は少し時間がかかる。</p>
+    <h1 id="cTitle">ライブラリを読み込んでいます…</h1>
+    <p id="cMsg">rekordbox の master.db を復号して開いています。初回は少し時間がかかります。</p>
     <pre id="cDetail" hidden></pre>
-    <button class="btn primary" id="cRetry" hidden>もう一度ためす</button>
+    <button class="btn primary" id="cRetry" hidden>もう一度試す</button>
   </div>
 </div>
 
@@ -491,7 +491,7 @@ function fail(title, msg, detail){
 async function boot(){
   const b = await window.pywebview.api.boot();
   if(b.error){
-    fail("ライブラリが開けない", b.error + "\n\nrekordbox を一度起動してライブラリを作ってから、もう一度ためせ。",
+    fail("ライブラリを開けません", b.error + "\n\nrekordbox を一度起動してライブラリを作成してから、もう一度お試しください。",
          b.detail);
     return;
   }
@@ -515,8 +515,8 @@ function targetSeconds(){
 }
 
 async function reload(){
-  $("cTitle").textContent = "セットを組んでいる…";
-  $("cMsg").textContent = "フレーズ解析を読んで再生範囲を決めている。";
+  $("cTitle").textContent = "セットを組んでいます…";
+  $("cMsg").textContent = "フレーズ解析を読んで再生範囲を決めています。";
   $("curtain").hidden = false;
   const s = await window.pywebview.api.load({
     playlist: $("pl").value, preset: $("preset").value,
@@ -529,7 +529,7 @@ async function reload(){
 function apply(s, firstPaint){
   if(!s){ return; }
   /* only boot/load failures take over the screen; an ordinary refusal is a toast */
-  if(s.fatal){ fail("読み込みに失敗した", s.error, s.detail); return; }
+  if(s.fatal){ fail("読み込みに失敗しました", s.error, s.detail); return; }
   if(s.error && !s.tracks){ toast(s.error); return; }
   if(s.error) toast(s.error);
   if(s.notice) toast(s.notice);
@@ -578,7 +578,7 @@ const HINTS = ["今のセット何分？", "バランスどう？", "ピーク�
 
 function renderAgent(){
   const a = ST.agent || {};
-  if(!a.ready){ $("agentStatus").textContent = "セットを読み込むと使える"; return; }
+  if(!a.ready){ $("agentStatus").textContent = "セットを読み込むと使えます"; return; }
 
   $("agentStatus").textContent = a.status;
   if($("level").options.length !== (a.levels || []).length){
@@ -591,7 +591,7 @@ function renderAgent(){
   const atBottom = c.scrollHeight - c.scrollTop - c.clientHeight < 40;
   c.innerHTML = (a.chat || []).map(m =>
     `<div class="msg ${esc(m.who)}">${esc(m.text)}</div>`).join("") ||
-    `<div class="msg meta">まだ何も話していない。下の例をそのまま送ってもいい。</div>`;
+    `<div class="msg meta">まだ会話はありません。下の例をそのまま送ることもできます。</div>`;
   if(atBottom) c.scrollTop = c.scrollHeight;
 
   $("askHints").innerHTML = "例: " + HINTS.map(h =>
@@ -669,18 +669,18 @@ function renderReco(){
   const k = per ? Math.max(1, Math.round(Math.abs(d) / per)) : 0;
   if(cls === "over"){
     r.dataset.q = `${fmt(tgt)} に収めて`;
-    r.innerHTML = `<div><h3>${fmt(d)} ぶん外す必要がある</h3>
-      <p>1曲平均 ${fmt(per)} なので、およそ ${k} 曲。まず削り代で稼げる分を確かめる</p></div>
+    r.innerHTML = `<div><h3>${fmt(d)} 分の短縮が必要です</h3>
+      <p>1曲平均 ${fmt(per)} なので、およそ ${k} 曲分です。まず削り代で稼げる分を確認します</p></div>
       <span class="go">削り代と候補 →</span>`;
   } else if(cls === "under"){
     r.dataset.q = "候補を出して";
-    r.innerHTML = `<div><h3>${fmt(-d)} 足りない</h3>
-      <p>およそ ${k} 曲ぶん。プレイリストに合う曲をコレクションから探す</p></div>
+    r.innerHTML = `<div><h3>${fmt(-d)} 足りません</h3>
+      <p>およそ ${k} 曲分です。プレイリストに合う曲をコレクションから探します</p></div>
       <span class="go">足す候補 →</span>`;
   } else {
     r.dataset.q = "";
-    r.innerHTML = `<div><h3>目標の範囲に収まっている</h3>
-      <p>展開の山谷を詳細で確認してから、rekordbox で USB 書き出しへ</p></div>
+    r.innerHTML = `<div><h3>目標の範囲に収まっています</h3>
+      <p>展開の山谷を詳細で確認してから、rekordbox で USB に書き出してください</p></div>
       <span class="go">詳細を見る →</span>`;
   }
 }
@@ -724,7 +724,7 @@ function renderFresh(){
   const b = $("rescan");
   let msg;
   if(FRESH.state === "stale"){
-    msg = `rekordbox の変更を検出 — 反映していない`;
+    msg = `rekordbox の変更を検出しました（未反映）`;
     b.className = "btn primary"; b.textContent = "反映する";
   } else {
     msg = `${at} 時点の rekordbox ライブラリ` + (rb ? " · rekordbox 起動中" : "");
@@ -752,7 +752,7 @@ async function pollLibrary(){
       const busy = drag || knobDrag || !$("modal").hidden || (ST.agent && ST.agent.pending);
       if(!c.edited && !busy){
         LIB_SIG = c;
-        await refreshFromRekordbox("rekordbox の編集を反映した");
+        await refreshFromRekordbox("rekordbox の編集を反映しました");
         return;
       }
       FRESH.state = "stale";
@@ -763,8 +763,8 @@ async function pollLibrary(){
   finally { polling = false; }
 }
 async function refreshFromRekordbox(note){
-  $("curtain").hidden = false; $("cTitle").textContent = "rekordbox の編集を読み直している…";
-  $("cMsg").textContent = "master.db と -wal を読み直してセットを組み直す。";
+  $("curtain").hidden = false; $("cTitle").textContent = "rekordbox の編集を読み直しています…";
+  $("cMsg").textContent = "master.db と -wal を読み直してセットを組み直します。";
   const s = await window.pywebview.api.rescan();
   LOADED_AT = new Date(); FRESH.state = "fresh"; LIB_SIG = null;
   apply(s, true);
@@ -785,16 +785,16 @@ function renderReality(){
   const r = $("reality"), trims = ST.trims || [], sum = ST.trim_total_s || 0;
   if(over <= 0){
     r.className = "reality";
-    r.innerHTML = `<h3>目標の範囲に入っている</h3>
-      <p>削り代は使わなくていい。展開の山谷の確認に進め。</p>`;
+    r.innerHTML = `<h3>目標の範囲に入っています</h3>
+      <p>削り代を使う必要はありません。展開の山谷の確認に進んでください。</p>`;
     return;
   }
   r.className = "reality crit";
   const pct = sum ? (sum/over*100) : 0;
   const scale = v => Math.max(2, v/over*100);
-  r.innerHTML = `<h3>削り代では届かない</h3>
+  r.innerHTML = `<h3>削り代だけでは届きません</h3>
     <p>テンポ調整で稼げるのは全曲あわせて <b>${fmt(sum)}</b>。超過 <b>${fmt(over)}</b> の
-       <b>${pct.toFixed(1)}%</b> にしかならない。曲を抜く判断が要る。</p>
+       <b>${pct.toFixed(1)}%</b> です。曲を外す必要があります。</p>
     <div class="wf">` +
     trims.slice(0,8).map(t=>`<div class="wf-row">
         <span class="wf-name" title="${esc(t.title)}">${esc(t.title)}</span>
@@ -959,7 +959,7 @@ window.addEventListener("pointerup", async ()=>{
   apply(await window.pywebview.api.move_curve_point(d.i, d.at.pos, d.at.energy));
 });
 $("energy").addEventListener("dblclick", async e=>{
-  if(!ST.curve || !ST.curve.length){ toast("先に目標カーブを選べ"); return; }
+  if(!ST.curve || !ST.curve.length){ toast("先に目標カーブを選んでください"); return; }
   if(e.target.closest(".knob")) return;
   const c = curveAt(e.clientX, e.clientY); if(!c) return;
   apply(await window.pywebview.api.add_curve_point(c.pos, c.energy));
@@ -1212,7 +1212,7 @@ $("tMile").addEventListener("change", async ()=>{
 });
 $("tMileAt").addEventListener("change", async ()=>{
   const at = parseTime($("tMileAt").value);
-  if(at == null){ toast("時刻は mm:ss で入れろ"); return; }
+  if(at == null){ toast("時刻は mm:ss で入力してください"); return; }
   apply(await window.pywebview.api.set_milestone(ST.selected, at));
 });
 document.querySelectorAll(".lk").forEach(c =>
@@ -1228,21 +1228,21 @@ $("settings").addEventListener("click", async ()=>{
   const s = await window.pywebview.api.llm_status();
   const where = s.source === "settings"
       ? (s.stored === "dpapi" ? "この PC の設定に暗号化して保存済み" : "設定に平文で保存済み")
-      : s.source === "env" ? "環境変数から読んでいる" : "未設定";
+      : s.source === "env" ? "環境変数から読み込んでいます" : "未設定";
   modal("設定 — エージェントの LLM",
     `<p>${esc(s.note)}</p>
      <div class="field"><span>API キー（${esc(where)}${s.masked ? " · " + esc(s.masked) : ""}）</span>
        <input type="password" id="fKey" placeholder="${s.configured ? "変更するときだけ入力" : "sk-ant-…"}"></div>
      <div class="field"><span>モデル</span>
        <input type="text" id="fModel" value="${esc(s.model || "")}"></div>
-     <p class="hint">キーは Windows の DPAPI でこのアカウントに紐づけて暗号化する。
-        空のまま保存すればキーを消せる。</p>`,
-    [{label:"やめる"},
+     <p class="hint">キーは Windows の DPAPI でこのアカウントに紐づけて暗号化します。
+        空のまま保存するとキーを削除できます。</p>`,
+    [{label:"キャンセル"},
      {label:"保存", primary:true, close:false, run: async ()=>{
         const key = $("fKey").value, model = $("fModel").value;
         const r = await window.pywebview.api.set_llm(key === "" ? null : key, model);
         closeModal();
-        toast(r.warning || (r.configured ? `LLM を設定した（${r.model}）` : "LLM キーを外した。アドバイザで動く"));
+        toast(r.warning || (r.configured ? `LLM を設定しました（${r.model}）` : "LLM キーを削除しました。アドバイザで動作します"));
      }}]);
 });
 

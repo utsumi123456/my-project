@@ -51,7 +51,7 @@ class Op:
         name = d.pop("op", None)
         reason = d.pop("reason", "")
         if name not in OPS:
-            raise Rejected(f"未知の操作 '{name}'。使えるのは {', '.join(OPS)}")
+            raise Rejected(f"未知の操作 '{name}' です。使えるのは {', '.join(OPS)} です")
         return cls(name, d, reason)
 
     def describe(self, title_of) -> str:
@@ -93,7 +93,7 @@ class Op:
                                 parse_mmss(p.get("target_time")))
         if self.op == "set_transition":
             return SetTransition(int(p["from_ref"]), int(p["overlap_bars"]))
-        raise Rejected(f"未知の操作 '{self.op}'")
+        raise Rejected(f"未知の操作 '{self.op}' です")
 
 
 @dataclass
@@ -107,7 +107,7 @@ class Proposal:
     def from_dict(cls, d: dict) -> "Proposal":
         ops = [Op.from_dict(o) for o in d.get("operations", [])]
         if not ops:
-            raise Rejected("操作が空の提案は出せない")
+            raise Rejected("操作が空の提案は出せません")
         return cls(d.get("reason", ""), ops, d.get("title", ""))
 
 
@@ -189,9 +189,9 @@ def _check_locks(draft: SetDraft, cmds: Iterable[Command]) -> None:
         try:
             c.check(d)
         except LockedError as ex:
-            raise Rejected(f"ロックされた曲には触れられない（{ex}）。別の曲で組み直せ")
+            raise Rejected(f"ロックされた曲は変更できません（{ex}）。別の曲で組み直す必要があります")
         except (KeyError, IndexError) as ex:
-            raise Rejected(f"セットに無い曲を指している（{ex}）")
+            raise Rejected(f"セットにない曲を指しています（{ex}）")
         c.apply(d)
 
 
@@ -211,8 +211,8 @@ def _check_milestones(draft: SetDraft, lib, cmds: list[Command]) -> None:
             continue
         if abs(da) > tol and abs(da) > abs(db) + 1:
             raise Rejected(
-                f"「{m.title[:24]}」が目標時刻から {fmt(abs(da))} ずれる"
-                f"（今は {fmt(abs(db))}）。マイルストーンを崩す案は出せない")
+                f"「{m.title[:24]}」が目標時刻から {fmt(abs(da))} ずれます"
+                f"（現在は {fmt(abs(db))}）。マイルストーンを崩す案は出せません")
 
 
 def build_change_set(draft: SetDraft, lib, anlz: dict, proposal: Proposal,

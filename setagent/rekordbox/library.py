@@ -176,8 +176,8 @@ class Library:
         rep = self.wal_replay
         if rep is None or not rep.note:
             return []
-        return [f"master.db-wal を途中までしか読めなかった（{rep.note}）。"
-                "rekordbox の直前の編集が抜けているかもしれない — もう一度反映を試せ"]
+        return [f"master.db-wal を途中までしか読めませんでした（{rep.note}）。"
+                "rekordbox の直前の編集が抜けている可能性があります。もう一度反映してください"]
 
     # ---- rekordbox path -> local file
     def anlz_dat_path(self, t: Track) -> Path | None:

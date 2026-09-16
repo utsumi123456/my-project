@@ -20,7 +20,7 @@ class ReportTests(unittest.TestCase):
     def test_clean_report_says_so(self):
         r = Report()
         r.add("good", True)
-        self.assertIn("致命的な問題は無い", r.text())
+        self.assertIn("致命的な問題はありません", r.text())
 
 
 class RunTests(unittest.TestCase):
