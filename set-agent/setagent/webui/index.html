@@ -104,17 +104,25 @@ button,select,input{font-family:inherit;font-size:13px}
 .rmark{position:absolute;top:0;bottom:0;border-left:1px solid var(--line-soft);padding-left:5px;
   font-family:var(--mono);font-size:10px;color:var(--ink-3);line-height:20px;white-space:nowrap}
 .ruler,.tracks,.sections,.lane-h{flex:none}
-.tracks{position:relative;height:72px}
+/* TRACKS is a ruler for the ENERGY lane below: which track is playing where,
+   and how long each one runs. Two greys, alternating per track, so the eye can
+   count blocks without a colour key. The phrase colours moved into the
+   double-click sheet (2026-09-16 review). */
+.tracks{position:relative;height:44px}
 .trk{position:absolute;top:0;bottom:0;overflow:hidden;cursor:pointer;
-  border-right:1px solid var(--sunken)}
+  border-right:1px solid var(--sunken);background:#2a313a}
+.trk.alt{background:#3a4350}
 .ph{position:absolute;top:0;bottom:0}
-.trk .none{position:absolute;inset:0;
+.trk .none,.phrase-strip .none{position:absolute;inset:0;
   background:repeating-linear-gradient(45deg,#2a3038 0 6px,#20262d 6px 12px)}
-.trk-t{position:absolute;left:5px;right:4px;top:4px;font-size:11px;font-weight:600;color:#fff;
-  text-shadow:0 1px 2px rgba(0,0,0,.8);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-  pointer-events:none}
+.phrase-strip{position:relative;height:30px;border-radius:3px;overflow:hidden;
+  background:var(--sunken);border:1px solid var(--line-soft);margin:var(--s2) 0 var(--s3)}
+.ph-list{display:flex;flex-wrap:wrap;gap:5px var(--s4);font-size:12px;color:var(--ink-2)}
+.ph-list b{font-family:var(--mono);font-weight:500;color:var(--ink-3);margin-left:4px}
+.trk-t{position:absolute;left:5px;right:4px;top:3px;font-size:11px;font-weight:600;color:var(--ink);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
 .trk-m{position:absolute;left:5px;bottom:3px;font-family:var(--mono);font-size:10px;
-  color:rgba(255,255,255,.75);text-shadow:0 1px 2px rgba(0,0,0,.85);pointer-events:none}
+  color:var(--ink-3);pointer-events:none}
 .trk[data-sel="1"]{outline:2px solid var(--ink);outline-offset:-2px;z-index:3}
 .energy{position:relative;flex:1 1 auto;min-height:92px}
 .sections{position:relative;height:58px}
@@ -134,14 +142,8 @@ button,select,input{font-family:inherit;font-size:13px}
 .knob:active{cursor:grabbing}
 
 /* ---- footer ---- */
-.foot{display:grid;grid-template-columns:1fr minmax(280px,360px);gap:var(--s4);
-  padding:var(--s3) var(--s4);border-top:1px solid var(--line);background:var(--surface);
+.foot{padding:var(--s3) var(--s4);border-top:1px solid var(--line);background:var(--surface);
   flex:none}
-.warns{list-style:none;margin:var(--s2) 0 0;padding:0;display:flex;flex-direction:column;gap:5px}
-.warns li{display:grid;grid-template-columns:16px 1fr;gap:var(--s2);font-size:12px;color:var(--ink-2)}
-.bdg{display:grid;place-items:center;width:16px;height:16px;border-radius:3px;font-size:10px;
-  font-weight:700;color:#06121f}
-.bdg.c{background:var(--critical);color:#fff} .bdg.w{background:var(--caution)}
 .kv{display:grid;grid-template-columns:auto 1fr;gap:3px var(--s3);margin-top:var(--s2);font-size:12px}
 .kv dt{color:var(--ink-3)} .kv dd{margin:0;font-family:var(--mono);font-variant-numeric:tabular-nums}
 .legend{display:flex;flex-wrap:wrap;gap:6px var(--s4);padding:6px var(--s4);flex:none;
@@ -277,28 +279,30 @@ button,select,input{font-family:inherit;font-size:13px}
 .cond-row select,.cond-row input[type=text]{background:var(--raised);color:var(--ink);
   border:1px solid var(--line);border-radius:3px;padding:4px 7px}
 .cond-row input[type=text]{width:70px;font-family:var(--mono);text-align:center}
+.list-note{margin:0 0 var(--s2);font-size:12px;color:var(--ink-2)}
 .list{display:flex;flex-direction:column;border:1px solid var(--line-soft);border-radius:4px;overflow:hidden}
-.row,.list-h{display:grid;grid-template-columns:28px 22px minmax(0,1fr) 50px 56px;gap:var(--s2);
+.row,.list-h{display:grid;grid-template-columns:28px minmax(0,1fr) 56px 56px;gap:var(--s2);
   align-items:center;padding:4px var(--s3)}
 .row .art{width:28px;height:28px;border-radius:4px;background:var(--raised);overflow:hidden;display:block}
 .row .art img{width:100%;height:100%;object-fit:cover;display:block}
 .list-h{padding:4px var(--s3);font-size:10px;font-weight:600;letter-spacing:.09em;
   text-transform:uppercase;color:var(--ink-3);background:var(--sunken)}
-.list-h span:nth-child(n+4){text-align:right}
+.list-h span:nth-child(n+3){text-align:right}
 .row{border-top:1px solid var(--line-soft);font-size:12px;cursor:pointer;background:var(--surface)}
 .row:hover{background:var(--raised)}
 .row[data-sel="1"]{background:var(--raised);box-shadow:inset 3px 0 0 var(--ink)}
 .row .n{font-family:var(--mono);font-size:11px;color:var(--ink-3)}
 .row .t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink)}
 .row .t small{color:var(--ink-3);font-family:var(--mono);margin-left:6px;font-size:10px}
+.row .t .why{display:block;font-size:10px;color:var(--ink-3);white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis;font-family:var(--sans)}
 .row .d,.row .at{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right;color:var(--ink-2)}
 .row .at{color:var(--ink-3)}
-/* every track that ends past the target: the cumulative clock turns red, so the
-   eye finds "everything from here is over" without a graph */
-.row.past .at{color:var(--critical)}
-.row.mile .n::after{content:"◆";margin-left:2px;color:var(--ink)}
-.fresh{display:flex;align-items:center;justify-content:space-between;gap:var(--s3);flex:none;
-  border-top:1px solid var(--line-soft);padding-top:var(--s3)}
+/* removal rows: the clock after taking that track out turns green once it is
+   inside the target, so the eye finds "from here down is enough" */
+.row.fits .at{color:#1fb013}
+.row .d.minus{color:var(--caution)}
+.fresh{display:flex;align-items:center;gap:var(--s3);flex-wrap:wrap;margin-bottom:var(--s3)}
 .fresh .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#1fb013;margin-right:6px}
 .fresh .dot.rb{background:var(--caution)}
 .views button{padding:5px 12px}
@@ -317,24 +321,46 @@ button,select,input{font-family:inherit;font-size:13px}
 <div class="app" id="app" hidden>
   <div class="bar">
     <div class="seg views" role="group" aria-label="表示">
-      <button type="button" data-view="main" aria-pressed="true">セット</button>
-      <button type="button" data-view="detail" aria-pressed="false">詳細</button>
+      <button type="button" data-view="main" aria-pressed="true"
+        title="セット画面: 予測時間と、目標に合わせるための候補">セット</button>
+      <button type="button" data-view="detail" aria-pressed="false"
+        title="詳細画面: 曲ごとの尺と展開（エネルギー）の対応、区間の予算">詳細</button>
     </div>
-    <span class="meta" id="plName"></span>
     <span class="spacer"></span>
-    <button class="btn" id="undo" title="元に戻す">元に戻す</button>
-    <button class="btn" id="redo" title="やり直す">やり直す</button>
-    <button class="btn" id="agentBtn">エージェント</button>
-    <button class="btn" id="settings">設定</button>
+    <button class="btn" id="undo" title="Set Agent 内での試行を 1 つ戻します（rekordbox には影響しません）">元に戻す</button>
+    <button class="btn" id="redo" title="戻した試行をもう一度行います">やり直す</button>
+    <button class="btn" id="agentBtn"
+      title="エージェント: 分析の数値をもとに質問に答え、提案（チェックして適用）を出します">エージェント</button>
+    <button class="btn" id="settings"
+      title="設定: rekordbox ライブラリの手動再読込、エージェントの LLM キー">設定</button>
   </div>
 
   <!-- ===== main view (Tier 1 only) ===== -->
+  <!-- read top to bottom: what you asked for (conditions) -> what it adds up
+       to (predicted length) -> what to do about the gap (card + candidates) -->
   <section class="main" id="main">
-    <div class="hero-block">
+    <div>
+      <p class="eyebrow">条件</p>
+      <div class="cond-row">
+        <label title="尺を予測する rekordbox のプレイリスト。rekordbox 側で編集すると自動で追従します">
+          Playlist <select id="pl"></select></label>
+        <label title="目標のセット時間（mm:ss）。予測時間との差を超過・不足で表示します">
+          Target <input type="text" id="target" value="60:00"></label>
+        <label title="Mix: 1 曲をどこからどこまでかける前提で尺を予測するか（フレーズ解析から再生範囲を決めます）">
+          Mix <select id="preset"></select></label>
+        <label title="Curve: セット全体で目指す展開（盛り上がりの形）。詳細画面の ENERGY に点線で重なり、実測とのズレを出します">
+          Curve <select id="curve"></select><span class="meta" id="curveEdited"></span></label>
+        <label id="cap32Lbl"
+          title="1ドロップ/2ドロップ のとき、32 小節を超える長いドロップを 32 小節で切り上げます（コーラス 1 つが曲の大半を占める曲向け）">
+          <input type="checkbox" id="cap32"> ドロップ上限 32 小節</label>
+      </div>
+    </div>
+
+    <div class="hero-block" title="今のプレイリストを Mix の前提でかけたときの合計時間（曲間のオーバーラップ込み）">
       <p class="eyebrow">セット全体の予測時間</p>
       <div class="hero" id="hero">—</div>
       <div class="gap-sub" id="heroSub"></div>
-      <div class="bullet-track">
+      <div class="bullet-track" title="予測時間（塗り）と目標（縦線）。目標を越えた分は赤">
         <div class="bullet-fill" id="bFill"></div>
         <div class="bullet-over" id="bOver"></div>
         <div class="bullet-tick" id="bTick"></div>
@@ -342,81 +368,61 @@ button,select,input{font-family:inherit;font-size:13px}
       <div class="bullet-scale"><span>0:00</span><span id="bTargetLbl"></span><span id="bTotalLbl"></span></div>
     </div>
 
-    <button class="reco" id="reco" type="button" hidden></button>
+    <button class="reco" id="reco" type="button" hidden
+      title="今の状態に応じた次の一手。押すとエージェントにその指示を送ります"></button>
 
-    <div>
-      <p class="eyebrow">条件</p>
-      <div class="cond-row">
-        <label>Playlist <select id="pl"></select></label>
-        <label>Target <input type="text" id="target" value="60:00"></label>
-        <label>Mix <select id="preset"></select></label>
-        <label>Curve <select id="curve"></select><span class="meta" id="curveEdited"></span></label>
-        <label><input type="checkbox" id="cap32"> cap 32bar</label>
-      </div>
-    </div>
-
-    <div class="list" id="list"></div>
-
-    <div class="fresh">
-      <span class="meta" id="freshTxt"></span>
-      <button class="btn" id="rescan">rekordbox の編集を反映</button>
+    <div id="listBlock" hidden>
+      <p class="eyebrow" id="listHead"></p>
+      <p class="list-note" id="listNote"></p>
+      <div class="list" id="list"></div>
     </div>
   </section>
 
   <!-- ===== detail view (Tier 2: on demand) ===== -->
   <section class="detail" id="detail" hidden>
   <div class="transport">
-    <div class="seg" role="group" aria-label="時間軸の密度">
+    <div class="seg" role="group" aria-label="時間軸の密度" title="時間軸の密度。全体=1分3px / 区間=36px / 詳細=96px">
       <button type="button" data-zoom="overview" aria-pressed="false">全体</button>
       <button type="button" data-zoom="section" aria-pressed="true">区間</button>
       <button type="button" data-zoom="detail" aria-pressed="false">詳細</button>
     </div>
     <span class="meta" id="density"></span>
-    <div class="minimap" id="minimap"><div class="mm-view" id="mmView"></div></div>
+    <div class="minimap" id="minimap" title="セット全体の縮図。クリックやドラッグで表示位置を移動"><div class="mm-view" id="mmView"></div></div>
   </div>
 
   <div class="scroll" id="scroll">
     <div class="canvas" id="canvas">
-      <div class="lane-h">Tracks — フレーズ構成</div>
+      <div class="lane-h" title="曲の並びと尺。幅＝再生時間。ダブルクリックでその曲のフレーズ構成を表示。ドラッグで並べ替え、端をドラッグで範囲を詰める試行">Tracks — 曲と尺</div>
       <div class="ruler" id="ruler"></div>
       <div class="tracks" id="tracks"></div>
-      <div class="lane-h">Energy — 実測とターゲット</div>
+      <div class="lane-h" title="実測の展開（フレーズ解析から）と、Curve で選んだ目標カーブ（点線）。点はドラッグ、ダブルクリックで追加、右クリックで削除">Energy — 実測とターゲット</div>
       <div class="energy" id="energy"></div>
-      <div class="lane-h">Sections — 区間予算</div>
+      <div class="lane-h" title="マイルストーンで区切った区間ごとの曲数・尺・目標との過不足">Sections — 区間予算</div>
       <div class="sections" id="sections"></div>
     </div>
   </div>
 
   <div class="legend">
-    <span class="lg"><i class="sw" style="background:var(--ph-intro)"></i>Intro</span>
-    <span class="lg"><i class="sw" style="background:var(--ph-up)"></i>Up</span>
-    <span class="lg"><i class="sw" style="background:var(--ph-chorus)"></i>Chorus（ドロップ）</span>
-    <span class="lg"><i class="sw" style="background:var(--ph-down)"></i>Down</span>
-    <span class="lg"><i class="sw" style="background:var(--ph-outro)"></i>Outro</span>
-    <span class="lg"><i class="sw" style="background:var(--ph-verse)"></i>Verse / Bridge</span>
     <span class="lg"><i class="sw hatch"></i>フレーズ解析なし</span>
     <span class="lg"><i class="sw" style="background:var(--target)"></i>目標</span>
+    <span class="lg"><i class="sw" style="border:1px dashed var(--target);background:rgba(247,120,186,.13)"></i>提案後</span>
+    <span class="lg" style="color:var(--ink-3)">曲をダブルクリックでフレーズ構成</span>
     <span class="lg" id="analysisMeta" style="margin-left:auto;font-family:var(--mono)"></span>
-    <span class="lg" style="color:var(--ink-3)">色は rekordbox と同じ意味</span>
   </div>
 
   <div class="reality-row"><div class="reality" id="reality"></div></div>
 
   <div class="foot">
     <div>
-      <p class="eyebrow">警告</p>
-      <ul class="warns" id="warns"></ul>
-    </div>
-    <div>
-      <p class="eyebrow">選択中</p>
+      <p class="eyebrow" title="選んだ曲の値と、Set Agent 内での試行（Mix・テンポ・マイルストーン・ロック）">選択中</p>
       <div id="selTitle" style="font-weight:600;font-size:13px">—</div>
       <dl class="kv" id="selKv"></dl>
       <div class="edit" id="selEdit" hidden>
-        <label>Preset <select id="tPreset"></select></label>
-        <label>Tempo <input type="text" id="tTempo" placeholder="原曲のまま"> BPM</label>
-        <label><input type="checkbox" id="tMile"> マイルストーン
+        <label title="この曲だけ Mix の前提を変えます">Mix <select id="tPreset"></select></label>
+        <label title="この曲をかけるテンポ。空欄なら原曲の BPM">Tempo <input type="text" id="tTempo" placeholder="原曲のまま"> BPM</label>
+        <label title="マイルストーン: この曲が始まるべき目標時刻。区間の予算の区切りになります"><input type="checkbox" id="tMile"> マイルストーン
           <input type="text" id="tMileAt" placeholder="mm:ss"></label>
-        <div class="locks">
+        <div class="locks" title="ロック: エージェントの提案でこの曲の位置・範囲・テンポを動かさない">
           <label><input type="checkbox" class="lk" data-lock="position"> 位置</label>
           <label><input type="checkbox" class="lk" data-lock="range"> 範囲</label>
           <label><input type="checkbox" class="lk" data-lock="tempo"> テンポ</label>
@@ -471,6 +477,11 @@ const PH_COLOR = {intro:"var(--ph-intro)", up:"var(--ph-up)", chorus:"var(--ph-c
                   down:"var(--ph-down)", outro:"var(--ph-outro)", verse:"var(--ph-verse)"};
 let ST = null, BOOT = null, mode = "section", toastTimer = null;
 let VIEW = "main", LOADED_AT = null;
+let PRESET_LABEL = {}, PRESET_HELP = {};
+const plabel = k => PRESET_LABEL[k] || k;
+const popt = k => `<option value="${esc(k)}" title="${esc(PRESET_HELP[k] || "")}">${esc(plabel(k))}</option>`;
+/* the drop cap only means something when the preset is built around drops */
+const capApplies = () => ["one_drop", "two_drop"].includes($("preset").value);
 
 const fmt = s => {
   const n = Math.round(Math.abs(s));
@@ -498,12 +509,14 @@ async function boot(){
     return;
   }
   BOOT = b;
-  $("tPreset").innerHTML = b.presets.map(n=>`<option>${esc(n)}</option>`).join("");
+  PRESET_LABEL = b.preset_labels || {}; PRESET_HELP = b.preset_help || {};
+  $("tPreset").innerHTML = b.presets.map(popt).join("");
   $("pl").innerHTML = b.playlists.map(n=>`<option>${esc(n)}</option>`).join("");
   if(b.playlist) $("pl").value = b.playlist;
-  $("preset").innerHTML = b.presets.map(n=>`<option>${esc(n)}</option>`).join("");
+  $("preset").innerHTML = b.presets.map(popt).join("");
   $("preset").value = b.preset;
   $("cap32").checked = !!b.cap32;
+  $("cap32Lbl").hidden = !capApplies();
   $("curve").innerHTML = `<option value="">（なし）</option>` +
     b.curves.map(c=>`<option value="${esc(c.key)}">${esc(c.label)}</option>`).join("");
   $("target").value = fmt(b.target_s);
@@ -545,7 +558,6 @@ function apply(s, firstPaint){
 const esc = t => String(t).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
 function render(){
-  $("plName").textContent = ST.playlist || "";
   renderHero();
   renderReco();
   renderList();
@@ -553,7 +565,7 @@ function render(){
   renderReality();
   renderLanes();
   renderMinimap();
-  renderWarnings();
+  renderMeta();
   renderSelected();
   renderAgent();
   syncView();
@@ -643,9 +655,8 @@ function renderHero(){
   const pill = cls === "over" ? `<span class="pill over">${fmt(d)} 超過</span>`
              : cls === "under" ? `<span class="pill under">${fmt(-d)} 不足</span>`
              : cls === "ok" ? `<span class="pill ok">目標内</span>` : "";
-  $("heroSub").innerHTML =
-    `<span>目標 <b>${fmt(tgt)}</b></span>${pill}` +
-    `<span style="color:var(--ink-3)">${ST.tracks.length}曲</span>`;
+  /* the target itself is read off the bar's scale below; here only the verdict */
+  $("heroSub").innerHTML = pill + `<span style="color:var(--ink-3)">${ST.tracks.length}曲</span>`;
 
   const span = Math.max(tot, tgt) || 1;
   $("bFill").style.width = (Math.min(tot,tgt)/span*100) + "%";
@@ -694,22 +705,47 @@ $("reco").addEventListener("click", ()=>{
   send();
 });
 
-/* The running order, as a list: what plays, how long, and where the clock is
-   when it ends. Phrase colours stay in the detail view. */
+/* The list under the hero is advice, not the playlist (rekordbox shows that
+   already, right next to this panel). Over the target: the playlist's own
+   tracks the set would miss least, with the clock after each removal. Under
+   it: tracks from outside the playlist that fit the hole. Same engines as the
+   agent; the DJ makes the actual change in rekordbox. */
 function renderList(){
-  const tgt = ST.target_s || 0;
-  let h = `<div class="list-h"><span></span><span>#</span><span>曲</span><span>尺</span><span>累積</span></div>`;
-  for(const t of ST.tracks){
-    const cls = "row" + (tgt && t.end_s > tgt + ST.tolerance_s ? " past" : "") +
-                (t.milestone_s != null ? " mile" : "");
-    const tag = t.phrases.length ? "" : `<small>解析なし</small>`;
-    h += `<div class="${cls}" data-i="${t.i}" data-sel="${t.i === ST.selected ? 1 : 0}"
-            title="${esc(t.title)} · ${t.bpm} BPM${t.set_tempo !== t.bpm ? " → " + t.set_tempo : ""} · ${esc(t.preset)}">
-      <span class="art" data-art="${esc(t.track_id)}">${ART[t.track_id] ? `<img src="${ART[t.track_id]}" alt="">` : ""}</span>
-      <span class="n">${t.i+1}</span>
-      <span class="t">${esc(t.title)}${tag}</span>
-      <span class="d">${fmt(t.play_s)}</span>
-      <span class="at">${fmt(t.end_s)}</span></div>`;
+  const r = ST.reco || {kind: "none", items: []};
+  const blk = $("listBlock");
+  if(r.kind !== "remove" && r.kind !== "add"){ blk.hidden = true; $("list").innerHTML = ""; return; }
+  blk.hidden = false;
+  let h = "";
+  if(r.kind === "remove"){
+    $("listHead").textContent = "外す候補";
+    $("listNote").textContent = r.enough
+      ? `展開と繋ぎへの影響が小さい順です。上から ${r.items.length} 曲を外すと目標に収まります。ロック中とマイルストーンの曲は含めていません`
+      : `全部外しても ${fmt(r.need_s)} には届きません（ロック中とマイルストーンの曲は除く）。目標尺かロックを見直してください`;
+    h += `<div class="list-h"><span></span><span>曲</span><span>外すと</span><span>外した後</span></div>`;
+    const tgt = ST.target_s || 0;
+    for(const it of r.items){
+      const fits = tgt && it.after_s <= tgt + ST.tolerance_s;
+      h += `<div class="row rm${fits ? " fits" : ""}" data-i="${it.i}" data-sel="${it.i === ST.selected ? 1 : 0}"
+              title="${esc(it.title)}\n${esc(it.reasons.join("\n") || "理由なし")}">
+        <span class="art" data-art="${esc(it.track_id)}">${ART[it.track_id] ? `<img src="${ART[it.track_id]}" alt="">` : ""}</span>
+        <span class="t">${it.i + 1}. ${esc(it.title)}<span class="why">${esc(it.reasons.join("／"))}</span></span>
+        <span class="d minus">−${fmt(it.saves_s)}</span>
+        <span class="at">${fmt(it.after_s)}</span></div>`;
+    }
+  } else {
+    $("listHead").textContent = "足す候補";
+    $("listNote").textContent = r.items.length
+      ? `プレイリスト外から、最後の曲に繋がる BPM・キーで ${fmt(r.slot_s)} 前後に入る曲です。クリックすると挿入案をエージェントで確認できます`
+      : `${fmt(r.need_s)} 不足していますが、最後の曲に繋がる BPM・キーの曲がライブラリにありません`;
+    h += `<div class="list-h"><span></span><span>曲</span><span>BPM</span><span>尺</span></div>`;
+    for(const it of r.items){
+      h += `<div class="row add" data-id="${esc(it.track_id)}"
+              title="${esc(it.title)}${it.artist ? " — " + esc(it.artist) : ""}\n${esc(it.reason || "")}">
+        <span class="art" data-art="${esc(it.track_id)}">${ART[it.track_id] ? `<img src="${ART[it.track_id]}" alt="">` : ""}</span>
+        <span class="t">${esc(it.title)}<span class="why">${esc(it.reason || "")}</span></span>
+        <span class="d">${(+it.bpm).toFixed(0)}${it.key ? `<small>${esc(it.key)}</small>` : ""}</span>
+        <span class="at">${esc(it.in_slot || "")}</span></div>`;
+    }
   }
   $("list").innerHTML = h;
   loadArtwork();
@@ -721,7 +757,8 @@ const ART = {};
 let artBusy = false;
 async function loadArtwork(){
   if(artBusy || !ST) return;
-  const want = ST.tracks.map(t => t.track_id).filter(id => !(id in ART));
+  const ids = ST.tracks.map(t => t.track_id).concat(((ST.reco || {}).items || []).map(it => it.track_id));
+  const want = [...new Set(ids)].filter(id => id && !(id in ART));
   if(!want.length) return;
   artBusy = true;
   try {
@@ -737,27 +774,37 @@ async function loadArtwork(){
   } catch(e){ /* thumbnails are decoration; the list works without them */ }
   finally { artBusy = false; }
 }
-$("list").addEventListener("click", e=>{
+$("list").addEventListener("click", async e=>{
   const r = e.target.closest(".row"); if(!r) return;
-  selectTrack(+r.dataset.i);
+  if(r.classList.contains("rm")){ selectTrack(+r.dataset.i); return; }
+  /* an add candidate becomes an insertion proposal, reviewed in the drawer */
+  openDrawer(true);
+  apply(await window.pywebview.api.insert_candidate(r.dataset.id, null));
 });
 
 /* Freshness: the set on screen is a reading of master.db + -wal at one moment.
    Say when, and whether rekordbox is open. */
 let FRESH = {state: "fresh", rb: null};   /* fresh | stale */
+/* Lives in the settings sheet (2026-09-16 review): the panel follows rekordbox
+   by itself, so a "reload" button on the main view read as a contradiction.
+   The one case that needs the DJ -- a change held back because this app has
+   unapplied trials -- lights the settings button instead. */
 function renderFresh(){
+  $("settings").classList.toggle("hasnew", FRESH.state === "stale");
+  const txt = $("freshTxt"), b = $("rescan");
+  if(!txt || !b) return;                      /* the sheet is not open */
   const at = LOADED_AT ? LOADED_AT.toLocaleTimeString("ja-JP", {hour:"2-digit", minute:"2-digit"}) : "—";
   const rb = FRESH.rb != null ? FRESH.rb : (BOOT && BOOT.rekordbox_running);
-  const b = $("rescan");
   let msg;
   if(FRESH.state === "stale"){
-    msg = `rekordbox の変更を検出しました（未反映）`;
-    b.className = "btn primary"; b.textContent = "反映する";
+    msg = `rekordbox の変更を検出しました。この画面で試した操作を保つため、まだ反映していません`;
+    b.className = "btn primary";
   } else {
-    msg = `${at} 時点の rekordbox ライブラリ` + (rb ? " · rekordbox 起動中" : "");
-    b.className = "btn"; b.textContent = "rekordbox の編集を反映";
+    msg = `${at} 時点の rekordbox ライブラリを表示しています` + (rb ? "（rekordbox 起動中）" : "");
+    b.className = "btn";
   }
-  $("freshTxt").innerHTML = `<span class="dot${FRESH.state !== "fresh" || rb ? " rb" : ""}"></span>${msg}`;
+  b.textContent = "今の rekordbox を読み直す";
+  txt.innerHTML = `<span class="dot${FRESH.state !== "fresh" || rb ? " rb" : ""}"></span>${msg}`;
 }
 
 /* Automatic refresh (§5-1): poll master.db / -wal, and check on every window
@@ -782,6 +829,8 @@ async function pollLibrary(){
         await refreshFromRekordbox("rekordbox の編集を反映しました");
         return;
       }
+      if(FRESH.state !== "stale")
+        toast("rekordbox の変更を検出しました。設定から読み直せます（今の試行は保たれます）");
       FRESH.state = "stale";
     }
     LIB_SIG = c;
@@ -849,22 +898,14 @@ function renderLanes(){
   let h = "";
   for(const t of ST.tracks){
     const x = t.start_s*k, w = Math.max((t.end_s - t.start_s)*k, 1);
-    let inner;
-    if(t.phrases.length){
-      inner = t.phrases.map(p=>{
-        const px = (p.start_s - t.start_s)*k, pw = Math.max((p.end_s - p.start_s)*k, 1);
-        return `<div class="ph" style="left:${px.toFixed(1)}px;width:${pw.toFixed(1)}px;
-                 background:${PH_COLOR[p.group] || "var(--ph-verse)"}" title="${esc(p.label)}"></div>`;
-      }).join("");
-    } else {
-      inner = `<div class="none" title="フレーズ解析なし"></div>`;
-    }
-    h += `<div class="trk" data-i="${t.i}" data-sel="${t.i === ST.selected ? 1 : 0}"
+    /* one grey per track, alternating; no analysis keeps its hatch */
+    const inner = t.phrases.length ? "" : `<div class="none" title="フレーズ解析なし"></div>`;
+    h += `<div class="trk${t.i % 2 ? " alt" : ""}" data-i="${t.i}" data-sel="${t.i === ST.selected ? 1 : 0}"
             style="left:${x.toFixed(1)}px;width:${w.toFixed(1)}px"
             title="${esc(t.title)}
 ${fmt(t.start_s)} → ${fmt(t.end_s)}  再生 ${fmt(t.play_s)}
-${t.bpm} BPM${t.set_tempo !== t.bpm ? " → " + t.set_tempo : ""} · ${esc(t.preset)}${t.locks.length ? " · ロック: " + esc(t.locks.join(",")) : ""}
-${t.phrases.length ? t.phrases.map(p=>p.label).join(" → ") : "フレーズ解析なし"}">${inner}` +
+${t.bpm} BPM${t.set_tempo !== t.bpm ? " → " + t.set_tempo : ""} · ${esc(plabel(t.preset))}${t.locks.length ? " · ロック: " + esc(t.locks.join(",")) : ""}
+${t.phrases.length ? "ダブルクリックでフレーズ構成" : "フレーズ解析なし"}">${inner}` +
          (w > 56 ? `<div class="trk-t">${t.i+1}. ${esc(t.title)}</div>` : "") +
          (w > 76 ? `<div class="trk-m">${fmt(t.play_s)} · ${t.bpm}</div>` : "") +
          `</div>`;
@@ -1020,15 +1061,9 @@ function renderMinimap(){
   let h = `<div class="mm-view" id="mmView"></div>`;
   let lane = "";
   for(const t of ST.tracks){
-    if(t.phrases.length){
-      for(const p of t.phrases)
-        lane += `<div style="position:absolute;top:0;height:14px;left:${(p.start_s*k).toFixed(1)}px;
-                  width:${Math.max((p.end_s-p.start_s)*k,.5).toFixed(1)}px;
-                  background:${PH_COLOR[p.group]||"var(--ph-verse)"}"></div>`;
-    } else {
-      lane += `<div style="position:absolute;top:0;height:14px;left:${(t.start_s*k).toFixed(1)}px;
-                width:${Math.max((t.end_s-t.start_s)*k,.5).toFixed(1)}px;background:#39404a"></div>`;
-    }
+    lane += `<div style="position:absolute;top:0;height:14px;left:${(t.start_s*k).toFixed(1)}px;
+              width:${Math.max((t.end_s-t.start_s)*k,.5).toFixed(1)}px;
+              background:${t.phrases.length ? (t.i % 2 ? "#3a4350" : "#2a313a") : "#20262d"}"></div>`;
   }
   const H = 26, top = 14;
   let d = `M0,${top+H}`;
@@ -1049,11 +1084,10 @@ function syncView(){
   v.style.width = Math.min(sc.clientWidth/cw, 1)*mmW + "px";
 }
 
-function renderWarnings(){
-  $("warns").innerHTML = (ST.warnings || []).map(w=>
-    `<li><span class="bdg ${w.level === "critical" ? "c" : "w"}">${w.level === "critical" ? "!" : "△"}</span>
-      <span>${esc(w.text)}</span></li>`).join("") ||
-    `<li><span class="bdg w" style="background:#1fb013">✓</span><span>警告なし</span></li>`;
+/* the warning list left the panel (2026-09-16 review): the length verdict is
+   the hero, flat stretches are visible in ENERGY, and the agent still reads
+   ST.warnings when asked */
+function renderMeta(){
   $("analysisMeta").textContent =
     `${ST.playlist}: ${ST.analysis.total}曲中 ${ST.analysis.present}曲にフレーズ解析あり`;
 }
@@ -1072,7 +1106,8 @@ function renderSelected(){
     `<dt>位置</dt><dd>${fmt(t.start_s)} → ${fmt(t.end_s)}</dd>
      <dt>再生</dt><dd>${fmt(t.play_s)}</dd>
      <dt>BPM</dt><dd>${t.bpm}${t.set_tempo !== t.bpm ? " → " + t.set_tempo : ""}</dd>
-     <dt>フレーズ</dt><dd style="white-space:normal">${esc(ph)}</dd>`;
+     <dt>フレーズ</dt><dd style="white-space:normal">${esc(ph)}
+       ${t.phrases.length ? ` <a href="#" class="hintq" id="selPhrases">構成を見る</a>` : ""}</dd>`;
 
   $("selEdit").hidden = false;
   $("tPreset").value = t.preset;
@@ -1222,6 +1257,37 @@ $("tracks").addEventListener("pointercancel", ()=>{
   if(wasEdge) renderLanes();            /* put the half-dragged block back */
 });
 
+/* ---- phrase sheet: the rekordbox phrase colours, one track at a time ---- */
+function showPhrases(i){
+  const t = ST.tracks.find(x => x.i === i); if(!t) return;
+  const span = Math.max(t.end_s - t.start_s, 0.001);
+  let strip, body;
+  if(t.phrases.length){
+    strip = t.phrases.map(p => `<div class="ph" title="${esc(p.label)} ${fmt(p.start_s)}–${fmt(p.end_s)}"
+        style="left:${((p.start_s - t.start_s)/span*100).toFixed(2)}%;width:${((p.end_s - p.start_s)/span*100).toFixed(2)}%;
+        background:${PH_COLOR[p.group] || "var(--ph-verse)"}"></div>`).join("");
+    body = `<div class="ph-list">` + t.phrases.map(p =>
+      `<span class="lg"><i class="sw" style="background:${PH_COLOR[p.group] || "var(--ph-verse)"}"></i>${esc(p.label)}<b>${fmt(p.start_s)}–${fmt(p.end_s)}</b></span>`).join("") + `</div>
+      <p class="hint">色は rekordbox のフレーズ色と同じ意味です（Intro 橙 / Up 紫 / Chorus 緑 / Down 茶 / Outro 青 / Verse 灰）</p>`;
+  } else {
+    strip = `<div class="none"></div>`;
+    body = `<p>この曲にはフレーズ解析がありません。rekordbox の環境設定 &gt; 解析 で「フレーズ」をオンにして再解析すると出ます。</p>`;
+  }
+  modal(`${i + 1}. ${t.title}`,
+    `<p class="hint">${fmt(t.start_s)} → ${fmt(t.end_s)} · 再生 ${fmt(t.play_s)} · ${t.bpm} BPM · ${esc(plabel(t.preset))}</p>
+     <div class="phrase-strip">${strip}</div>${body}`,
+    [{label: "閉じる"}]);
+}
+$("tracks").addEventListener("dblclick", e=>{
+  const n = e.target.closest(".trk"); if(!n) return;
+  showPhrases(+n.dataset.i);
+});
+$("selKv").addEventListener("click", e=>{
+  if(e.target.id !== "selPhrases") return;
+  e.preventDefault();
+  if(ST.selected != null) showPhrases(ST.selected);
+});
+
 /* ---- inspector edits: every one goes through Command/History ---- */
 const parseTime = v => {
   const m = /^\s*(\d+):(\d{1,2})\s*$/.exec(v || "");
@@ -1256,8 +1322,12 @@ $("settings").addEventListener("click", async ()=>{
   const where = s.source === "settings"
       ? (s.stored === "dpapi" ? "この PC の設定に暗号化して保存済み" : "設定に平文で保存済み")
       : s.source === "env" ? "環境変数から読み込んでいます" : "未設定";
-  modal("設定 — エージェントの LLM",
-    `<p>${esc(s.note)}</p>
+  modal("設定",
+    `<p class="sec-title" style="margin-top:0">rekordbox ライブラリ</p>
+     <div class="fresh"><span class="meta" id="freshTxt"></span>
+       <button class="btn" id="rescan" title="rekordbox の master.db と -wal を今すぐ読み直します。ふだんは自動で追従するので、この画面の試行を保っているときだけ必要です"></button></div>
+     <p class="sec-title">エージェントの LLM</p>
+     <p>${esc(s.note)}</p>
      <div class="field"><span>API キー（${esc(where)}${s.masked ? " · " + esc(s.masked) : ""}）</span>
        <input type="password" id="fKey" placeholder="${s.configured ? "変更するときだけ入力" : "sk-ant-…"}"></div>
      <div class="field"><span>モデル</span>
@@ -1271,6 +1341,8 @@ $("settings").addEventListener("click", async ()=>{
         closeModal();
         toast(r.warning || (r.configured ? `LLM を設定しました（${r.model}）` : "LLM キーを削除しました。アドバイザで動作します"));
      }}]);
+  renderFresh();
+  $("rescan").addEventListener("click", ()=>{ closeModal(); refreshFromRekordbox(null); });
 });
 
 document.querySelectorAll("[data-zoom]").forEach(b=>{
@@ -1294,7 +1366,7 @@ window.addEventListener("pointermove", e=>{ if(dragging) jump(e.clientX); });
 window.addEventListener("pointerup", ()=>{ dragging = false; });
 
 $("pl").addEventListener("change", reload);
-$("preset").addEventListener("change", reload);
+$("preset").addEventListener("change", ()=>{ $("cap32Lbl").hidden = !capApplies(); reload(); });
 $("cap32").addEventListener("change", reload);
 $("target").addEventListener("change", async ()=>
   apply(await window.pywebview.api.set_target(targetSeconds())));
@@ -1302,7 +1374,6 @@ $("curve").addEventListener("change", async ()=>
   apply(await window.pywebview.api.set_curve($("curve").value)));
 $("undo").addEventListener("click", async ()=> apply(await window.pywebview.api.undo()));
 $("redo").addEventListener("click", async ()=> apply(await window.pywebview.api.redo()));
-$("rescan").addEventListener("click", ()=> refreshFromRekordbox(null));
 $("cRetry").addEventListener("click", ()=>{ $("cRetry").hidden = true; boot(); });
 
 /* ---- agent drawer ---- */

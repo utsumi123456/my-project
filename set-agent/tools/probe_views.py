@@ -43,20 +43,30 @@ MAIN = "(() => {" + BOX + """
            cls: document.getElementById('reco').className,
            q: document.getElementById('reco').dataset.q,
            text: txt('reco').replace(/\\s+/g,' ').trim()},
-    rows: document.querySelectorAll('.row').length,
-    artImgs: document.querySelectorAll('.row .art img').length,
-    rowH: Math.round((document.querySelector('.row')||{getBoundingClientRect:()=>({height:0})}).getBoundingClientRect().height),
-    pastRows: document.querySelectorAll('.row.past').length,
-    firstRow: (document.querySelector('.row')||{}).textContent?.replace(/\\s+/g,' ').trim(),
-    lastRow: [...document.querySelectorAll('.row')].pop()?.textContent.replace(/\\s+/g,' ').trim(),
-    fresh: txt('freshTxt').trim(),
-    plName: txt('plName'),
+    /* the list under the hero is advice: removal candidates (over) or
+       tracks to add (under), never the playlist itself */
+    list: {hidden: document.getElementById('listBlock').hidden,
+           head: txt('listHead').trim(), note: txt('listNote').trim(),
+           rows: document.querySelectorAll('.row').length,
+           rmRows: document.querySelectorAll('.row.rm').length,
+           addRows: document.querySelectorAll('.row.add').length,
+           fitsRows: document.querySelectorAll('.row.fits').length,
+           artImgs: document.querySelectorAll('.row .art img').length,
+           rowH: Math.round((document.querySelector('.row')||{getBoundingClientRect:()=>({height:0})}).getBoundingClientRect().height),
+           firstRow: (document.querySelector('.row')||{}).textContent?.replace(/\\s+/g,' ').trim(),
+           lastRow: [...document.querySelectorAll('.row')].pop()?.textContent.replace(/\\s+/g,' ').trim()},
+    presetOptions: [...document.querySelectorAll('#preset option')].map(o => o.value + '=' + o.textContent),
+    cap32Label: (document.getElementById('cap32Lbl')||{}).textContent?.trim(),
+    cap32Hidden: (document.getElementById('cap32Lbl')||{}).hidden,
+    tooltips: document.querySelectorAll('#app [title]').length,
+    gone: ['plName','freshTxt','rescan','warns'].filter(id => document.getElementById(id)),
+    /* reading order: conditions above the hero, hero above the card and list */
+    order: ['.cond-row','.hero-block','#reco','#listBlock'].map(sel => box(sel)?.top),
     boxes: {bar: box('.bar'), main: box('#main'), hero: box('.hero-block'),
-            reco: box('#reco'), conds: box('.cond-row'), list: box('#list'), fresh: box('.fresh')},
+            reco: box('#reco'), conds: box('.cond-row'), list: box('#listBlock')},
     detailHidden: document.getElementById('detail').hidden,
     horizontalOverflow: document.documentElement.scrollWidth > innerWidth,
     mainOverflowX: document.getElementById('main').scrollWidth > document.getElementById('main').clientWidth,
-    gone: ['export','verdict'].filter(id => document.getElementById(id)),
   };
 })()"""
 
@@ -70,7 +80,11 @@ DETAIL = "(() => {" + BOX + """
     energySvg: !!document.querySelector('#energy svg'),
     energyPaths: document.querySelectorAll('#energy path').length,
     trackBlocks: document.querySelectorAll('.trk').length,
-    phraseBlocks: document.querySelectorAll('.trk .ph').length,
+    altBlocks: document.querySelectorAll('.trk.alt').length,
+    phraseBlocksInLane: document.querySelectorAll('.trk .ph').length,
+    hatched: document.querySelectorAll('.trk .none').length,
+    legendItems: [...document.querySelectorAll('.legend .lg')].map(e => e.textContent.trim()).filter(Boolean),
+    warnsGone: !document.getElementById('warns'),
     sectionRows: document.querySelectorAll('.sec').length,
     canvasWidth: Math.round(document.getElementById('canvas').clientWidth),
     minimapChildren: document.getElementById('minimap').children.length,
@@ -96,12 +110,22 @@ def run(window):
         m = window.evaluate_js(MAIN)
         print(json.dumps(m, ensure_ascii=False, indent=2))
 
-        # select a row from the list, then switch to the detail view
-        window.evaluate_js("document.querySelectorAll('.row')[2].click()")
+        # a removal row selects that track; the same track must be selected in detail
+        window.evaluate_js("(document.querySelectorAll('.row.rm')[2]||{click(){}}).click()")
         time.sleep(0.5)
         sel = window.evaluate_js(
             "[...document.querySelectorAll('.row')].findIndex(r => r.dataset.sel === '1')")
         print("selected row after click:", sel)
+
+        # the settings sheet holds the manual reload now
+        window.evaluate_js("document.getElementById('settings').click()")
+        time.sleep(0.8)
+        print("settings sheet:", json.dumps(window.evaluate_js("""({
+            open: !document.getElementById('modal').hidden,
+            fresh: (document.getElementById('freshTxt')||{}).textContent,
+            rescan: (document.getElementById('rescan')||{}).textContent,
+            hasKey: !!document.getElementById('fKey')})"""), ensure_ascii=False))
+        window.evaluate_js("closeModal()")
 
         window.evaluate_js("document.querySelector('[data-view=detail]').click()")
         time.sleep(1)
@@ -109,6 +133,16 @@ def run(window):
         print(json.dumps(d, ensure_ascii=False, indent=2))
         selTitle = window.evaluate_js("document.getElementById('selTitle').textContent")
         print("inspector shows:", selTitle)
+
+        # double-click a track block: the phrase sheet carries the colours now
+        window.evaluate_js("document.querySelector('.trk').dispatchEvent(new MouseEvent('dblclick',{bubbles:true}))")
+        time.sleep(0.5)
+        print("phrase sheet:", json.dumps(window.evaluate_js("""({
+            open: !document.getElementById('modal').hidden,
+            title: document.getElementById('mTitle').textContent,
+            strip: document.querySelectorAll('.phrase-strip .ph').length,
+            items: document.querySelectorAll('.ph-list .lg').length})"""), ensure_ascii=False))
+        window.evaluate_js("closeModal()")
         lanes = {k: d[k] for k in ("tracks", "energy", "sections")}
         bad = [k for k, v in lanes.items() if not (v and v["onscreen"])]
         print("\nTier lanes off screen in detail:", bad or "none")

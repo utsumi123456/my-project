@@ -31,7 +31,7 @@ PROBE = """(() => {
     sub: txt('heroSub').replace(/\\s+/g,' ').trim(),
     rows: rows.length,
     titles: rows.slice(0, 4).map(r => (r.querySelector('.t')||r).textContent.replace(/\\s+/g,' ').trim().slice(0, 28)),
-    fresh: FRESH.state, freshTxt: txt('freshTxt').trim(),
+    fresh: FRESH.state, settingsBtn: document.getElementById('settings').className,
     loaded: LOADED_AT && LOADED_AT.toLocaleTimeString('ja-JP'),
   };
 })()"""

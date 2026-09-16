@@ -33,9 +33,10 @@ def wait_ready(window, label):
 
 
 def fresh(window):
+    # The freshness row lives in the settings sheet since 2026-09-16; on the
+    # main view the only stale signal is the dot on the settings button.
     return window.evaluate_js(
-        "({state: FRESH.state, txt: document.getElementById('freshTxt').textContent,"
-        "  btn: document.getElementById('rescan').className,"
+        "({state: FRESH.state, btn: document.getElementById('settings').className,"
         "  loaded: LOADED_AT && LOADED_AT.getTime(), sig: LIB_SIG && LIB_SIG.db})")
 
 
@@ -92,7 +93,12 @@ def run(window):
         print("  stale:", f2)
         print("   held (no reload):", f2["loaded"] == f1["loaded"], "state:", f2["state"], "btn:", f2["btn"])
 
-        # (3) button -> reload, back to fresh
+        # (3) settings sheet -> reload button -> back to fresh
+        window.evaluate_js("document.getElementById('settings').click()")
+        time.sleep(1)
+        print("  sheet:", window.evaluate_js(
+            "({txt: document.getElementById('freshTxt').textContent,"
+            "  btn: document.getElementById('rescan').className})"))
         window.evaluate_js("document.getElementById('rescan').click()")
         f3 = wait_reload(window, f2["loaded"], "button-reload")
         window.evaluate_js("pollLibrary()")

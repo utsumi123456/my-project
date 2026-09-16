@@ -127,3 +127,19 @@ class Grouping(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PresetLabels(unittest.TestCase):
+    """The panel shows Japanese names for the Mix presets (2026-09-16 review:
+    'short' meant nothing to the DJ). Every preset the engine knows must have a
+    label and a one-line help, and nothing else may be labelled."""
+
+    def test_every_engine_preset_has_a_label_and_help(self):
+        from setagent.analysis.phrases import PRESET_CONFIG
+        from setagent.webui.state import PRESET_HELP, PRESET_LABELS
+        engine = {k for k in PRESET_CONFIG if isinstance(PRESET_CONFIG[k], dict)} | {"full"}
+        self.assertEqual(set(PRESET_LABELS), engine)
+        self.assertEqual(set(PRESET_HELP), engine)
+        for k, v in PRESET_LABELS.items():
+            self.assertNotEqual(v, k, f"{k} still shows its internal name")
+            self.assertTrue(PRESET_HELP[k].endswith("。"), f"{k}: help should be a sentence")

@@ -20,6 +20,21 @@ from setagent.analysis.sections import sections as compute_sections
 from setagent.analysis.timing import compute, fmt, trim_candidates
 from setagent.rekordbox.library import PhraseStatus
 
+# Mix presets (analysis.phrases.PRESET_CONFIG) as the DJ reads them. The keys
+# stay English in code and settings; only the panel shows these.
+PRESET_LABELS = {
+    "full": "フル尺",
+    "one_drop": "1ドロップ",
+    "two_drop": "2ドロップ",
+    "short": "イントロ/アウトロ短縮",
+}
+PRESET_HELP = {
+    "full": "各曲を頭から最後まで再生する前提で尺を予測します。",
+    "one_drop": "最初のドロップ（コーラス）1つだけをかける前提。ドロップの 16 小節前から入り、8 小節後で抜けます。",
+    "two_drop": "ドロップ 2 つまでかける前提。2 つ目のドロップの 8 小節後で抜けます。",
+    "short": "ドロップの数は変えず、イントロとアウトロだけを 8 小節ずつ残して詰めます。ドロップが見つからない曲は 1ドロップ/2ドロップ でもこの扱いになります。",
+}
+
 # rekordbox's own phrase vocabulary, collapsed to the five groups a DJ acts on.
 # Colours live in the view; this only says which group a label belongs to.
 PHRASE_GROUP = {

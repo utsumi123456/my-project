@@ -26,6 +26,8 @@ from setagent.agent.llm import LLMAgent, LLMConfig
 from setagent.agent.tools import AgentTools
 from setagent.analysis.curve import TEMPLATE_LABELS, TargetCurve, template
 from setagent.analysis.phrases import PRESET_CONFIG, preset_range
+from setagent.analysis.removal import pick_removals, removal_candidates
+from setagent.analysis.timing import fmt
 from setagent.domain.draft import (History, LockedError, Move, SetDraft, SetLock,
                                    SetMilestone, SetRange, SetTargetLength, SetTempo,
                                    TrackEntry)
@@ -104,7 +106,9 @@ class Api:
         return {
             "playlists": names,
             "playlist": want if want in names else (names[0] if names else None),
-            "presets": ["full", "one_drop", "two_drop", "short"],
+            "presets": list(viewstate.PRESET_LABELS),
+            "preset_labels": dict(viewstate.PRESET_LABELS),
+            "preset_help": dict(viewstate.PRESET_HELP),
             "curves": [{"key": k, "label": v} for k, v in TEMPLATE_LABELS.items()],
             "preset": self.preset,
             "cap32": self.cap32,
@@ -193,9 +197,46 @@ class Api:
                 self.tools.anlz = self.anlz
             self._pump_notices()
             s["agent"] = self._agent_block()
+            s["reco"] = self._reco_block(s)
             return s
         except Exception as e:
             return {"error": f"{type(e).__name__}: {e}", "detail": traceback.format_exc()}
+
+    # The list under the hero (2026-09-16 review): not the playlist -- rekordbox
+    # already shows that next door -- but what to do about the gap. Over the
+    # target: the DJ's own tracks ranked by how little the set would miss them
+    # (analysis.removal). Under it: real tracks from outside the playlist that
+    # fit the hole (agent.recommend). Both are the same engines the agent uses;
+    # nothing here invents a number or a title.
+    def _reco_block(self, s: dict) -> dict:
+        d, tol = s.get("delta_s"), s.get("tolerance_s") or 0
+        if d is None or not self.draft or not self.tools:
+            return {"kind": "none", "items": []}
+        try:
+            if d > tol:
+                cands = removal_candidates(self.draft, self.lib, self.anlz, self.curve)
+                picked = pick_removals(cands, d)
+                items, cum = [], 0.0
+                for c in (picked or cands[:12]):
+                    cum += c.saves_s
+                    items.append({"i": c.index, "track_id": c.track_id, "title": c.title,
+                                  "saves_s": round(c.saves_s, 2),
+                                  "after_s": round(s["total_s"] - cum, 2),
+                                  "reasons": list(c.reasons)})
+                return {"kind": "remove", "enough": bool(picked), "need_s": round(d, 2),
+                        "items": items}
+            if d < -tol:
+                need = -d
+                # a hole shorter than a track still takes a whole track to fill
+                avg = s["total_s"] / max(len(s.get("tracks") or ()), 1)
+                slot = max(need, avg)
+                items = self.tools.recommend_candidates(
+                    fmt(slot), after_index=len(self.draft.tracks) - 1, limit=12)
+                return {"kind": "add", "need_s": round(need, 2), "slot_s": round(slot, 2),
+                        "items": items}
+        except Exception:
+            return {"kind": "none", "items": []}       # the list is advice, never a crash
+        return {"kind": "ok", "items": []}
 
     # ----------------------------------------------------------- interaction
     def select(self, index) -> dict:
