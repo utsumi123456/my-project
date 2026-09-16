@@ -467,7 +467,7 @@ class Api:
         s["saved"] = saved
         if how == "plain":
             s["warning"] = ("この PC では暗号化できませんでした（DPAPI が使えません）。"
-                            "キーは settings.json に平文で入る")
+                            "キーは settings.json に平文で保存されます")
         if not saved:
             s["warning"] = "設定ファイルに書き込めませんでした。次回起動時には残りません"
         return s

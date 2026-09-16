@@ -56,7 +56,7 @@ SYSTEM_PROMPT = """\
 - 候補曲は最大5曲、1曲ごとに「曲名／BPM／Key／その区間での長さ／理由（一行）」。
 """
 
-DEFAULT_MODEL = "claude-sonnet-4-5"
+DEFAULT_MODEL = "claude-sonnet-5"
 DEFAULT_ENDPOINT = "https://api.anthropic.com/v1/messages"
 
 
@@ -153,7 +153,7 @@ class LLMAgent:
             calls = [b for b in content if b.get("type") == "tool_use"]
             if not calls:
                 said = "\n".join(b.get("text", "") for b in content if b.get("type") == "text")
-                return Reply(said.strip() or "(応答が空だった)",
+                return Reply(said.strip() or "（応答が空でした）",
                              change_set=proposed[-1] if proposed else None, used_tools=used)
             results = []
             for b in calls:
@@ -163,7 +163,7 @@ class LLMAgent:
                                 "content": json.dumps(out, ensure_ascii=False, default=str)[:12000]})
             self.history.append({"role": "user", "content": results})
 
-        return Reply("ツール呼び出しが続きすぎたので打ち切った。もう少し具体的に頼め",
+        return Reply("ツール呼び出しが続きすぎたため打ち切りました。もう少し具体的に指示してください",
                      change_set=proposed[-1] if proposed else None, used_tools=used)
 
     def reset(self) -> None:

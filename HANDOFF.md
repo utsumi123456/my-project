@@ -103,8 +103,10 @@ llm（SYSTEM_PROMPT にも口調の規則を追加）/ tools / diagnostics / lib
 386px 幅で横はみ出しなし。`probe_views` に `artImgs` / `rowH` を追加。
 
 **未検証 / 次にやること（優先順）:**
-1. LLM 実キー疎通（ユーザー指示で最後。キーはユーザーが設定画面から入れる）。
-2. `python build.py` で exe 再ビルド。
+1. LLM 実キー疎通 — `python -m tools.probe_llm acid` を用意（キーは表示しない。設定画面か
+   `SETAGENT_LLM_KEY` で入れてから実行）。既定モデルは `claude-sonnet-5` に更新。
+2. `python build.py` で exe 再ビルド — 2026-09-16 17:00 に実行したが、**旧 exe（14:49 起動）が
+   `dist/SetAgentTimeline.exe` を掴んでいて PermissionError**。旧 exe を閉じてから再実行。
 3. バーは 386px で 2 行に折り返す（98px）— 詰める余地あり。
 4. 詳細ビューの TRACKS レーンやインスペクタにもアートワークを出すか（未着手）。
 
