@@ -150,6 +150,9 @@ class Api:
                     h.run(SetRange(e.track_id, r.play_in_ms, r.play_out_ms, self.preset))
 
         self.draft, self.history, self.selected = d, h, None
+        # Loading itself runs commands (target length, preset ranges). "Edited"
+        # means the DJ moved the history away from that point, either way.
+        self._done_base = len(h._done)
 
         # The agent boundary is unchanged: it gets tools and an advisor, and can
         # only emit a Change Set. It never touches the draft.
@@ -293,6 +296,35 @@ class Api:
             return {"error": "ライブラリが開かれていない"}
         self.lib.rescan()
         return self._load({"playlist": self.draft.name if self.draft else None})
+
+    # ------------------------------------------------------ change detection
+    # Read-only loop (2026-09-16): the DJ edits in rekordbox, Set Agent follows.
+    # This is deliberately not on the worker thread -- it only stats two files
+    # and must answer even while a long load is running. What it reports:
+    #   db   -- master.db mtime/size. A change here is a real, readable edit.
+    #   wal  -- master.db-wal size. rekordbox parks recent edits here while it is
+    #           open; our decrypter does not merge the WAL, so a change here is
+    #           "something happened that we cannot read yet". Say so; don't guess.
+    #   edited -- the DJ has un-undone edits in this app, which a reload would drop.
+    def library_changed(self) -> dict:
+        if not self.lib:
+            return {"ready": False}
+        mdb = self.lib.master_db
+        try:
+            st = mdb.stat()
+            db_sig = f"{int(st.st_mtime)}:{st.st_size}"
+        except OSError:
+            db_sig = ""
+        wal = mdb.with_name(mdb.name + "-wal")
+        try:
+            ws = wal.stat()
+            wal_sig = f"{int(ws.st_mtime)}:{ws.st_size}"
+        except OSError:
+            wal_sig = ""
+        edited = bool(self.history) and \
+            len(getattr(self.history, "_done", ())) != getattr(self, "_done_base", 0)
+        return {"ready": True, "db": db_sig, "wal": wal_sig, "edited": edited,
+                "rekordbox_running": rekordbox_running()}
 
     def set_lock(self, index, target, on) -> dict:
         return self._run(lambda e: SetLock(e.track_id, target, bool(on)), index)

@@ -28,13 +28,17 @@ def index_path() -> str:
 
 def main(playlist: str | None = None) -> None:
     api = Api(playlist)
+    # 2026-09-16: Set Agent is a read-only panel the DJ keeps beside rekordbox.
+    # It opens as a narrow, always-on-top column (the main view is built for
+    # ~400px); the detail view is a click away and the window can be widened.
+    # Remembering position/size and going frameless are the next overlay steps.
     window = webview.create_window(
-        "Set Agent — Workbench",
+        "Set Agent",
         index_path(),
         js_api=api,
-        width=1280, height=820, min_size=(940, 620),
+        width=460, height=940, min_size=(380, 560),
         background_color="#0d1014",
-        maximized=True,          # a 137-minute set wants every pixel of the display
+        on_top=True,
     )
     # Underscore-private on purpose: pywebview walks the js_api object's public
     # attributes to expose them to JS, and handing it a Window sends that walk

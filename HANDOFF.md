@@ -1,5 +1,57 @@
 # Set Agent — 引き継ぎメモ
 
+## 2026-09-16 追記 — read-only 方針で UI を 2 ビューに再編（新アカウント初日）
+
+方針は `NEXT_ACCOUNT_HANDOFF.md` §1〜§4 のとおり（書き出し廃止・read-only・予測総尺が主役・
+オーバーレイ前提）。ユーザーと合意した決定: **自由配置の常駐パネル / 詳細は 1 枚のスクロール
+ページ / index.html を 2 ビュー構成に再編 / git init して差分管理**。
+
+**やったこと（すべて実機 WebView2 で probe 検証済み、テスト 131 件 OK）:**
+- `git init` — 初回コミットは 2026-09-15 時点のスナップショット。以降は差分で追える。
+- `webui/index.html` を **メイン / 詳細の 2 ビュー**に再編。上部バーの「セット｜詳細」で切替。
+  - メイン（Tier 1 だけ）: **予測総尺 56px（主役）** → 目標・過不足ピル・曲数 → バレットバー →
+    **レコメンド入口カード**（超過:「N 分ぶん外す必要」→ エージェントに「mm:ss に収めて」を送る /
+    不足: 「候補を出して」を送る / 目標内: 詳細へ）→ 条件行（Playlist/Target/Mix/Curve/cap32）→
+    **曲リスト**（#・曲名・尺・累積時刻。目標を越えた行は累積が赤、◆=マイルストーン、
+    「解析なし」タグ）→ 鮮度行（「HH:MM 時点の rekordbox ライブラリ」+ 反映ボタン）。
+  - 詳細（Tier 2）: 旧 transport / TRACKS / ENERGY / SECTIONS / 凡例 / 削り代 waterfall / 警告 /
+    インスペクタ。既存 JS（ドラッグ・端トリム・カーブ編集・エージェント・ゴースト）は無改変。
+    `.detail{overflow:auto}` の 1 枚スクロール、`.scroll` の床は 400px。
+  - verdict テキスト・XML 書き出しボタン・再起動ボタン・`doExport`/`doRestart` を UI から除去。
+    Python 側 `api.export_*` / `api.restart_rekordbox` / `rbrestart.py` は凍結のまま残置。
+- **準自動更新（§5-1 の (b)+mtime）**: `api.library_changed()`（ワーカー非経由、stat のみ）で
+  master.db と -wal の mtime/size を返す。JS が 5 秒ポーリング + window focus / visibility で
+  即時確認。master.db が変わり、かつアプリ内編集が無い（History が load 直後の基準点のまま）なら
+  **自動で rescan**。編集があれば「rekordbox の変更を検出 — 反映していない」+ ボタン点灯で保持。
+  -wal だけ変わった場合は「rekordbox に未保存の編集がある（まだ読めない）」と正直に出す
+  （復号器は WAL をマージしないので実際に読めない）。
+- `app.py`: 起動を **460×940 / min 380×560 / on_top=True** の細い縦長パネルに変更（maximized 廃止）。
+- 新 probe: `tools/probe_views.py`（両ビューの実測、`[playlist] [w h]` で幅指定可）、
+  `tools/probe_refresh.py`（自動更新 4 シナリオ）。`probe_layout.py` は新 id に追従。
+
+**実測値（acid / 1280×778）:** hero「137:18」、ピル「77:18 超過」、96 行中 49 行が目標超え、
+レコメンドカード「77:18 ぶん外す必要がある / 1曲平均 1:26 なので、およそ 54 曲」。
+386px 幅でも横はみ出しなし。詳細ビューは 3 レーンすべて画面内。
+
+**未検証 / 次にやること（優先順）:**
+1. **WAL 可視性の実測** — rekordbox を起動して実際にプレイリストを編集し、master.db の mtime が
+   いつ動くか（チェックポイントのタイミング）を見る。動けば自動更新はそのまま成立。動かなければ
+   「rekordbox 側で保存/終了後に反映」と割り切るか、WAL を読む方法を探る。
+2. **オーバーレイの残り** — 位置/サイズを settings に記憶、frameless（自前のドラッグ帯と閉じるボタン
+   が要る）。`on_top` は入れた。バーは 386px で 2 行に折り返す（98px）— 詰める余地あり。
+3. **レコメンド本体（コア価値）** — 現状の入口カードはエージェント（advisor の FIT/FILL 語彙）に
+   委ねている。超過時の「外す候補」は advisor が出さない（削り代の案 + 「外すのはお前が決めろ」）。
+   ENERGY ピーク/ボトム + `lib.get_play_history` の共起で外す/足す候補を出す機能を `analysis/` 側に。
+4. アートワーク表示（曲リストにサムネ）。取得元の調査から。
+5. LLM 実キー疎通（ユーザー指示で最後）。
+6. `python build.py` で exe 再ビルド（今回の変更は未ビルド）。
+
+**地雷（今回踏んだ）:** `_load` は SetTargetLength / SetRange を History に積むので、`_done` が
+空かで「編集あり」を判定すると常に true になる。`api._done_base` に load 直後の長さを持たせて比較。
+pywebview の `evaluate_js` に async 関数を渡すと `{}` が返る — 結果は `window.__x` に置いて後で読む。
+
+---
+
 ## 2026-09-15 追記 — TAD-5 決着 & rekordbox 再起動代行
 
 **TAD-5 結論: rekordboxAgent の API で XML 取り込みは自動化できない。**

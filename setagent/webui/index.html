@@ -45,10 +45,7 @@ button,select,input{font-family:inherit;font-size:13px}
   border-radius:50%;background:var(--target)}
 .spacer{margin-left:auto}
 
-/* ---- verdict strip ---- */
-.verdict{display:grid;grid-template-columns:minmax(320px,1.2fr) minmax(300px,1fr);
-  gap:var(--s5);padding:var(--s3) var(--s4);border-bottom:1px solid var(--line);
-  background:var(--surface);flex:none}
+/* ---- hero (main view) ---- */
 .eyebrow{font-size:11px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;
   color:var(--ink-3);margin:0 0 var(--s2)}
 .gap-row{display:flex;align-items:baseline;gap:var(--s4);flex-wrap:wrap}
@@ -96,7 +93,7 @@ button,select,input{font-family:inherit;font-size:13px}
 /* min-height:0 is what lets a flex child scroll instead of pushing the rest of
    the column off-screen; the floor keeps ENERGY and SECTIONS -- both Tier 1 --
    on screen at the shortest window we support. */
-.scroll{flex:1 1 auto;min-height:330px;overflow:auto;background:var(--surface)}
+.scroll{flex:1 1 auto;min-height:400px;overflow:auto;background:var(--surface)}
 /* the lanes share the column: TRACKS and SECTIONS keep their size, ENERGY takes
    whatever height is left, so all three stay visible at any window height */
 .canvas{position:relative;padding-bottom:var(--s2);display:flex;flex-direction:column;
@@ -139,7 +136,7 @@ button,select,input{font-family:inherit;font-size:13px}
 /* ---- footer ---- */
 .foot{display:grid;grid-template-columns:1fr minmax(280px,360px);gap:var(--s4);
   padding:var(--s3) var(--s4);border-top:1px solid var(--line);background:var(--surface);
-  flex:none;max-height:116px;overflow:auto}
+  flex:none}
 .warns{list-style:none;margin:var(--s2) 0 0;padding:0;display:flex;flex-direction:column;gap:5px}
 .warns li{display:grid;grid-template-columns:16px 1fr;gap:var(--s2);font-size:12px;color:var(--ink-2)}
 .bdg{display:grid;place-items:center;width:16px;height:16px;border-radius:3px;font-size:10px;
@@ -253,6 +250,63 @@ button,select,input{font-family:inherit;font-size:13px}
 .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--raised);
   border:1px solid var(--line);border-left:3px solid var(--caution);border-radius:4px;
   padding:9px 15px;font-size:13px;z-index:30;max-width:70vw}
+/* ---- main view: the panel a DJ keeps beside rekordbox ----
+   Only what they came to read: the set's predicted length, whether it fits, the
+   way into recommendations, the conditions they set, and the running order.
+   Everything analytical lives in the detail view. Must hold at ~380px wide. */
+.main{flex:1 1 auto;min-height:0;overflow:auto;display:flex;flex-direction:column;
+  gap:var(--s4);padding:var(--s4);background:var(--surface)}
+.hero-block .hero{font-size:56px;color:var(--ink)}
+.hero-block .hero.over{color:var(--critical)} .hero-block .hero.under{color:var(--caution)}
+.hero-block .gap-sub{margin-top:var(--s2);display:flex;align-items:center;gap:var(--s2);flex-wrap:wrap}
+.pill{display:inline-block;padding:1px 8px;border-radius:10px;font-family:var(--mono);font-size:12px;
+  font-weight:600;background:var(--raised);color:var(--ink-2);border:1px solid var(--line)}
+.pill.over{color:#fff;background:var(--critical);border-color:var(--critical)}
+.pill.under{color:#06121f;background:var(--caution);border-color:var(--caution)}
+.pill.ok{color:#06121f;background:#1fb013;border-color:#1fb013}
+.reco{display:grid;grid-template-columns:1fr auto;align-items:center;gap:var(--s3);text-align:left;
+  background:var(--raised);border:1px solid var(--line);border-left:3px solid var(--measure);
+  border-radius:4px;padding:var(--s3) var(--s4);color:var(--ink);cursor:pointer;font:inherit}
+.reco:hover{border-color:#3d4550;border-left-color:inherit}
+.reco.over{border-left-color:var(--critical)} .reco.under{border-left-color:var(--caution)}
+.reco.ok{border-left-color:#1fb013}
+.reco h3{margin:0;font-size:14px;font-weight:600} .reco p{margin:2px 0 0;font-size:12px;color:var(--ink-2)}
+.reco .go{font-size:12px;color:var(--measure);white-space:nowrap}
+.cond-row{display:flex;flex-wrap:wrap;gap:var(--s2) var(--s3)}
+.cond-row label{display:flex;align-items:center;gap:6px;color:var(--ink-3);font-size:12px}
+.cond-row select,.cond-row input[type=text]{background:var(--raised);color:var(--ink);
+  border:1px solid var(--line);border-radius:3px;padding:4px 7px}
+.cond-row input[type=text]{width:70px;font-family:var(--mono);text-align:center}
+.list{display:flex;flex-direction:column;border:1px solid var(--line-soft);border-radius:4px;overflow:hidden}
+.row,.list-h{display:grid;grid-template-columns:28px minmax(0,1fr) 52px 58px;gap:var(--s2);
+  align-items:center;padding:6px var(--s3)}
+.list-h{padding:4px var(--s3);font-size:10px;font-weight:600;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--ink-3);background:var(--sunken)}
+.list-h span:nth-child(n+3){text-align:right}
+.row{border-top:1px solid var(--line-soft);font-size:12px;cursor:pointer;background:var(--surface)}
+.row:hover{background:var(--raised)}
+.row[data-sel="1"]{background:var(--raised);box-shadow:inset 3px 0 0 var(--ink)}
+.row .n{font-family:var(--mono);font-size:11px;color:var(--ink-3)}
+.row .t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink)}
+.row .t small{color:var(--ink-3);font-family:var(--mono);margin-left:6px;font-size:10px}
+.row .d,.row .at{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right;color:var(--ink-2)}
+.row .at{color:var(--ink-3)}
+/* every track that ends past the target: the cumulative clock turns red, so the
+   eye finds "everything from here is over" without a graph */
+.row.past .at{color:var(--critical)}
+.row.mile .n::after{content:"◆";margin-left:2px;color:var(--ink)}
+.fresh{display:flex;align-items:center;justify-content:space-between;gap:var(--s3);flex:none;
+  border-top:1px solid var(--line-soft);padding-top:var(--s3)}
+.fresh .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#1fb013;margin-right:6px}
+.fresh .dot.rb{background:var(--caution)}
+.views button{padding:5px 12px}
+
+/* ---- detail view: the analysis, one scrolling column ---- */
+/* one scrolling column: the lanes keep their floor, the rest follows below */
+.detail{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;overflow:auto}
+.reality-row{padding:var(--s2) var(--s4);border-top:1px solid var(--line);background:var(--surface);flex:none}
+.reality-row .reality{max-height:140px}
+
 [hidden]{display:none!important}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style></head>
@@ -260,26 +314,24 @@ button,select,input{font-family:inherit;font-size:13px}
 
 <div class="app" id="app" hidden>
   <div class="bar">
-    <label>Playlist <select id="pl"></select></label>
-    <label>Target <input type="text" id="target" value="60:00"></label>
-    <label>Mix <select id="preset"></select></label>
-    <label><input type="checkbox" id="cap32"> cap 32bar</label>
-    <label>Curve <select id="curve"></select><span class="meta" id="curveEdited"></span></label>
-    <button class="btn" id="undo">元に戻す</button>
-    <button class="btn" id="redo">やり直す</button>
-    <button class="btn" id="rescan">再スキャン</button>
-    <button class="btn primary" id="export">XMLへ書き出し</button>
+    <div class="seg views" role="group" aria-label="表示">
+      <button type="button" data-view="main" aria-pressed="true">セット</button>
+      <button type="button" data-view="detail" aria-pressed="false">詳細</button>
+    </div>
+    <span class="meta" id="plName"></span>
+    <span class="spacer"></span>
+    <button class="btn" id="undo" title="元に戻す">元に戻す</button>
+    <button class="btn" id="redo" title="やり直す">やり直す</button>
     <button class="btn" id="agentBtn">エージェント</button>
     <button class="btn" id="settings">設定</button>
   </div>
 
-  <section class="verdict">
-    <div>
-      <p class="eyebrow">目標との差</p>
-      <div class="gap-row">
-        <div class="hero" id="hero">—</div>
-        <div class="gap-sub" id="heroSub"></div>
-      </div>
+  <!-- ===== main view (Tier 1 only) ===== -->
+  <section class="main" id="main">
+    <div class="hero-block">
+      <p class="eyebrow">セット全体の予測時間</p>
+      <div class="hero" id="hero">—</div>
+      <div class="gap-sub" id="heroSub"></div>
       <div class="bullet-track">
         <div class="bullet-fill" id="bFill"></div>
         <div class="bullet-over" id="bOver"></div>
@@ -287,9 +339,30 @@ button,select,input{font-family:inherit;font-size:13px}
       </div>
       <div class="bullet-scale"><span>0:00</span><span id="bTargetLbl"></span><span id="bTotalLbl"></span></div>
     </div>
-    <div class="reality" id="reality"></div>
+
+    <button class="reco" id="reco" type="button" hidden></button>
+
+    <div>
+      <p class="eyebrow">条件</p>
+      <div class="cond-row">
+        <label>Playlist <select id="pl"></select></label>
+        <label>Target <input type="text" id="target" value="60:00"></label>
+        <label>Mix <select id="preset"></select></label>
+        <label>Curve <select id="curve"></select><span class="meta" id="curveEdited"></span></label>
+        <label><input type="checkbox" id="cap32"> cap 32bar</label>
+      </div>
+    </div>
+
+    <div class="list" id="list"></div>
+
+    <div class="fresh">
+      <span class="meta" id="freshTxt"></span>
+      <button class="btn" id="rescan">rekordbox の編集を反映</button>
+    </div>
   </section>
 
+  <!-- ===== detail view (Tier 2: on demand) ===== -->
+  <section class="detail" id="detail" hidden>
   <div class="transport">
     <div class="seg" role="group" aria-label="時間軸の密度">
       <button type="button" data-zoom="overview" aria-pressed="false">全体</button>
@@ -325,6 +398,8 @@ button,select,input{font-family:inherit;font-size:13px}
     <span class="lg" style="color:var(--ink-3)">色は rekordbox と同じ意味</span>
   </div>
 
+  <div class="reality-row"><div class="reality" id="reality"></div></div>
+
   <div class="foot">
     <div>
       <p class="eyebrow">警告</p>
@@ -347,6 +422,7 @@ button,select,input{font-family:inherit;font-size:13px}
       </div>
     </div>
   </div>
+  </section>
 </div>
 
 <div class="curtain" id="curtain">
@@ -392,6 +468,7 @@ const DENSITY = {overview:3, section:36, detail:96};   /* px per minute */
 const PH_COLOR = {intro:"var(--ph-intro)", up:"var(--ph-up)", chorus:"var(--ph-chorus)",
                   down:"var(--ph-down)", outro:"var(--ph-outro)", verse:"var(--ph-verse)"};
 let ST = null, BOOT = null, mode = "section", toastTimer = null;
+let VIEW = "main", LOADED_AT = null;
 
 const fmt = s => {
   const n = Math.round(Math.abs(s));
@@ -431,6 +508,7 @@ async function boot(){
   if(b.rekordbox_running)
     toast("rekordbox が起動中だ。直前の編集が master.db に書かれていない場合がある");
   await reload();
+  startPolling();
 }
 
 function targetSeconds(){
@@ -446,6 +524,7 @@ async function reload(){
     playlist: $("pl").value, preset: $("preset").value,
     cap32: $("cap32").checked, target_s: targetSeconds(),
   });
+  LOADED_AT = new Date();
   apply(s, true);
 }
 
@@ -466,7 +545,12 @@ function apply(s, firstPaint){
 const esc = t => String(t).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
 function render(){
-  renderVerdict();
+  $("plName").textContent = ST.playlist || "";
+  renderHero();
+  renderReco();
+  renderList();
+  renderFresh();
+  renderReality();
   renderLanes();
   renderMinimap();
   renderWarnings();
@@ -474,6 +558,19 @@ function render(){
   renderAgent();
   syncView();
 }
+
+/* ---------------- view switch ---------------- */
+function setView(v){
+  VIEW = v;
+  $("main").hidden = v !== "main";
+  $("detail").hidden = v !== "detail";
+  document.querySelectorAll("[data-view]").forEach(b =>
+    b.setAttribute("aria-pressed", String(b.dataset.view === v)));
+  /* the lanes size themselves from the DOM, which is 0 while hidden */
+  if(v === "detail" && ST){ renderLanes(); renderMinimap(); syncView(); }
+}
+document.querySelectorAll("[data-view]").forEach(b =>
+  b.addEventListener("click", ()=> setView(b.dataset.view)));
 
 /* ---------------- agent drawer ---------------- */
 /* these are worded to hit the advisor's own vocabulary, so a DJ who clicks one
@@ -532,18 +629,23 @@ function renderAgent(){
 }
 let seenMsgs = 0;
 
-function renderVerdict(){
+/* ---------------- main view ---------------- */
+/* The hero is the predicted length itself. A DJ glances here to learn "how long
+   is this set", not "how far off am I" -- the gap is one pill underneath. */
+const fitClass = d => d == null ? "" : d > ST.tolerance_s ? "over" : d < -ST.tolerance_s ? "under" : "ok";
+
+function renderHero(){
   const d = ST.delta_s, tgt = ST.target_s || 0, tot = ST.total_s;
+  const cls = fitClass(d);
   const h = $("hero");
-  h.className = "hero " + (d == null ? "" : d > ST.tolerance_s ? "over" : d < -ST.tolerance_s ? "under" : "ok");
-  h.textContent = d == null ? "—" : (d > 0 ? "+" : "") + fmt(d);
-  const ratio = tgt ? (tot/tgt) : 0;
-  const extra = ST.tracks.length && d > 0
-    ? Math.round(d / (tot / ST.tracks.length)) : 0;
+  h.className = "hero " + cls;
+  h.textContent = fmt(tot);
+  const pill = cls === "over" ? `<span class="pill over">${fmt(d)} 超過</span>`
+             : cls === "under" ? `<span class="pill under">${fmt(-d)} 不足</span>`
+             : cls === "ok" ? `<span class="pill ok">目標内</span>` : "";
   $("heroSub").innerHTML =
-    `実測 <b>${fmt(tot)}</b> / 目標 <b>${fmt(tgt)}</b>` +
-    (tgt ? ` · 目標の <b>${ratio.toFixed(2)} 倍</b>` : "") +
-    (extra > 0 ? ` — およそ <b>${extra}曲</b>ぶん余っている` : "");
+    `<span>目標 <b>${fmt(tgt)}</b></span>${pill}` +
+    `<span style="color:var(--ink-3)">${ST.tracks.length}曲</span>`;
 
   const span = Math.max(tot, tgt) || 1;
   $("bFill").style.width = (Math.min(tot,tgt)/span*100) + "%";
@@ -554,8 +656,139 @@ function renderVerdict(){
   $("curveEdited").textContent = ST.curve_edited ? " 編集済み" : "";
   $("bTargetLbl").textContent = "目標 " + fmt(tgt);
   $("bTotalLbl").textContent = fmt(tot);
+}
 
-  /* the waterfall: what trimming can actually buy, against the gap */
+/* One card, worded by state. It is the doorway to recommendations: over -> ask
+   the agent to fit the set, under -> ask it for candidates, ok -> go check the
+   flow. Nothing here edits the set; the DJ applies changes in rekordbox. */
+function renderReco(){
+  const d = ST.delta_s, tgt = ST.target_s || 0, tot = ST.total_s, n = ST.tracks.length;
+  const r = $("reco"), cls = fitClass(d);
+  if(!cls){ r.hidden = true; return; }
+  r.hidden = false;
+  r.className = "reco " + cls;
+  const per = n ? tot / n : 0;
+  const k = per ? Math.max(1, Math.round(Math.abs(d) / per)) : 0;
+  if(cls === "over"){
+    r.dataset.q = `${fmt(tgt)} に収めて`;
+    r.innerHTML = `<div><h3>${fmt(d)} ぶん外す必要がある</h3>
+      <p>1曲平均 ${fmt(per)} なので、およそ ${k} 曲。まず削り代で稼げる分を確かめる</p></div>
+      <span class="go">削り代と候補 →</span>`;
+  } else if(cls === "under"){
+    r.dataset.q = "候補を出して";
+    r.innerHTML = `<div><h3>${fmt(-d)} 足りない</h3>
+      <p>およそ ${k} 曲ぶん。プレイリストに合う曲をコレクションから探す</p></div>
+      <span class="go">足す候補 →</span>`;
+  } else {
+    r.dataset.q = "";
+    r.innerHTML = `<div><h3>目標の範囲に収まっている</h3>
+      <p>展開の山谷を詳細で確認してから、rekordbox で USB 書き出しへ</p></div>
+      <span class="go">詳細を見る →</span>`;
+  }
+}
+$("reco").addEventListener("click", ()=>{
+  const q = $("reco").dataset.q;
+  if(!q){ setView("detail"); return; }
+  openDrawer(true);
+  $("askText").value = q;
+  send();
+});
+
+/* The running order, as a list: what plays, how long, and where the clock is
+   when it ends. Phrase colours stay in the detail view. */
+function renderList(){
+  const tgt = ST.target_s || 0;
+  let h = `<div class="list-h"><span>#</span><span>曲</span><span>尺</span><span>累積</span></div>`;
+  for(const t of ST.tracks){
+    const cls = "row" + (tgt && t.end_s > tgt + ST.tolerance_s ? " past" : "") +
+                (t.milestone_s != null ? " mile" : "");
+    const tag = t.phrases.length ? "" : `<small>解析なし</small>`;
+    h += `<div class="${cls}" data-i="${t.i}" data-sel="${t.i === ST.selected ? 1 : 0}"
+            title="${esc(t.title)} · ${t.bpm} BPM${t.set_tempo !== t.bpm ? " → " + t.set_tempo : ""} · ${esc(t.preset)}">
+      <span class="n">${t.i+1}</span>
+      <span class="t">${esc(t.title)}${tag}</span>
+      <span class="d">${fmt(t.play_s)}</span>
+      <span class="at">${fmt(t.end_s)}</span></div>`;
+  }
+  $("list").innerHTML = h;
+}
+$("list").addEventListener("click", e=>{
+  const r = e.target.closest(".row"); if(!r) return;
+  selectTrack(+r.dataset.i);
+});
+
+/* Freshness: the set on screen is a reading of master.db at one moment. Say
+   when, and whether rekordbox is open (its newest edits may still sit in the
+   WAL). Auto-refresh comes next; this button is the honest version until then. */
+let FRESH = {state: "fresh", rb: null};   /* fresh | stale | wal */
+function renderFresh(){
+  const at = LOADED_AT ? LOADED_AT.toLocaleTimeString("ja-JP", {hour:"2-digit", minute:"2-digit"}) : "—";
+  const rb = FRESH.rb != null ? FRESH.rb : (BOOT && BOOT.rekordbox_running);
+  const b = $("rescan");
+  let msg;
+  if(FRESH.state === "stale"){
+    msg = `rekordbox の変更を検出 — 反映していない`;
+    b.className = "btn primary"; b.textContent = "反映する";
+  } else if(FRESH.state === "wal"){
+    msg = `rekordbox に未保存の編集がある（まだ読めない）`;
+    b.className = "btn"; b.textContent = "rekordbox の編集を反映";
+  } else {
+    msg = `${at} 時点の rekordbox ライブラリ` + (rb ? " · rekordbox 起動中" : "");
+    b.className = "btn"; b.textContent = "rekordbox の編集を反映";
+  }
+  $("freshTxt").innerHTML = `<span class="dot${FRESH.state !== "fresh" || rb ? " rb" : ""}"></span>${msg}`;
+}
+
+/* Semi-automatic refresh (§5-1 b + mtime): poll master.db / -wal, and check on
+   every window focus, since the DJ comes back here right after editing in
+   rekordbox. A readable change reloads by itself when nothing in this app
+   would be lost; otherwise it lights the button and waits. */
+let LIB_SIG = null, pollTimer = null, polling = false;
+async function pollLibrary(){
+  if(polling || !ST || !$("curtain").hidden) return;
+  polling = true;
+  try {
+    const c = await window.pywebview.api.library_changed();
+    if(!c || !c.ready) return;
+    FRESH.rb = c.rekordbox_running;
+    if(!LIB_SIG){ LIB_SIG = c; renderFresh(); return; }
+    const dbChanged = c.db !== LIB_SIG.db, walChanged = c.wal !== LIB_SIG.wal;
+    if(dbChanged){
+      const busy = drag || knobDrag || !$("modal").hidden || (ST.agent && ST.agent.pending);
+      if(!c.edited && !busy){
+        LIB_SIG = c;
+        await refreshFromRekordbox("rekordbox の編集を反映した");
+        return;
+      }
+      FRESH.state = "stale";
+    } else if(walChanged && FRESH.state === "fresh"){
+      FRESH.state = "wal";
+    }
+    LIB_SIG = {...c, wal: c.wal};
+    renderFresh();
+  } catch(e){ /* a failed poll is not news */ }
+  finally { polling = false; }
+}
+async function refreshFromRekordbox(note){
+  $("curtain").hidden = false; $("cTitle").textContent = "rekordbox の編集を読み直している…";
+  $("cMsg").textContent = "master.db を再度読んでセットを組み直す。";
+  const s = await window.pywebview.api.rescan();
+  LOADED_AT = new Date(); FRESH.state = "fresh"; LIB_SIG = null;
+  apply(s, true);
+  if(note && s && s.tracks) toast(note);
+}
+function startPolling(){
+  clearInterval(pollTimer);
+  pollTimer = setInterval(pollLibrary, 5000);
+  window.addEventListener("focus", pollLibrary);
+  document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) pollLibrary(); });
+}
+
+/* ---------------- detail view ---------------- */
+/* the waterfall: what trimming can actually buy, against the gap */
+function renderReality(){
+  const tgt = ST.target_s || 0, tot = ST.total_s;
+  const over = Math.max(0, tot - tgt);
   const r = $("reality"), trims = ST.trims || [], sum = ST.trim_total_s || 0;
   if(over <= 0){
     r.className = "reality";
@@ -864,7 +1097,7 @@ window.addEventListener("resize", ()=>{
 let drag = null;
 function selectTrack(i){
   ST.selected = i;
-  document.querySelectorAll(".trk").forEach(x => x.dataset.sel = (+x.dataset.i === i) ? 1 : 0);
+  document.querySelectorAll(".trk,.row").forEach(x => x.dataset.sel = (+x.dataset.i === i) ? 1 : 0);
   renderSelected();
   window.pywebview.api.select(i);
 }
@@ -993,63 +1226,9 @@ document.querySelectorAll(".lk").forEach(c =>
   c.addEventListener("change", async ()=>
     apply(await window.pywebview.api.set_lock(ST.selected, c.dataset.lock, c.checked))));
 
-/* ---- XML export: show what actually lands there before writing ---- */
-$("export").addEventListener("click", async ()=>{
-  const p = await window.pywebview.api.export_preview();
-  if(p.error){ toast(p.error); return; }
-  modal("書き出す前に — 何が rekordbox に渡るか",
-    `<pre>${esc(p.text)}</pre>`,
-    [{label:"やめる"},
-     {label:"書き出す", primary:true, run: doExport}]);
-});
-async function doExport(){
-  const r = await window.pywebview.api.export_xml(null);
-  if(r.error){ toast(r.error); return; }
-  if(r.notice && !r.path){ toast(r.notice); return; }
-  modal("書き出した — rekordbox 側の手順",
-    `<p><span class="num">${esc(r.path)}</span> に書いた。rekordbox はこの3手順を踏まないと読まない。</p>
-     <ol class="steps">
-       <li>rekordbox の <b>環境設定 &gt; 詳細 &gt; データベース &gt; rekordbox xml</b> で、
-           読み込み用ライブラリにこのファイルを指定する<span class="hint">（初回だけ。以降は不要）</span></li>
-       <li><b>rekordbox を再起動する</b>（起動時にしか読まない。ツリーの再読込では反映されない）
-           <span class="hint">— 下の「rekordbox を再起動」で代行できる</span></li>
-       <li>ブラウザ左のアイコンレールで <b>「rekordbox xml を表示」</b> をオンにする</li>
-     </ol>
-     <p class="hint warn">取り込んだ曲をデッキに載せると「コレクションに追加するか」を訊かれる。
-        Yes を押すと自分のライブラリが書き換わる。</p>`,
-    [{label:"わかった"},
-     {label:"rekordbox を再起動", primary:true, close:false, run:()=>doRestart(false)}]);
-}
-
-/* Automate the one manual step that can be automated: the relaunch. rekordbox
-   reads the exported XML only at startup. Never force-quits past an unsaved
-   prompt without a second, explicit confirm. */
-async function doRestart(force){
-  $("mActions").innerHTML =
-    `<span class="hint">${force ? "強制終了して再起動中…" : "rekordbox を再起動中…"}</span>`;
-  let r;
-  try { r = await window.pywebview.api.restart_rekordbox(!!force); }
-  catch(e){ r = {error:String(e)}; }
-  if(r && r.ok){
-    closeModal();
-    toast(r.action === "launched" ? "rekordbox を起動した — 起動後 XML が読み込まれる"
-                                  : "rekordbox を再起動した — 起動後 XML が読み込まれる");
-    return;
-  }
-  if(r && r.action === "still_running"){
-    modal("rekordbox が終了しなかった",
-      `<p>${esc(r.error || "")}</p>
-       <p class="hint warn">未保存の作業があるなら、rekordbox 側で保存してから手で閉じてくれ。
-          強制終了すると未保存の編集は失われる。</p>`,
-      [{label:"手で閉じる（やめる）"},
-       {label:"強制終了して再起動", danger:true, close:false, run:()=>doRestart(true)}]);
-    return;
-  }
-  modal("再起動できなかった",
-    `<p>${esc((r && r.error) || "原因不明")}</p>
-     <p class="hint">rekordbox を手で起動すれば、書き出した XML は次回起動時に読み込まれる。</p>`,
-    [{label:"わかった", primary:true}]);
-}
+/* XML export and the rekordbox relaunch helper left the UI on 2026-09-16:
+   Set Agent is read-only now. api.export_* / api.restart_rekordbox still
+   exist in Python, unused. */
 
 /* ---- settings: the LLM key, and the invariant that it is optional ---- */
 $("settings").addEventListener("click", async ()=>{
@@ -1103,10 +1282,7 @@ $("curve").addEventListener("change", async ()=>
   apply(await window.pywebview.api.set_curve($("curve").value)));
 $("undo").addEventListener("click", async ()=> apply(await window.pywebview.api.undo()));
 $("redo").addEventListener("click", async ()=> apply(await window.pywebview.api.redo()));
-$("rescan").addEventListener("click", async ()=>{
-  $("curtain").hidden = false; $("cTitle").textContent = "再スキャンしている…";
-  apply(await window.pywebview.api.rescan(), true);
-});
+$("rescan").addEventListener("click", ()=> refreshFromRekordbox(null));
 $("cRetry").addEventListener("click", ()=>{ $("cRetry").hidden = true; boot(); });
 
 /* ---- agent drawer ---- */

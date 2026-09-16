@@ -33,7 +33,7 @@ PROBE = """
     viewport: [innerWidth, innerHeight],
     dpr: devicePixelRatio,
     bar:       box('.bar'),
-    verdict:   box('.verdict'),
+    hero:      box('.hero-block'),
     transport: box('.transport'),
     scroll:    box('#scroll'),
     tracks:    box('#tracks'),
@@ -49,7 +49,7 @@ PROBE = """
     noAnalysis:  document.querySelectorAll('.trk .none').length,
     hero: (document.getElementById('hero')||{}).textContent,
     canvasWidth: Math.round((document.getElementById('canvas')||{}).clientWidth || 0),
-    controls: ['export','settings','tPreset','tTempo','tMile'].filter(
+    controls: ['settings','tPreset','tTempo','tMile','reco','list'].filter(
       id => !document.getElementById(id)),
   };
 })()
