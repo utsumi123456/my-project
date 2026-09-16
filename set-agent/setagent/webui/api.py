@@ -28,9 +28,9 @@ from setagent.analysis.curve import TEMPLATE_LABELS, TargetCurve, template
 from setagent.analysis.phrases import PRESET_CONFIG, preset_range
 from setagent.analysis.removal import pick_removals, removal_candidates
 from setagent.analysis.timing import fmt
-from setagent.domain.draft import (History, LockedError, Move, SetDraft, SetLock,
-                                   SetMilestone, SetRange, SetTargetLength, SetTempo,
-                                   TrackEntry)
+from setagent.domain.draft import (History, LockedError, Move, SetBpmChange, SetDraft,
+                                   SetLock, SetMilestone, SetRange, SetSetBpm,
+                                   SetTargetLength, SetTempo, TrackEntry)
 from setagent.rekordbox import xml_export
 from setagent.rekordbox.library import (Library, LibraryNotFound, PhraseStatus,
                                         rekordbox_running)
@@ -44,7 +44,7 @@ from setagent.webui import state as viewstate
 # responsive because the JS side is promise-based either way.
 _SERIAL = ("boot", "load", "state", "select", "set_curve", "set_milestone",
            "set_preset", "set_range", "set_tempo", "set_lock", "move", "set_target",
-           "undo", "redo", "rescan",
+           "undo", "redo", "rescan", "set_set_bpm", "set_bpm_change",
            "move_curve_point", "add_curve_point", "remove_curve_point",
            "export_preview", "export_xml", "llm_status", "set_llm",
            "agent_status", "set_level", "ask", "insert_candidate",
@@ -67,6 +67,7 @@ class Api:
         self.preset = self.cfgfile.preset
         self.cap32 = self.cfgfile.cap32
         self.target_s = 60 * 60
+        self.set_bpm: float | None = self._parse_bpm(self.cfgfile.set_bpm)
         self.selected: int | None = None
         self.plog = ProposalLog()
         self.tools = None
@@ -113,6 +114,7 @@ class Api:
             "preset": self.preset,
             "cap32": self.cap32,
             "target_s": self.target_s,
+            "set_bpm": self.set_bpm,
             "rekordbox_running": rekordbox_running(),
         }
 
@@ -142,6 +144,8 @@ class Api:
         d = SetDraft(name=pl.name, tracks=[TrackEntry(i) for i in pl.track_ids])
         h = History(d)
         h.run(SetTargetLength(self.target_s, 60))
+        if self.set_bpm:
+            h.run(SetSetBpm(self.set_bpm))
 
         cfg = dict(PRESET_CONFIG)
         if self.cap32:
@@ -320,6 +324,46 @@ class Api:
         # the list being reordered under it.
         return self._run(lambda e: Move(e.track_id, int(to)), index)
 
+    # ------------------------------------------------------------ set tempo
+    # The set's BPM (2026-09-16 review). The prediction scales every track to
+    # it unless the DJ typed a tempo for that track. Change points ("from this
+    # track on, 170") ride on the track id, so reordering keeps them.
+    @staticmethod
+    def _parse_bpm(v) -> float | None:
+        try:
+            b = float(str(v).strip()) if v not in (None, "") else None
+        except ValueError:
+            return None
+        return b if b and 40 <= b <= 300 else None
+
+    def set_set_bpm(self, bpm) -> dict:
+        v = self._parse_bpm(bpm)
+        if bpm not in (None, "") and v is None:
+            return {**self.state(), "notice": "BPM は 40〜300 の数字で入力してください"}
+        self.set_bpm = v
+        if not self.history:
+            self._persist_set_bpm()
+            return {"set_bpm": v}
+        self.history.run(SetSetBpm(v))
+        self._persist_set_bpm()
+        return self.state()
+
+    def _persist_set_bpm(self) -> None:
+        """Remember the set BPM the draft actually has (undo can move it)."""
+        v = self.draft.constraints.set_bpm if self.draft else self.set_bpm
+        self.set_bpm = v
+        self.cfgfile.set_bpm = "" if v is None else (str(int(v)) if v == int(v) else str(v))
+        try:
+            self.cfgfile.save()
+        except Exception:
+            pass
+
+    def set_bpm_change(self, index, bpm) -> dict:
+        v = None if bpm in (None, "") else self._parse_bpm(bpm)
+        if bpm not in (None, "") and v is None:
+            return {**self.state(), "notice": "BPM は 40〜300 の数字で入力してください"}
+        return self._run(lambda e: SetBpmChange(e.track_id, v), index)
+
     def set_target(self, seconds) -> dict:
         self.target_s = int(seconds)
         if not self.history:
@@ -329,11 +373,13 @@ class Api:
 
     def undo(self) -> dict:
         if self.history and self.history.undo():
+            self._persist_set_bpm()
             return self.state()
         return {**self.state(), "notice": "これ以上戻せません"}
 
     def redo(self) -> dict:
         if self.history and self.history.redo():
+            self._persist_set_bpm()
             return self.state()
         return {**self.state(), "notice": "これ以上やり直せません"}
 

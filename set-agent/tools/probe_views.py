@@ -62,6 +62,9 @@ MAIN = "(() => {" + BOX + """
     gone: ['plName','freshTxt','rescan','warns'].filter(id => document.getElementById(id)),
     /* reading order: conditions above the hero, hero above the card and list */
     order: ['.cond-row','.hero-block','#reco','#listBlock'].map(sel => box(sel)?.top),
+    setBpm: {value: document.getElementById('setBpm').value, st: ST && ST.set_bpm,
+             varOn: document.getElementById('bpmVar').checked, panelHidden: document.getElementById('bpmv').hidden,
+             changes: (ST && ST.bpm_changes || []).map(c => c.i + ':' + c.bpm)},
     boxes: {bar: box('.bar'), main: box('#main'), hero: box('.hero-block'),
             reco: box('#reco'), conds: box('.cond-row'), list: box('#listBlock')},
     detailHidden: document.getElementById('detail').hidden,
@@ -85,6 +88,11 @@ DETAIL = "(() => {" + BOX + """
     hatched: document.querySelectorAll('.trk .none').length,
     legendItems: [...document.querySelectorAll('.legend .lg')].map(e => e.textContent.trim()).filter(Boolean),
     warnsGone: !document.getElementById('warns'),
+    zoomButtons: [...document.querySelectorAll('[data-zoom]')].map(b => b.dataset.zoom + '=' + b.textContent),
+    labelledBlocks: document.querySelectorAll('.trk .trk-t').length,
+    analysisMeta: (document.getElementById('analysisMeta')||{}).textContent,
+    realityHidden: document.querySelector('.reality-row').hidden,
+    editGone: !document.getElementById('selEdit'),
     sectionRows: document.querySelectorAll('.sec').length,
     canvasWidth: Math.round(document.getElementById('canvas').clientWidth),
     minimapChildren: document.getElementById('minimap').children.length,
@@ -147,10 +155,44 @@ def run(window):
         bad = [k for k, v in lanes.items() if not (v and v["onscreen"])]
         print("\nTier lanes off screen in detail:", bad or "none")
 
+        # at the detail density every block carries its number and name
+        window.evaluate_js("document.querySelector('[data-zoom=detail]').click()")
+        time.sleep(0.8)
+        print("detail zoom labels:", window.evaluate_js(
+            "({blocks: document.querySelectorAll('.trk').length, labelled: document.querySelectorAll('.trk .trk-t').length,"
+            "  first: (document.querySelector('.trk .trk-t')||{}).textContent})"))
+        window.evaluate_js("document.querySelector('[data-zoom=section]').click()")
+
         window.evaluate_js("document.querySelector('[data-view=main]').click()")
         time.sleep(0.3)
         print("back to main, detail hidden:",
               window.evaluate_js("document.getElementById('detail').hidden"))
+
+        # set tempo: 160 for the whole set, then a change point from track 4 on
+        hero0 = window.evaluate_js("document.getElementById('hero').textContent")
+        window.evaluate_js("const e=document.getElementById('setBpm'); e.value='160'; e.dispatchEvent(new Event('change'))")
+        time.sleep(2.5)
+        print("set BPM 160:", json.dumps(window.evaluate_js("""({
+            hero: document.getElementById('hero').textContent, was: %r,
+            sub: document.getElementById('heroSub').textContent.replace(/\\s+/g,' ').trim(),
+            tempos: [...new Set(ST.tracks.map(t => t.set_tempo))]})""" % hero0), ensure_ascii=False))
+        window.evaluate_js("document.getElementById('bpmVar').click()")
+        time.sleep(0.5)
+        window.evaluate_js("document.getElementById('cpTrack').value='3'; document.getElementById('cpBpm').value='170';"
+                           "document.getElementById('cpAdd').click()")
+        time.sleep(2.5)
+        print("change point:", json.dumps(window.evaluate_js("""({
+            hero: document.getElementById('hero').textContent,
+            panelHidden: document.getElementById('bpmv').hidden,
+            rows: document.querySelectorAll('#cpList .cp').length,
+            tempos: ST.tracks.slice(0,6).map(t => t.set_tempo),
+            changes: ST.bpm_changes})"""), ensure_ascii=False))
+        window.evaluate_js("document.getElementById('undo').click()")
+        time.sleep(2)
+        window.evaluate_js("const e=document.getElementById('setBpm'); e.value=''; e.dispatchEvent(new Event('change'))")
+        time.sleep(2.5)
+        print("cleared:", window.evaluate_js(
+            "({hero: document.getElementById('hero').textContent, st: ST.set_bpm, changes: ST.bpm_changes.length})"))
     except Exception as ex:
         print("probe failed:", type(ex).__name__, ex)
     finally:

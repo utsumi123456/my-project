@@ -67,13 +67,17 @@ def compute(draft: SetDraft, src: TrackSource) -> Timeline:
     placements: list[Placement] = []
     warnings: list[str] = []
     cursor = 0.0
+    c0 = draft.constraints
+    running = c0.set_bpm                     # the set tempo in force; changes per track
     for i, e in enumerate(draft.tracks):
         t = src.track(e.track_id)
         w: list[str] = []
         bpm = t.bpm or 0.0
         if bpm <= 0:
             w.append("no BPM in rekordbox; tempo scaling disabled")
-        set_tempo = e.tempo or bpm or 1.0
+        running = c0.bpm_from(e.track_id, running)
+        # a per-track tempo the DJ typed wins; then the set tempo; then the track's own
+        set_tempo = e.tempo or running or bpm or 1.0
         out_ms = e.play_out_ms if e.play_out_ms is not None else t.length_s * 1000
         src_len_s = max(0.0, (out_ms - e.play_in_ms) / 1000.0)
         play_s = src_len_s * (bpm / set_tempo) if bpm > 0 else src_len_s

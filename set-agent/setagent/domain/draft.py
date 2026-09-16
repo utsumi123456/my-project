@@ -44,6 +44,16 @@ class Constraints:
     preset: Preset = "full"
     theme: str = ""
     default_overlap_bars: int = 8
+    # The tempo the set is played at (2026-09-16 review): a 140 BPM track in a
+    # 160 BPM set runs 12.5% shorter, so without this the prediction is off.
+    # None = every track at its own BPM. `bpm_changes` marks tracks from which
+    # the set runs at a new tempo (keyed by track id so reordering keeps it).
+    set_bpm: float | None = None
+    bpm_changes: dict[str, float] = field(default_factory=dict)
+
+    def bpm_from(self, track_id: str, current: float | None) -> float | None:
+        """The set tempo in force once `track_id` starts."""
+        return self.bpm_changes.get(track_id, current)
 
 
 @dataclass
@@ -151,6 +161,21 @@ class SetLock(Command):
     def apply(self, d):
         t = d.tracks[d.find(self.ref)]
         (t.locks.add if self.on else t.locks.discard)(self.target)
+
+
+class SetSetBpm(Command):
+    """The whole set's tempo. None returns every track to its own BPM."""
+    def __init__(self, bpm: float | None): super().__init__(); self.bpm = bpm
+    def apply(self, d): d.constraints.set_bpm = self.bpm
+
+
+class SetBpmChange(Command):
+    """From `ref` onwards the set runs at `bpm`; None removes that change point."""
+    def __init__(self, ref: str, bpm: float | None): super().__init__(); self.ref, self.bpm = ref, bpm
+    def apply(self, d):
+        tid = d.tracks[d.find(self.ref)].track_id
+        if self.bpm is None: d.constraints.bpm_changes.pop(tid, None)
+        else: d.constraints.bpm_changes[tid] = self.bpm
 
 
 class SetTargetLength(Command):

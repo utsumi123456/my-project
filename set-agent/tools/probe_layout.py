@@ -49,7 +49,7 @@ PROBE = """
     noAnalysis:  document.querySelectorAll('.trk .none').length,
     hero: (document.getElementById('hero')||{}).textContent,
     canvasWidth: Math.round((document.getElementById('canvas')||{}).clientWidth || 0),
-    controls: ['settings','tPreset','tTempo','tMile','reco','list'].filter(
+    controls: ['settings','setBpm','bpmVar','reco','list'].filter(
       id => !document.getElementById(id)),
   };
 })()

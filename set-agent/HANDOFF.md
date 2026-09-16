@@ -1,5 +1,50 @@
 # Set Agent — 引き継ぎメモ
 
+## 2026-09-16 追記（深夜） — セット BPM で尺を補正、レビュー第 2 弾の細部
+
+**気づきへの回答: 予測時間はこれまで「各曲を原曲 BPM でかける」前提だった。** 曲ごとの手動テンポ
+（`TrackEntry.tempo`）はあったが、セット全体の BPM を持っていなかったので、140 BPM の曲を 160 の
+セットでかける場面では実測と 12.5% ずれる。今回入れたもの:
+- `Constraints.set_bpm`（None = 原曲どおり）と `Constraints.bpm_changes: {track_id: bpm}`
+  （「この曲から X BPM」。track_id キーなので並べ替えても曲に付いて動く）。コマンド `SetSetBpm` /
+  `SetBpmChange`（History 経由、undo 可）。`timing.compute` の優先順は **曲ごとの手動テンポ → 変化点／
+  セット BPM → 原曲 BPM**。テスト `tests/test_timing.py::SetTempoTests`（5 件）。
+- 条件行に **Set BPM**（空欄 = 原曲のまま。`Settings.set_bpm` に文字列で保存、40〜300 のみ受理）と
+  **「BPM 変化あり」スイッチ**。オンで下に変化点パネル（曲を選んで BPM を入力 → 追加／外す）。
+  タブではなくインライン展開にした（縦長パネルにタブを増やすより読む流れを崩さない）。オフにすると
+  変化点を全部外す。hero の下に「@ 160 BPM →変化あり」か「原曲 BPM」のチップ。
+- 実測 acid: 原曲 137:18 → Set BPM 160 で **124:59**（全曲 set_tempo 160）→ 4 曲目から 170 で 117:51
+  → undo・空欄で 137:18 に復帰。`probe_views` に往復を追加。
+
+**細かな修正:**
+- 凡例の「N曲中 N曲にフレーズ解析あり」→ **解析なしの曲があるときだけ**「N曲中 M曲にフレーズ解析なし」。
+- 削り代カードの「目標の範囲に入っています…」→ 目標内なら **行ごと非表示**。
+- TRACKS の曲名 → **「詳細」密度のときだけ全ブロックに「No. 曲名」**。36px では出さない（出る箱と出ない箱が
+  混ざるのをやめた）。尺・BPM の 2 行目は撤去。
+- ズーム「全体（3px/分）」を **廃止**。旧「区間（36px）」を「全体」、96px を「詳細」の 2 段に。
+  ミニマップが全体像の役。`DENSITY` から overview を消したので `mode` に "overview" は来ない。
+- 詳細の最下段 **インスペクタ編集欄（Mix / Tempo / マイルストーン / ロック）を撤去**。読み取り
+  （位置・再生・BPM・Mix・フレーズ・構成を見る）だけ残した。**注意:** これで UI からマイルストーンと
+  ロックを付ける手段が無くなった。`api.set_milestone` / `set_lock` / `set_preset` / `set_tempo` は
+  残っており、`probe_actions` は bridge 直叩きに書き換えた。SECTIONS レーンは当面 1 区間のまま。
+  マイルストーンを UI に戻すなら、曲リストの行メニュー（右クリック）あたりが候補。
+- `probe_actions` は XML 書き出しボタン（前回撤去済み）も参照していて元から壊れていた。合わせて直した。
+
+**検証済み:** テスト 157 件 OK。`probe_views` acid（Set BPM 往復・詳細密度で 96/96 ブロックにラベル・
+凡例カウント空・インスペクタ編集欄なし）と 15min_mix（目標内で削り代行が非表示）、`probe_actions`
+（bridge 経由の preset/milestone/lock、Set BPM 160 → 131:59、undo で復帰、ドラッグ並べ替え OK）。
+exe は `python build.py` で再ビルド済み。
+
+**地雷（今回）:**
+- `Library` の復号キャッシュは `%LOCALAPPDATA%\SetAgent\cache\master_plain.db` の **固定パス**。probe と
+  unittest を同時に走らせると片方が `database disk image is malformed` になる（probe_actions で踏んだ）。
+  **probe は 1 本ずつ、テストと並走させない。**
+- `probe_actions` のドラッグは `ra.left + 4` から掴んでいて、端トリム（7px）に取られていた。中央から掴むように直した。
+- `set_set_bpm` は settings に即保存するので、undo で戻しても保存値が残る → `_persist_set_bpm()` を
+  undo/redo でも呼び、draft の値に揃えるようにした。
+
+---
+
 ## 2026-09-16 追記（夜） — レビュー反映: 読む順番・重複除去・候補リスト・2 色レーン
 
 ユーザーのレビュー（成果物は理想に近づいている。項目の意味が分からない箇所と表示順が主な指摘）を

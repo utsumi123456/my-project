@@ -21,11 +21,11 @@ sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 SNAP = """({
   title: (document.getElementById('selTitle')||{}).textContent,
-  editShown: !document.getElementById('selEdit').hidden,
-  preset: document.getElementById('tPreset').value,
-  tempo: document.getElementById('tTempo').value,
-  mile: document.getElementById('tMile').checked,
-  locks: [...document.querySelectorAll('.lk')].filter(c=>c.checked).map(c=>c.dataset.lock),
+  preset: (ST && ST.tracks.find(t => t.i === ST.selected) || {}).preset,
+  tempo: (ST && ST.tracks.find(t => t.i === ST.selected) || {}).set_tempo,
+  mile: (ST && ST.tracks.find(t => t.i === ST.selected) || {}).milestone_s != null,
+  locks: (ST && ST.tracks.find(t => t.i === ST.selected) || {locks: []}).locks,
+  setBpm: ST && ST.set_bpm,
   hero: document.getElementById('hero').textContent,
   mileMarks: document.querySelectorAll('.mile').length,
   selected: document.querySelectorAll('.trk[data-sel="1"]').length,
@@ -73,18 +73,23 @@ def run(window):
         settle()
         steps.append(("6曲目をクリックして選択", js(SNAP)))
 
-        js(FIRE % ("tPreset", "e.value='short'"))
+        # the per-track edit controls left the panel (2026-09-16); the commands
+        # still exist on the bridge, which is what the agent's Change Sets use
+        js("(async()=>apply(await window.pywebview.api.set_preset(ST.selected, 'short')))()")
         settle(2.5)
-        steps.append(("プリセットを short に", js(SNAP)))
+        steps.append(("プリセットを short に（bridge）", js(SNAP)))
 
-        js(FIRE % ("tMile", "e.checked=true"))
+        js("(async()=>apply(await window.pywebview.api.set_milestone(ST.selected, 600)))()")
         settle(2.5)
-        steps.append(("マイルストーンをオン", js(SNAP)))
+        steps.append(("マイルストーンをオン（bridge）", js(SNAP)))
 
-        js("const c = document.querySelectorAll('.lk')[0]; c.checked = true;"
-           "c.dispatchEvent(new Event('change', {bubbles:true}));")
+        js("(async()=>apply(await window.pywebview.api.set_lock(ST.selected, 'position', true)))()")
         settle(2.5)
-        steps.append(("位置をロック", js(SNAP)))
+        steps.append(("位置をロック（bridge）", js(SNAP)))
+
+        js(FIRE % ("setBpm", "e.value='160'"))
+        settle(2.5)
+        steps.append(("Set BPM を 160 に", js(SNAP)))
 
         js("document.getElementById('undo').click()")
         settle(2.5)
@@ -96,13 +101,9 @@ def run(window):
         js("document.querySelector('#mActions button').click()")   # やめる
         settle(0.8)
 
-        js("document.getElementById('export').click()")
-        settle(3.0)
-        steps.append(("XML書き出しのプレビュー", js(SNAP)))
-        js("document.querySelector('#mActions button').click()")   # やめる
-        settle(0.8)
-
-        js("document.querySelectorAll('[data-zoom]')[2].click()")
+        js("setView('detail')")            # the lanes live in the detail view now
+        settle(1.0)
+        js("document.querySelectorAll('[data-zoom]')[1].click()")
         settle(2.0)
         steps.append(("詳細ズーム", js(
             "Object.assign(" + SNAP + ", {"
@@ -121,7 +122,7 @@ def run(window):
           const host = document.getElementById('tracks');
           const ev = (t, x, el) => el.dispatchEvent(new PointerEvent(t,
               {bubbles: true, clientX: x, clientY: ra.top + 12, pointerId: 1}));
-          ev('pointerdown', ra.left + 4, a);
+          ev('pointerdown', ra.left + ra.width / 2, a);   // mid-block: the 7px edge zone would trim, not move
           ev('pointermove', rb.left + rb.width - 3, host);
           ev('pointerup',  rb.left + rb.width - 3, host);
           return true;

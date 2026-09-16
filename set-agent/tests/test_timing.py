@@ -2,8 +2,8 @@ import unittest
 from dataclasses import dataclass
 
 from setagent.domain.draft import (History, Insert, LockedError, Move, Remove, SetDraft,
-                                   SetLock, SetRange, SetTargetLength, SetTempo, SetTransition,
-                                   TrackEntry)
+                                   SetBpmChange, SetLock, SetRange, SetSetBpm, SetTargetLength,
+                                   SetTempo, SetTransition, TrackEntry)
 from setagent.analysis.timing import compute, fmt, simulate, trim_candidates
 
 
@@ -95,3 +95,47 @@ class TimingTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SetTempoTests(unittest.TestCase):
+    """The set's own BPM (2026-09-16 review): a slower track played in a faster
+    set gets shorter, and the prediction has to say so."""
+
+    def test_set_bpm_scales_every_track(self):
+        d = draft("a", "c")                       # 160 and 170 BPM sources
+        d.constraints.set_bpm = 180.0
+        tl = compute(d, SRC)
+        self.assertAlmostEqual(tl.placements[0].play_s, 300 * 160 / 180, places=3)
+        self.assertAlmostEqual(tl.placements[1].play_s, 200 * 170 / 180, places=3)
+        self.assertEqual(tl.placements[0].set_tempo, 180.0)
+
+    def test_per_track_tempo_overrides_set_bpm(self):
+        d = draft("a", "b")
+        d.constraints.set_bpm = 180.0
+        d.tracks[1].tempo = 150.0
+        tl = compute(d, SRC)
+        self.assertEqual(tl.placements[0].set_tempo, 180.0)
+        self.assertEqual(tl.placements[1].set_tempo, 150.0)
+
+    def test_change_point_applies_from_that_track_on(self):
+        d = draft("a", "b", "c")
+        h = History(d)
+        h.run_all([SetSetBpm(150.0), SetBpmChange("b", 170.0)])
+        tempos = [p.set_tempo for p in compute(d, SRC).placements]
+        self.assertEqual(tempos, [150.0, 170.0, 170.0])
+        h.run(Move("b", 2))                       # a, c, b: the change travels with the track
+        tempos = [p.set_tempo for p in compute(d, SRC).placements]
+        self.assertEqual(tempos, [150.0, 150.0, 170.0])
+        h.run(SetBpmChange("b", None))
+        self.assertEqual({p.set_tempo for p in compute(d, SRC).placements}, {150.0})
+
+    def test_no_set_bpm_means_each_track_at_its_own(self):
+        d = draft("a", "c")
+        tempos = [p.set_tempo for p in compute(d, SRC).placements]
+        self.assertEqual(tempos, [160.0, 170.0])
+
+    def test_set_bpm_is_undoable(self):
+        d = draft("a"); h = History(d)
+        h.run(SetSetBpm(180.0)); h.undo()
+        self.assertIsNone(d.constraints.set_bpm)
+        self.assertEqual(compute(d, SRC).placements[0].set_tempo, 160.0)

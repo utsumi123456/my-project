@@ -280,6 +280,19 @@ button,select,input{font-family:inherit;font-size:13px}
   border:1px solid var(--line);border-radius:3px;padding:4px 7px}
 .cond-row input[type=text]{width:70px;font-family:var(--mono);text-align:center}
 .list-note{margin:0 0 var(--s2);font-size:12px;color:var(--ink-2)}
+/* BPM change points: "from track N on, the set runs at X" */
+.bpmv{margin-top:var(--s2);border:1px solid var(--line-soft);border-radius:4px;padding:var(--s2) var(--s3);
+  display:flex;flex-direction:column;gap:6px;background:var(--sunken)}
+.bpmv .cp{display:grid;grid-template-columns:minmax(0,1fr) 64px auto;gap:var(--s2);align-items:center;font-size:12px}
+.bpmv .cp .t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink-2)}
+.bpmv .cp b{font-family:var(--mono);font-weight:600;text-align:right}
+.bpmv .cp .btn{padding:2px 8px;font-size:11px}
+.bpmv .addcp{display:grid;grid-template-columns:minmax(0,1fr) 64px auto;gap:var(--s2);align-items:center}
+.bpmv select,.bpmv input[type=text]{background:var(--raised);color:var(--ink);border:1px solid var(--line);
+  border-radius:3px;padding:3px 6px;font-size:12px;min-width:0}
+.bpmv input[type=text]{font-family:var(--mono);text-align:center}
+.bpmv .none-yet{font-size:11px;color:var(--ink-3);margin:0}
+.pill.bpm{color:var(--ink);background:var(--raised)}
 .list{display:flex;flex-direction:column;border:1px solid var(--line-soft);border-radius:4px;overflow:hidden}
 .row,.list-h{display:grid;grid-template-columns:28px minmax(0,1fr) 56px 56px;gap:var(--s2);
   align-items:center;padding:4px var(--s3)}
@@ -353,6 +366,18 @@ button,select,input{font-family:inherit;font-size:13px}
         <label id="cap32Lbl"
           title="1ドロップ/2ドロップ のとき、32 小節を超える長いドロップを 32 小節で切り上げます（コーラス 1 つが曲の大半を占める曲向け）">
           <input type="checkbox" id="cap32"> ドロップ上限 32 小節</label>
+        <label title="セットをかける BPM。原曲の BPM と違う曲は尺が伸び縮みするので、予測時間に反映します。空欄なら各曲を原曲の BPM でかける前提">
+          Set BPM <input type="text" id="setBpm" placeholder="原曲のまま"></label>
+        <label id="bpmVarLbl" title="セットの途中で BPM を変えるとき。どの曲から何 BPM にするかを指定します">
+          <input type="checkbox" id="bpmVar"> BPM 変化あり</label>
+      </div>
+      <div class="bpmv" id="bpmv" hidden>
+        <div id="cpList"></div>
+        <div class="addcp">
+          <select id="cpTrack" title="この曲から BPM を変える"></select>
+          <input type="text" id="cpBpm" placeholder="BPM" title="この曲からの BPM">
+          <button class="btn" id="cpAdd" title="変化点を追加">追加</button>
+        </div>
       </div>
     </div>
 
@@ -381,9 +406,8 @@ button,select,input{font-family:inherit;font-size:13px}
   <!-- ===== detail view (Tier 2: on demand) ===== -->
   <section class="detail" id="detail" hidden>
   <div class="transport">
-    <div class="seg" role="group" aria-label="時間軸の密度" title="時間軸の密度。全体=1分3px / 区間=36px / 詳細=96px">
-      <button type="button" data-zoom="overview" aria-pressed="false">全体</button>
-      <button type="button" data-zoom="section" aria-pressed="true">区間</button>
+    <div class="seg" role="group" aria-label="時間軸の密度" title="時間軸の密度。全体=1分36px / 詳細=1分96px（曲名が出ます）。どちらも横スクロール">
+      <button type="button" data-zoom="section" aria-pressed="true">全体</button>
       <button type="button" data-zoom="detail" aria-pressed="false">詳細</button>
     </div>
     <span class="meta" id="density"></span>
@@ -414,20 +438,9 @@ button,select,input{font-family:inherit;font-size:13px}
 
   <div class="foot">
     <div>
-      <p class="eyebrow" title="選んだ曲の値と、Set Agent 内での試行（Mix・テンポ・マイルストーン・ロック）">選択中</p>
+      <p class="eyebrow" title="選んだ曲の位置・再生尺・BPM・フレーズ">選択中</p>
       <div id="selTitle" style="font-weight:600;font-size:13px">—</div>
       <dl class="kv" id="selKv"></dl>
-      <div class="edit" id="selEdit" hidden>
-        <label title="この曲だけ Mix の前提を変えます">Mix <select id="tPreset"></select></label>
-        <label title="この曲をかけるテンポ。空欄なら原曲の BPM">Tempo <input type="text" id="tTempo" placeholder="原曲のまま"> BPM</label>
-        <label title="マイルストーン: この曲が始まるべき目標時刻。区間の予算の区切りになります"><input type="checkbox" id="tMile"> マイルストーン
-          <input type="text" id="tMileAt" placeholder="mm:ss"></label>
-        <div class="locks" title="ロック: エージェントの提案でこの曲の位置・範囲・テンポを動かさない">
-          <label><input type="checkbox" class="lk" data-lock="position"> 位置</label>
-          <label><input type="checkbox" class="lk" data-lock="range"> 範囲</label>
-          <label><input type="checkbox" class="lk" data-lock="tempo"> テンポ</label>
-        </div>
-      </div>
     </div>
   </div>
   </section>
@@ -472,7 +485,9 @@ button,select,input{font-family:inherit;font-size:13px}
 
 <script>
 const $ = id => document.getElementById(id);
-const DENSITY = {overview:3, section:36, detail:96};   /* px per minute */
+/* px per minute. The 3px "overview" left on 2026-09-16: it squeezed 137 minutes
+   into 400px and read as noise; the minimap already gives the whole-set view. */
+const DENSITY = {section:36, detail:96};
 const PH_COLOR = {intro:"var(--ph-intro)", up:"var(--ph-up)", chorus:"var(--ph-chorus)",
                   down:"var(--ph-down)", outro:"var(--ph-outro)", verse:"var(--ph-verse)"};
 let ST = null, BOOT = null, mode = "section", toastTimer = null;
@@ -510,7 +525,7 @@ async function boot(){
   }
   BOOT = b;
   PRESET_LABEL = b.preset_labels || {}; PRESET_HELP = b.preset_help || {};
-  $("tPreset").innerHTML = b.presets.map(popt).join("");
+  $("setBpm").value = b.set_bpm ? String(b.set_bpm) : "";
   $("pl").innerHTML = b.playlists.map(n=>`<option>${esc(n)}</option>`).join("");
   if(b.playlist) $("pl").value = b.playlist;
   $("preset").innerHTML = b.presets.map(popt).join("");
@@ -655,8 +670,12 @@ function renderHero(){
   const pill = cls === "over" ? `<span class="pill over">${fmt(d)} 超過</span>`
              : cls === "under" ? `<span class="pill under">${fmt(-d)} 不足</span>`
              : cls === "ok" ? `<span class="pill ok">目標内</span>` : "";
-  /* the target itself is read off the bar's scale below; here only the verdict */
-  $("heroSub").innerHTML = pill + `<span style="color:var(--ink-3)">${ST.tracks.length}曲</span>`;
+  /* the target itself is read off the bar's scale below; here only the verdict,
+     plus the tempo the prediction assumes, since that is what stretches it */
+  const bpm = ST.set_bpm ? `<span class="pill bpm" title="この BPM でかける前提の予測です">@ ${ST.set_bpm} BPM${(ST.bpm_changes || []).length ? " →変化あり" : ""}</span>`
+            : `<span class="pill bpm" title="各曲を原曲の BPM でかける前提の予測です。Set BPM を入れると補正します">原曲 BPM</span>`;
+  $("heroSub").innerHTML = pill + bpm + `<span style="color:var(--ink-3)">${ST.tracks.length}曲</span>`;
+  renderBpmVar();
 
   const span = Math.max(tot, tgt) || 1;
   $("bFill").style.width = (Math.min(tot,tgt)/span*100) + "%";
@@ -859,12 +878,9 @@ function renderReality(){
   const tgt = ST.target_s || 0, tot = ST.total_s;
   const over = Math.max(0, tot - tgt);
   const r = $("reality"), trims = ST.trims || [], sum = ST.trim_total_s || 0;
-  if(over <= 0){
-    r.className = "reality";
-    r.innerHTML = `<h3>目標の範囲に入っています</h3>
-      <p>削り代を使う必要はありません。展開の山谷の確認に進んでください。</p>`;
-    return;
-  }
+  /* within the target there is nothing to trim, so the row disappears (review) */
+  r.parentElement.hidden = over <= 0;
+  if(over <= 0){ r.innerHTML = ""; return; }
   r.className = "reality crit";
   const pct = sum ? (sum/over*100) : 0;
   const scale = v => Math.max(2, v/over*100);
@@ -889,7 +905,7 @@ function renderLanes(){
   $("canvas").style.width = W + "px";
   $("density").textContent = `1分 = ${DENSITY[mode]}px`;
 
-  const step = mode === "overview" ? 600 : mode === "section" ? 120 : 60;
+  const step = mode === "section" ? 120 : 60;
   let r = "";
   for(let t = 0; t <= ST.total_s; t += step)
     r += `<div class="rmark" style="left:${(t*k).toFixed(1)}px">${fmt(t)}</div>`;
@@ -906,8 +922,9 @@ function renderLanes(){
 ${fmt(t.start_s)} → ${fmt(t.end_s)}  再生 ${fmt(t.play_s)}
 ${t.bpm} BPM${t.set_tempo !== t.bpm ? " → " + t.set_tempo : ""} · ${esc(plabel(t.preset))}${t.locks.length ? " · ロック: " + esc(t.locks.join(",")) : ""}
 ${t.phrases.length ? "ダブルクリックでフレーズ構成" : "フレーズ解析なし"}">${inner}` +
-         (w > 56 ? `<div class="trk-t">${t.i+1}. ${esc(t.title)}</div>` : "") +
-         (w > 76 ? `<div class="trk-m">${fmt(t.play_s)} · ${t.bpm}</div>` : "") +
+         /* labels only at the detail density, where every block has room for one;
+            at 36px/min some would fit and some would not, which read as inconsistent */
+         (mode === "detail" ? `<div class="trk-t">${t.i+1}. ${esc(t.title)}</div>` : "") +
          `</div>`;
     if(t.milestone_s != null)
       h += `<div class="mile" style="left:${x.toFixed(1)}px" title="マイルストーン ${fmt(t.milestone_s)}"></div>`;
@@ -1088,8 +1105,9 @@ function syncView(){
    the hero, flat stretches are visible in ENERGY, and the agent still reads
    ST.warnings when asked */
 function renderMeta(){
-  $("analysisMeta").textContent =
-    `${ST.playlist}: ${ST.analysis.total}曲中 ${ST.analysis.present}曲にフレーズ解析あり`;
+  const miss = ST.analysis.total - ST.analysis.present;
+  /* a count is only news when some track lacks analysis (review) */
+  $("analysisMeta").textContent = miss > 0 ? `${ST.analysis.total}曲中 ${miss}曲にフレーズ解析なし` : "";
 }
 
 function renderSelected(){
@@ -1097,7 +1115,6 @@ function renderSelected(){
   if(!t){
     $("selTitle").textContent = "—";
     $("selKv").innerHTML = "";
-    $("selEdit").hidden = true;
     return;
   }
   $("selTitle").textContent = `${t.i+1}. ${t.title}`;
@@ -1105,18 +1122,10 @@ function renderSelected(){
   $("selKv").innerHTML =
     `<dt>位置</dt><dd>${fmt(t.start_s)} → ${fmt(t.end_s)}</dd>
      <dt>再生</dt><dd>${fmt(t.play_s)}</dd>
-     <dt>BPM</dt><dd>${t.bpm}${t.set_tempo !== t.bpm ? " → " + t.set_tempo : ""}</dd>
+     <dt>BPM</dt><dd>${t.bpm}${t.set_tempo !== t.bpm ? " → " + t.set_tempo + "（セット）" : ""}</dd>
+     <dt>Mix</dt><dd>${esc(plabel(t.preset))}</dd>
      <dt>フレーズ</dt><dd style="white-space:normal">${esc(ph)}
        ${t.phrases.length ? ` <a href="#" class="hintq" id="selPhrases">構成を見る</a>` : ""}</dd>`;
-
-  $("selEdit").hidden = false;
-  $("tPreset").value = t.preset;
-  $("tTempo").value = (t.set_tempo !== t.bpm) ? t.set_tempo : "";
-  $("tMile").checked = t.milestone_s != null;
-  $("tMileAt").value = t.milestone_s != null ? fmt(t.milestone_s) : "";
-  $("tMileAt").disabled = t.milestone_s == null;
-  document.querySelectorAll(".lk").forEach(c =>
-    c.checked = t.locks.includes(c.dataset.lock) || t.locks.includes("all"));
 }
 
 /* ---------------- modal ---------------- */
@@ -1288,29 +1297,46 @@ $("selKv").addEventListener("click", e=>{
   if(ST.selected != null) showPhrases(ST.selected);
 });
 
-/* ---- inspector edits: every one goes through Command/History ---- */
-const parseTime = v => {
-  const m = /^\s*(\d+):(\d{1,2})\s*$/.exec(v || "");
-  return m ? (+m[1])*60 + (+m[2]) : null;
-};
-$("tPreset").addEventListener("change", async ()=>
-  apply(await window.pywebview.api.set_preset(ST.selected, $("tPreset").value)));
-$("tTempo").addEventListener("change", async ()=>
-  apply(await window.pywebview.api.set_tempo(ST.selected, $("tTempo").value.trim() || null)));
-$("tMile").addEventListener("change", async ()=>{
-  const on = $("tMile").checked;
-  const t = ST.tracks.find(x => x.i === ST.selected);
-  const at = on ? (parseTime($("tMileAt").value) ?? Math.round(t ? t.start_s : 0)) : null;
-  apply(await window.pywebview.api.set_milestone(ST.selected, on ? at : null));
+/* The per-track edit block (Mix / Tempo / milestone / locks) left the inspector
+   on 2026-09-16 (review: too much for the panel). api.set_preset / set_tempo /
+   set_milestone / set_lock remain for the agent's Change Sets and the probes. */
+
+/* ---- set tempo: one BPM for the set, plus change points ---- */
+let bpmVarOpen = false;
+function renderBpmVar(){
+  const cps = ST.bpm_changes || [];
+  if(cps.length) bpmVarOpen = true;
+  $("bpmVar").checked = bpmVarOpen;
+  $("bpmv").hidden = !bpmVarOpen;
+  if(!bpmVarOpen) return;
+  $("cpList").innerHTML = cps.length ? cps.map(c =>
+    `<div class="cp"><span class="t">${c.i + 1}. ${esc(c.title)} から</span><b>${c.bpm} BPM</b>
+       <button class="btn" data-cp="${c.i}" title="この変化点を外す">外す</button></div>`).join("")
+    : `<p class="none-yet">まだ変化点がありません。下で「この曲から何 BPM」を追加してください</p>`;
+  const sel = $("cpTrack"), keep = sel.value;
+  sel.innerHTML = ST.tracks.map(t => `<option value="${t.i}">${t.i + 1}. ${esc(t.title)}</option>`).join("");
+  if(keep && [...sel.options].some(o => o.value === keep)) sel.value = keep;
+}
+$("setBpm").addEventListener("change", async ()=>
+  apply(await window.pywebview.api.set_set_bpm($("setBpm").value.trim() || null)));
+$("bpmVar").addEventListener("change", async ()=>{
+  bpmVarOpen = $("bpmVar").checked;
+  if(!bpmVarOpen){                      /* switching off removes the change points */
+    for(const c of (ST.bpm_changes || [])) await window.pywebview.api.set_bpm_change(c.i, null);
+    apply(await window.pywebview.api.state());
+  } else renderBpmVar();
 });
-$("tMileAt").addEventListener("change", async ()=>{
-  const at = parseTime($("tMileAt").value);
-  if(at == null){ toast("時刻は mm:ss で入力してください"); return; }
-  apply(await window.pywebview.api.set_milestone(ST.selected, at));
+$("cpAdd").addEventListener("click", async ()=>{
+  const v = $("cpBpm").value.trim();
+  if(!v){ toast("この曲からの BPM を入力してください"); return; }
+  apply(await window.pywebview.api.set_bpm_change(+$("cpTrack").value, v));
+  $("cpBpm").value = "";
 });
-document.querySelectorAll(".lk").forEach(c =>
-  c.addEventListener("change", async ()=>
-    apply(await window.pywebview.api.set_lock(ST.selected, c.dataset.lock, c.checked))));
+$("cpBpm").addEventListener("keydown", e=>{ if(e.key === "Enter") $("cpAdd").click(); });
+$("cpList").addEventListener("click", async e=>{
+  const b = e.target.closest("[data-cp]"); if(!b) return;
+  apply(await window.pywebview.api.set_bpm_change(+b.dataset.cp, null));
+});
 
 /* XML export and the rekordbox relaunch helper left the UI on 2026-09-16:
    Set Agent is read-only now. api.export_* / api.restart_rekordbox still

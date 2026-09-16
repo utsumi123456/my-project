@@ -65,6 +65,7 @@ class Settings:
     llm_model: str = ""              # "" = the agent's default
     rekordbox_exe: str = ""          # remembered path, for relaunch after export
     window: str = ""                 # "x,y,w,h" of the panel when it was last closed
+    set_bpm: str = ""                # the set's tempo as typed ("160"); "" = each track's own
 
     # ------------------------------------------------------------- llm key
     # The key is a credential on someone else's PC, so it is not written in

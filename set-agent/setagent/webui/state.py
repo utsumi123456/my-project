@@ -160,6 +160,11 @@ def build(draft, lib, anlz_by_id: dict, curve=None, cfg=None,
                       "tracks": s.last_track - s.first_track + 1,
                       "start_s": round(s.start_s, 2), "end_s": round(s.end_s, 2)}
                      for s in secs],
+        "set_bpm": draft.constraints.set_bpm,
+        # change points in running order, with the title the DJ recognises
+        "bpm_changes": [{"i": p.index, "track_id": p.track_id, "title": p.title,
+                         "bpm": draft.constraints.bpm_changes[p.track_id]}
+                        for p in tl.placements if p.track_id in draft.constraints.bpm_changes],
         "trims": trims,
         "trim_total_s": round(sum(t["gain_s"] for t in trims), 1),
         "warnings": warnings,
