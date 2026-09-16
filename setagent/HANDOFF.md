@@ -168,9 +168,10 @@ rekordbox 本体には手を入れない。読み取りは master.db と ANLZ �
 
 | 場所 | 中身 |
 |---|---|
-| GitHub `https://github.com/utsumi123456/my-project`（`main`） | **リモートの正本**（2026-09-16 から）。作業は PC で行い、区切りごとに push |
-| PC `C:\Users\7166700\source\setagent\setagent_new\` | ソースの作業コピー。ここで編集・テスト・ビルドする |
-| PC `…\setagent_new\dist\` | チームに渡すもの（`SetAgentTimeline.exe` ＋ `はじめに.md`）。git 対象外 |
+| GitHub `https://github.com/utsumi123456/my-project`（`main`） | **リモートの正本**（2026-09-16 から）。プロトごとに 1 フォルダのモノレポで、Set Agent は `setagent/` 配下。作業は PC で行い、区切りごとに push |
+| PC `C:\Users\7166700\source\setagent\setagent_new\` | リポジトリのクローン（ルート）。`LICENSE` とプロト一覧の README だけがある |
+| PC `C:\Users\7166700\source\setagent\setagent_new\setagent\` | **Set Agent の作業ディレクトリ。編集・テスト・ビルドはここで**（`python -m unittest discover -s tests -q`、`python build.py`、`python run_timeline.py`） |
+| PC `…\setagent_new\setagent\dist\` | チームに渡すもの（`SetAgentTimeline.exe` ＋ `はじめに.md`）。git 対象外 |
 | PC `C:\Users\7166700\source\setagent\setagent\` | 旧ビルドツリー。さわらない |
 
 クラウド作業ディレクトリはセッションごとに消える。**PC 側が正本**。

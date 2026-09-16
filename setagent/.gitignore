@@ -1,0 +1,11 @@
+build/
+dist/
+__pycache__/
+*.pyc
+*.spec.bak
+*_out.txt
+hdr.txt
+layout2.txt
+tools_rbmount.txt
+.remember/
+output/

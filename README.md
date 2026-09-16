@@ -1,40 +1,17 @@
-# Set Agent — rekordbox companion (prototype)
+# my-project
 
-Reads a rekordbox 6/7 library on any PC (auto-detects `%APPDATA%\Pioneer\rekordbox\master.db`),
-decrypts it read-only without pyrekordbox (including the `-wal`, so edits made while
-rekordbox is open are visible), parses ANLZ beat grids and phrase analysis, and shows the
-DJ what a playlist adds up to: **predicted set length** against a target, energy
-development, milestones and section budgets, and an advisory agent that proposes range
-trims and removal candidates. It follows edits made in rekordbox automatically.
+Prototypes, one folder each. Every prototype is self-contained: its own README,
+tests, build script and handoff notes live inside its folder.
 
-Read-only by design: never writes to `master.db`, the ANLZ files, or rekordbox itself.
-All editing happens in rekordbox.
+| Folder | What it is | Status |
+|---|---|---|
+| [`setagent/`](setagent/) | **Set Agent** — a read-only rekordbox companion that shows a DJ the predicted length and energy shape of a playlist while they edit it in rekordbox, and proposes what to trim or drop. Python + WebView2, Windows. | prototype in team trial (2026-09) |
 
-## Run
+Conventions for adding a prototype:
 
-    python run_timeline.py                        # the panel (WebView2)
-    python run_timeline.py --doctor               # environment check
-    python -m setagent.cli doctor                 # same, on the console
-    python -m setagent.cli playlists
-    python -m setagent.cli timeline "acid" --target 60:00 --preset one_drop --cap 32
-    python -m setagent.cli agent    "acid" --ask "バランスどう？"
+- one top-level folder, kebab-case or the product's own name
+- a `README.md` inside with how to run, test and build it
+- a `HANDOFF.md` inside if the work is meant to be picked up by someone else later
+- no build outputs in git (each folder carries its own `.gitignore`)
 
-Requires Python 3.11+, `cryptography`, `pywebview` and `Pillow`. Tests: `python -m unittest discover -s tests -q`.
-
-## Build the distributable
-
-    python build.py            # tests -> exe -> dist/SetAgentTimeline.exe + readme
-
-## Layout
-
-    setagent/analysis/   timing, energy, phrases, target curve, milestone sections
-    setagent/domain/     Set Draft + Command/History (every edit is reversible)
-    setagent/agent/      tools, change sets, deterministic advisor, recommender, optional LLM
-    setagent/rekordbox/  master.db (+WAL replay), ANLZ, library discovery
-    setagent/webui/      the panel: index.html, JS<->Python bridge, entry point
-    setagent/gui/        the old tkinter workbench (fallback, --classic)
-    tools/               decryptor, WebView2 probes (verification without screenshots)
-
-The optional LLM front end is off unless `SETAGENT_LLM_KEY` is set; everything
-works without it. See `HANDOFF.md` for project state and `dist_readme/` for what
-the team receives.
+License: MIT (see [LICENSE](LICENSE)), unless a prototype's folder says otherwise.
