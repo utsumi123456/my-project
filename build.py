@@ -4,7 +4,9 @@
   python build.py --skip    package only (reuse dist/SetAgentTimeline.exe)
 
 Produces  dist/SetAgent_<date>.zip  containing the exe and the readme, so a
-teammate unzips one folder and double-clicks one file.
+teammate unzips one folder and double-clicks one file. dist/ holds only the
+zips; the raw exe PyInstaller emits lives under build/exe/ (a work area) so
+nobody hands out the wrong file.
 """
 from __future__ import annotations
 
@@ -18,7 +20,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).parent
 DIST = ROOT / "dist"
-EXE = DIST / "SetAgentTimeline.exe"
+WORK = ROOT / "build" / "exe"
+EXE = WORK / "SetAgentTimeline.exe"
 NAME = f"SetAgent_{date.today():%Y%m%d}"
 
 
@@ -27,9 +30,10 @@ def build_exe() -> None:
     # imported lazily by pywebview, so PyInstaller cannot see it on its own.
     ui = ROOT / "setagent" / "webui" / "index.html"
     if not ui.exists():
-        raise SystemExit(f"{ui} が無い。UI を同梱できない")
+        raise SystemExit(f"{ui} がありません。UI を同梱できません")
     cmd = [sys.executable, "-m", "PyInstaller", "--onefile", "--noconsole", "--clean",
            "--name", "SetAgentTimeline", "--paths", ".",
+           "--distpath", str(WORK), "--workpath", str(ROOT / "build" / "pyinstaller"),
            "--add-data", f"{ui}{os.pathsep}setagent/webui",
            "--hidden-import", "tools.decrypt_masterdb",
            "--hidden-import", "webview.platforms.winforms",
@@ -41,7 +45,8 @@ def build_exe() -> None:
 
 def package() -> Path:
     if not EXE.exists():
-        raise SystemExit(f"{EXE} が無い。--skip を外して先にビルドしろ")
+        raise SystemExit(f"{EXE} がありません。--skip を外して先にビルドしてください")
+    DIST.mkdir(exist_ok=True)
     out = DIST / f"{NAME}.zip"
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
         z.write(EXE, f"{NAME}/SetAgentTimeline.exe")
@@ -55,7 +60,7 @@ def main() -> int:
     r = subprocess.run([sys.executable, "-m", "unittest", "discover", "-s", "tests", "-q"],
                        cwd=ROOT)
     if r.returncode:
-        print("テストが落ちている。配布物は作らない")
+        print("テストが失敗しています。配布物は作りません")
         return r.returncode
     if "--skip" not in sys.argv:
         build_exe()

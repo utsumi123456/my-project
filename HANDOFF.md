@@ -105,7 +105,8 @@ llm（SYSTEM_PROMPT にも口調の規則を追加）/ tools / diagnostics / lib
 **未検証 / 次にやること（優先順）:**
 1. LLM 実キー疎通 — `python -m tools.probe_llm acid` を用意（キーは表示しない。設定画面か
    `SETAGENT_LLM_KEY` で入れてから実行）。既定モデルは `claude-sonnet-5` に更新。
-2. ~~exe 再ビルド~~ 済み（17:04、`dist/SetAgent_20260916.zip` 28.0 MB。Pillow 同梱で 22→28 MB）。
+2. ~~exe 再ビルド~~ 済み（17:11、`dist/SetAgent_20260916.zip` 28.0 MB。Pillow 同梱で 22→28 MB）。
+   **`dist/` には zip だけ**。生の exe は `build/exe/`（作業領域、git 対象外）に出る（ユーザー指示: 混同防止）。
    起動スモーク: exe を起こして 20 秒後にウィンドウ「Set Agent」が出ることを確認して終了。
    実機での操作確認（サムネ・自動更新・提案）は未実施。
 3. バーは 386px で 2 行に折り返す（98px）— 詰める余地あり。
