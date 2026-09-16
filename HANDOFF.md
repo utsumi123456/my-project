@@ -58,10 +58,19 @@ salt・チェックサム）を平文で持ち、ページ本体は master.db �
 一致、最後のコミットフレームまで）を歩き、ページ番号ごとに最新フレームを復号済み DB へ上書き。
 読み取り専用なので B-2 はそのまま。ただし `setagent/rekordbox/` の凍結ゾーンに手が入る。
 
+**WAL リプレイ実装済み（2026-09-16、ユーザー決定）:** `tools/decrypt_masterdb.py` に `decrypt_page` /
+`committed_wal_frames` / `replay_wal` を追加し、`decrypt(src, dst, wal=...)` が標準の WAL リプレイ
+（salt 一致・累積チェックサム・最後のコミットフレームまで、ページごとに最新フレームが勝つ）を行う。
+`Library._decrypt` は master.db → -wal の順にスナップショットし、その間に master.db が動いたら
+やり直す（チェックポイントを挟んで世代の違うページを混ぜないため）。`rescan()` も同じ経路。
+実機の暗号化 WAL 11 フレームを HMAC 検証つきで復号し integrity_check ok。UI は「まだ読めない」状態を
+撤去し、-wal の変化も自動再読込の対象にした（`probe_refresh` 4 シナリオ OK）。テストは
+`tests/test_wal_replay.py`（sqlite3 が実際に書いた WAL に対して、未コミット尾・破損フレーム・salt
+不一致・DB 成長を確認）。**実機で「rekordbox で編集 → 5 秒以内に Set Agent が追従」の目視確認は未実施。**
+
 **未検証 / 次にやること（優先順）:**
-1. **WAL リプレイを入れるか決める（ユーザー判断）。** 入れるなら上記の方式で `decrypt_masterdb` に
-   `-wal` を渡し、`library_changed()` の wal 変化を「読める変化」に格上げする。入れないなら UI の
-   文言を「rekordbox を終了すると反映」に変え、自動更新は諦める。
+1. **上記の実機目視確認。** `python run_timeline.py` を開いたまま rekordbox でプレイリストを編集し、
+   hero と曲リストが追従するか見る。
 2. **オーバーレイの残り** — 位置/サイズを settings に記憶、frameless（自前のドラッグ帯と閉じるボタン
    が要る）。`on_top` は入れた。バーは 386px で 2 行に折り返す（98px）— 詰める余地あり。
 3. **レコメンド本体（コア価値）** — 現状の入口カードはエージェント（advisor の FIT/FILL 語彙）に

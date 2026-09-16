@@ -4,8 +4,8 @@
 
 Cannot edit rekordbox from here, so the change is faked at the one seam the
 poller reads: LIB_SIG. Checks (1) an untouched draft reloads by itself,
-(2) an edited draft does not -- it lights the button instead, (3) a WAL-only
-change is reported as "not readable yet", (4) the button reloads and clears it.
+(2) an edited draft does not -- it lights the button instead, (3) the button
+reloads and clears it, (4) a WAL-only change reloads too (the WAL is replayed).
 """
 from __future__ import annotations
 
@@ -85,12 +85,14 @@ def run(window):
         print("3 after button:", f3)
         print("   reloaded:", f3["loaded"] != f2["loaded"], "state:", f3["state"], "btn:", f3["btn"])
 
-        # (4) WAL-only change -> reported, not reloaded
+        # (4) WAL-only change on an untouched draft -> auto reload as well
         window.evaluate_js("LIB_SIG.wal = 'fakewal'; pollLibrary();")
-        time.sleep(2)
+        time.sleep(1)
+        wait_ready(window, "wal-reload")
+        time.sleep(1)
         f4 = fresh(window)
         print("4 wal-only:", f4)
-        print("   held:", f4["loaded"] == f3["loaded"], "state:", f4["state"])
+        print("   reloaded:", f4["loaded"] != f3["loaded"], "state fresh:", f4["state"] == "fresh")
     except Exception as ex:
         print("probe failed:", type(ex).__name__, ex)
     finally:

@@ -505,8 +505,6 @@ async function boot(){
   $("curve").innerHTML = `<option value="">（なし）</option>` +
     b.curves.map(c=>`<option value="${esc(c.key)}">${esc(c.label)}</option>`).join("");
   $("target").value = fmt(b.target_s);
-  if(b.rekordbox_running)
-    toast("rekordbox が起動中だ。直前の編集が master.db に書かれていない場合がある");
   await reload();
   startPolling();
 }
@@ -717,10 +715,9 @@ $("list").addEventListener("click", e=>{
   selectTrack(+r.dataset.i);
 });
 
-/* Freshness: the set on screen is a reading of master.db at one moment. Say
-   when, and whether rekordbox is open (its newest edits may still sit in the
-   WAL). Auto-refresh comes next; this button is the honest version until then. */
-let FRESH = {state: "fresh", rb: null};   /* fresh | stale | wal */
+/* Freshness: the set on screen is a reading of master.db + -wal at one moment.
+   Say when, and whether rekordbox is open. */
+let FRESH = {state: "fresh", rb: null};   /* fresh | stale */
 function renderFresh(){
   const at = LOADED_AT ? LOADED_AT.toLocaleTimeString("ja-JP", {hour:"2-digit", minute:"2-digit"}) : "—";
   const rb = FRESH.rb != null ? FRESH.rb : (BOOT && BOOT.rekordbox_running);
@@ -729,9 +726,6 @@ function renderFresh(){
   if(FRESH.state === "stale"){
     msg = `rekordbox の変更を検出 — 反映していない`;
     b.className = "btn primary"; b.textContent = "反映する";
-  } else if(FRESH.state === "wal"){
-    msg = `rekordbox に未保存の編集がある（まだ読めない）`;
-    b.className = "btn"; b.textContent = "rekordbox の編集を反映";
   } else {
     msg = `${at} 時点の rekordbox ライブラリ` + (rb ? " · rekordbox 起動中" : "");
     b.className = "btn"; b.textContent = "rekordbox の編集を反映";
@@ -739,10 +733,12 @@ function renderFresh(){
   $("freshTxt").innerHTML = `<span class="dot${FRESH.state !== "fresh" || rb ? " rb" : ""}"></span>${msg}`;
 }
 
-/* Semi-automatic refresh (§5-1 b + mtime): poll master.db / -wal, and check on
-   every window focus, since the DJ comes back here right after editing in
-   rekordbox. A readable change reloads by itself when nothing in this app
-   would be lost; otherwise it lights the button and waits. */
+/* Automatic refresh (§5-1): poll master.db / -wal, and check on every window
+   focus, since the DJ comes back here right after editing in rekordbox. While
+   rekordbox is open every edit lands in the -wal (it never checkpoints until
+   exit), and the decrypter replays it, so both files count as readable change.
+   A change reloads by itself when nothing in this app would be lost;
+   otherwise it lights the button and waits. */
 let LIB_SIG = null, pollTimer = null, polling = false;
 async function pollLibrary(){
   if(polling || !ST || !$("curtain").hidden) return;
@@ -752,8 +748,7 @@ async function pollLibrary(){
     if(!c || !c.ready) return;
     FRESH.rb = c.rekordbox_running;
     if(!LIB_SIG){ LIB_SIG = c; renderFresh(); return; }
-    const dbChanged = c.db !== LIB_SIG.db, walChanged = c.wal !== LIB_SIG.wal;
-    if(dbChanged){
+    if(c.db !== LIB_SIG.db || c.wal !== LIB_SIG.wal){
       const busy = drag || knobDrag || !$("modal").hidden || (ST.agent && ST.agent.pending);
       if(!c.edited && !busy){
         LIB_SIG = c;
@@ -761,17 +756,15 @@ async function pollLibrary(){
         return;
       }
       FRESH.state = "stale";
-    } else if(walChanged && FRESH.state === "fresh"){
-      FRESH.state = "wal";
     }
-    LIB_SIG = {...c, wal: c.wal};
+    LIB_SIG = c;
     renderFresh();
   } catch(e){ /* a failed poll is not news */ }
   finally { polling = false; }
 }
 async function refreshFromRekordbox(note){
   $("curtain").hidden = false; $("cTitle").textContent = "rekordbox の編集を読み直している…";
-  $("cMsg").textContent = "master.db を再度読んでセットを組み直す。";
+  $("cMsg").textContent = "master.db と -wal を読み直してセットを組み直す。";
   const s = await window.pywebview.api.rescan();
   LOADED_AT = new Date(); FRESH.state = "fresh"; LIB_SIG = null;
   apply(s, true);

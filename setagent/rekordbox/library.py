@@ -112,6 +112,7 @@ class Library:
     _analysis: dict[str, TrackAnalysis] = field(default_factory=dict, init=False)
     plain_db: Path = field(init=False)
     warnings: list[str] = field(default_factory=list, init=False)
+    wal_replay: object = field(default=None, init=False)   # WalReplay from the last decrypt
 
     @classmethod
     def open(cls, master_db: Path | str | None = None, cache_dir: Path | str | None = None,
@@ -130,39 +131,53 @@ class Library:
 
     # ---- reading the encrypted DB
     def _decrypt(self) -> None:
-        """Copy first, then decrypt the copy.
+        """Snapshot master.db and its -wal, then decrypt the snapshot with the WAL replayed.
 
-        rekordbox may be writing while we read. Copying is one short read of the
-        whole file instead of a long one interleaved with its writes, and it means
-        a failure leaves the previous cache intact rather than a half-written one.
+        rekordbox never checkpoints while it is open (measured 2026-09-16), so
+        the WAL is where every edit of the current session lives; without it
+        the set on screen is hours old. Copying first keeps our read short and
+        leaves the previous cache intact if anything fails.
+
+        Order matters: master.db first, then the WAL. If rekordbox checkpoints
+        in between, the WAL we copy may belong to a newer database than the
+        snapshot; applying it would mix two generations of pages. Detect that
+        by re-checking master.db after the WAL copy and start over.
         """
         from tools.decrypt_masterdb import decrypt      # pure-python; no pyrekordbox needed
+        wal_src = self.master_db.with_name(self.master_db.name + "-wal")
         snap = self.cache_dir / "master_snapshot.db"
+        snap_wal = self.cache_dir / "master_snapshot.db-wal"
+        src, wal = self.master_db, wal_src
+        for _ in range(3):
+            try:
+                before = self.master_db.stat()
+                shutil.copy2(self.master_db, snap)
+                if wal_src.exists():
+                    shutil.copy2(wal_src, snap_wal)
+                else:
+                    snap_wal.unlink(missing_ok=True)
+                after = self.master_db.stat()
+            except OSError:
+                break                                   # copy failed: read in place
+            if (before.st_mtime_ns, before.st_size) == (after.st_mtime_ns, after.st_size):
+                src, wal = snap, snap_wal
+                break
         try:
-            shutil.copy2(self.master_db, snap)
-            src = snap
-        except OSError:
-            src = self.master_db                        # copy failed: read in place
-        try:
-            decrypt(src, self.plain_db)
+            res = decrypt(src, self.plain_db, wal=wal)
         finally:
-            if src is snap:
+            for p in (snap, snap_wal):
                 try:
-                    snap.unlink()
+                    p.unlink(missing_ok=True)
                 except OSError:
                     pass
+        self.wal_replay = res.wal
 
     def _staleness_warnings(self) -> list[str]:
-        out: list[str] = []
-        wal = pending_wal_bytes(self.master_db)
-        running = rekordbox_running()
-        if running:
-            out.append("rekordbox が起動している。直前の編集はまだ master.db に書かれていない"
-                       "ことがある — rekordbox を終了してから Rescan すると確実だ")
-        elif wal > 4096:
-            out.append(f"master.db-wal に未反映のデータが {wal // 1024} KB ある。"
-                       "rekordbox を一度起動して終了すると取り込まれる")
-        return out
+        rep = self.wal_replay
+        if rep is None or not rep.note:
+            return []
+        return [f"master.db-wal を途中までしか読めなかった（{rep.note}）。"
+                "rekordbox の直前の編集が抜けているかもしれない — もう一度反映を試せ"]
 
     # ---- rekordbox path -> local file
     def anlz_dat_path(self, t: Track) -> Path | None:
@@ -196,9 +211,9 @@ class Library:
     def rescan(self) -> None:
         """Re-decrypt the DB and drop cached analyses (the 'rescan' button)."""
         if self.plain_db.parent == self.cache_dir:
-            from tools.decrypt_masterdb import decrypt
-            decrypt(self.master_db, self.plain_db)
+            self._decrypt()
             self.db = MasterDB(self.plain_db)
+            self.warnings = self._staleness_warnings()
         self._analysis.clear()
 
     def phrase_summary(self, track_ids: list[str]) -> dict[PhraseStatus, int]:

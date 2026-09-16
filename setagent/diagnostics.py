@@ -87,13 +87,11 @@ def run(master_db: str | None = None, sample: int = 200) -> Report:
     # explain "why isn't the playlist I just made showing up?", so they are notes.
     running = rekordbox_running()
     r.add("rekordbox", None,
-          "起動中 — 直前の編集はまだ反映されていないかもしれない" if running
-          else ("終了している" if running is False else "判定できない環境"))
+          "起動中" if running else ("終了している" if running is False else "判定できない環境"))
     wal = pending_wal_bytes(mdb)
     if wal > 4096:
-        r.add("未反映データ (WAL)", None, f"{wal // 1024} KB がまだ master.db に書かれていない")
-        r.hints.append("rekordbox を終了すると WAL が master.db に取り込まれる。"
-                       "作ったばかりのプレイリストが出てこないときはこれが原因")
+        r.add("未反映データ (WAL)", None,
+              f"{wal // 1024} KB が master.db-wal にある — 読み込み時に取り込む")
 
     # --- decrypt and read ---------------------------------------------------
     try:

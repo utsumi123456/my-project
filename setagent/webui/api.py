@@ -301,10 +301,9 @@ class Api:
     # Read-only loop (2026-09-16): the DJ edits in rekordbox, Set Agent follows.
     # This is deliberately not on the worker thread -- it only stats two files
     # and must answer even while a long load is running. What it reports:
-    #   db   -- master.db mtime/size. A change here is a real, readable edit.
-    #   wal  -- master.db-wal size. rekordbox parks recent edits here while it is
-    #           open; our decrypter does not merge the WAL, so a change here is
-    #           "something happened that we cannot read yet". Say so; don't guess.
+    #   db   -- master.db mtime/size. Changes when rekordbox exits (checkpoint).
+    #   wal  -- master.db-wal mtime/size. Changes on every edit while rekordbox
+    #           is open; the decrypter replays the WAL, so this is readable too.
     #   edited -- the DJ has un-undone edits in this app, which a reload would drop.
     def library_changed(self) -> dict:
         if not self.lib:
