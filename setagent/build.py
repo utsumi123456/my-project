@@ -1,9 +1,9 @@
 """Build the distributable the team receives.
 
   python build.py           build exe + lay out dist/
-  python build.py --skip    lay out only (reuse build/exe/SetAgentTimeline.exe)
+  python build.py --skip    lay out only (reuse build/exe/SetAgent.exe)
 
-Produces  dist/SetAgentTimeline.exe  (the one file to hand out; it is exactly the
+Produces  dist/SetAgent.exe  (the one file to hand out; it is exactly the
 exe that runs here) next to  dist/はじめに.md.  No zip: one file, double-click.
 PyInstaller's own output goes under build/ so dist/ never holds two exes.
 """
@@ -18,7 +18,7 @@ from pathlib import Path
 ROOT = Path(__file__).parent
 DIST = ROOT / "dist"
 WORK = ROOT / "build" / "exe"
-EXE = WORK / "SetAgentTimeline.exe"
+EXE = WORK / "SetAgent.exe"
 
 
 def build_exe() -> None:
@@ -28,13 +28,13 @@ def build_exe() -> None:
     if not ui.exists():
         raise SystemExit(f"{ui} がありません。UI を同梱できません")
     cmd = [sys.executable, "-m", "PyInstaller", "--onefile", "--noconsole", "--clean",
-           "--name", "SetAgentTimeline", "--paths", ".",
+           "--name", "SetAgent", "--paths", ".",
            "--distpath", str(WORK), "--workpath", str(ROOT / "build" / "pyinstaller"),
            "--add-data", f"{ui}{os.pathsep}setagent/webui",
            "--hidden-import", "tools.decrypt_masterdb",
            "--hidden-import", "webview.platforms.winforms",
            "--hidden-import", "clr_loader",
-           "run_timeline.py"]
+           "run_setagent.py"]
     print(" ".join(cmd))
     subprocess.run(cmd, cwd=ROOT, check=True)
 

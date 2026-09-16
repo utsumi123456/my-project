@@ -1023,7 +1023,7 @@ def open_library(explicit: str | None = None, cache: str | None = None,
             root = tk.Tk(); root.withdraw()
             messagebox.showerror("Set Agent",
                                  f"rekordbox のライブラリを読めなかった。\n\n{type(ex).__name__}: {ex}\n\n"
-                                 "コマンドプロンプトで `SetAgentTimeline --doctor` を実行すると"
+                                 "コマンドプロンプトで `SetAgent --doctor` を実行すると"
                                  "原因の切り分けができる")
             root.destroy()
             return None

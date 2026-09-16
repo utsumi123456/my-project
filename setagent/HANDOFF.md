@@ -2,7 +2,7 @@
 
 ## 2026-09-16 追記 — read-only 方針で UI を 2 ビューに再編（新アカウント初日）
 
-方針は `NEXT_ACCOUNT_HANDOFF.md` §1〜§4 のとおり（書き出し廃止・read-only・予測総尺が主役・
+方針は `docs/handoff_2026-09-15_pivot.md` §1〜§4 のとおり（書き出し廃止・read-only・予測総尺が主役・
 オーバーレイ前提）。ユーザーと合意した決定: **自由配置の常駐パネル / 詳細は 1 枚のスクロール
 ページ / index.html を 2 ビュー構成に再編 / git init して差分管理**。
 
@@ -106,7 +106,7 @@ llm（SYSTEM_PROMPT にも口調の規則を追加）/ tools / diagnostics / lib
 1. LLM 実キー疎通 — `python -m tools.probe_llm acid` を用意（キーは表示しない。設定画面か
    `SETAGENT_LLM_KEY` で入れてから実行）。既定モデルは `claude-sonnet-5` に更新。
 2. ~~exe 再ビルド~~ 済み（17:11、`dist/SetAgent_20260916.zip` 28.0 MB。Pillow 同梱で 22→28 MB）。
-   **配布形態を変更（ユーザー指示）:** zip は廃止。`dist/` には `SetAgentTimeline.exe`（この PC で動く exe そのもの）と
+   **配布形態を変更（ユーザー指示）:** zip は廃止。`dist/` には `SetAgent.exe`（この PC で動く exe そのもの）と
    `はじめに.md` だけを置く。PyInstaller の出力は `build/exe/`。`はじめに.md` は 2 ビュー UI・自動追従・外す候補に
    合わせて書き直し、口調も です・ます に統一。
    起動スモーク: exe を起こして 20 秒後にウィンドウ「Set Agent」が出ることを確認して終了。
@@ -168,10 +168,10 @@ rekordbox 本体には手を入れない。読み取りは master.db と ANLZ �
 
 | 場所 | 中身 |
 |---|---|
-| GitHub `https://github.com/utsumi123456/my-project`（`main`） | **リモートの正本**（2026-09-16 から）。プロトごとに 1 フォルダのモノレポで、Set Agent は `setagent/` 配下。作業は PC で行い、区切りごとに push |
-| PC `C:\Users\7166700\source\setagent\setagent_new\` | リポジトリのクローン（ルート）。`LICENSE` とプロト一覧の README だけがある |
-| PC `C:\Users\7166700\source\setagent\setagent_new\setagent\` | **Set Agent の作業ディレクトリ。編集・テスト・ビルドはここで**（`python -m unittest discover -s tests -q`、`python build.py`、`python run_timeline.py`） |
-| PC `…\setagent_new\setagent\dist\` | チームに渡すもの（`SetAgentTimeline.exe` ＋ `はじめに.md`）。git 対象外 |
+| GitHub `https://github.com/utsumi123456/my-project`（`main`） | **リモートの正本**（2026-09-16 から）。プロトごとに 1 フォルダのモノレポで、Set Agent は `set-agent/` 配下（Python パッケージは `set-agent/setagent/`）。作業は PC で行い、区切りごとに push |
+| PC `C:\Users\7166700\source\my-project\` | リポジトリのクローン（ルート）。`LICENSE` とプロト一覧の README だけがある |
+| PC `C:\Users\7166700\source\my-project\set-agent\` | **Set Agent の作業ディレクトリ。編集・テスト・ビルドはここで**（`python -m unittest discover -s tests -q`、`python build.py`、`python run_setagent.py`） |
+| PC `…\my-project\set-agent\dist\` | チームに渡すもの（`SetAgent.exe` ＋ `はじめに.md`）。git 対象外 |
 | PC `C:\Users\7166700\source\setagent\setagent\` | 旧ビルドツリー。さわらない |
 
 クラウド作業ディレクトリはセッションごとに消える。**PC 側が正本**。
@@ -324,9 +324,9 @@ python -m tools.capture_gui <out.png> [playlist] [curve_key] [index:mm:ss ...]
 
 # 配布物（テスト -> exe -> zip）
 python build.py
-dist\SetAgentTimeline.exe --playlist acid
-dist\SetAgentTimeline.exe --classic
-dist\SetAgentTimeline.exe --doctor
+dist\SetAgent.exe --playlist acid
+dist\SetAgent.exe --classic
+dist\SetAgent.exe --doctor
 ```
 
 **新 UI は「スクショで確かめる」をやめろ。** WebView2 は別プロセスで描画するので

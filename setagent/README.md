@@ -12,8 +12,8 @@ All editing happens in rekordbox.
 
 ## Run
 
-    python run_timeline.py                        # the panel (WebView2)
-    python run_timeline.py --doctor               # environment check
+    python run_setagent.py                        # the panel (WebView2)
+    python run_setagent.py --doctor               # environment check
     python -m setagent.cli doctor                 # same, on the console
     python -m setagent.cli playlists
     python -m setagent.cli timeline "acid" --target 60:00 --preset one_drop --cap 32
@@ -23,7 +23,7 @@ Requires Python 3.11+, `cryptography`, `pywebview` and `Pillow`. Tests: `python 
 
 ## Build the distributable
 
-    python build.py            # tests -> exe -> dist/SetAgentTimeline.exe + readme
+    python build.py            # tests -> exe -> dist/SetAgent.exe + readme
 
 ## Layout
 
