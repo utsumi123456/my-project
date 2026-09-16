@@ -1,0 +1,1161 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8">
+<title>Set Agent — Workbench</title>
+<style>
+:root{
+  color-scheme:dark;
+  --page:#0d1014; --surface:#14171c; --raised:#1c2128; --sunken:#0a0c0f;
+  --line:#2d333b; --line-soft:#222831;
+  --ink:#f0f3f6; --ink-2:#b9c2cc; --ink-3:#7d8794;
+
+  /* phrase palette — rekordbox 7 hues, re-stepped for this surface.
+     validated: lightness band / chroma floor / CVD / normal-vision / contrast */
+  --ph-intro:#c83201; --ph-up:#8c32ff; --ph-chorus:#1fb013;
+  --ph-down:#955b00; --ph-outro:#2f84cf; --ph-verse:#5a6270;
+
+  --target:#f778ba; --critical:#d03b3b; --caution:#fab219; --measure:#4a9be8;
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px;
+  --mono:"Consolas","IBM Plex Mono",ui-monospace,monospace;
+  --sans:"Segoe UI","Yu Gothic UI",system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--page);color:var(--ink);font-family:var(--sans);
+  font-size:14px;line-height:1.5;overflow:hidden}
+button,select,input{font-family:inherit;font-size:13px}
+
+.app{display:flex;flex-direction:column;height:100vh}
+
+/* ---- control bar ---- */
+.bar{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s3);flex:none;
+  padding:var(--s3) var(--s4);border-bottom:1px solid var(--line);background:var(--surface)}
+.bar label{display:flex;align-items:center;gap:6px;color:var(--ink-3);font-size:12px}
+.bar select,.bar input[type=text]{background:var(--raised);color:var(--ink);
+  border:1px solid var(--line);border-radius:3px;padding:5px 7px}
+.bar input[type=text]{width:74px;font-family:var(--mono);text-align:center}
+.btn{appearance:none;background:var(--raised);color:var(--ink-2);border:1px solid var(--line);
+  border-radius:3px;padding:6px 11px;cursor:pointer}
+.btn:hover{border-color:#3d4550;color:var(--ink)}
+.btn:focus-visible{outline:2px solid var(--target);outline-offset:1px}
+.btn.primary{color:#06121f;background:var(--measure);border-color:var(--measure);font-weight:600}
+.btn.danger{color:#fff;background:var(--critical);border-color:var(--critical);font-weight:600}
+.btn.danger:hover{filter:brightness(1.08)}
+.btn.hasnew{position:relative;border-color:var(--target);color:var(--ink)}
+.btn.hasnew::after{content:"";position:absolute;top:-3px;right:-3px;width:8px;height:8px;
+  border-radius:50%;background:var(--target)}
+.spacer{margin-left:auto}
+
+/* ---- verdict strip ---- */
+.verdict{display:grid;grid-template-columns:minmax(320px,1.2fr) minmax(300px,1fr);
+  gap:var(--s5);padding:var(--s3) var(--s4);border-bottom:1px solid var(--line);
+  background:var(--surface);flex:none}
+.eyebrow{font-size:11px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--ink-3);margin:0 0 var(--s2)}
+.gap-row{display:flex;align-items:baseline;gap:var(--s4);flex-wrap:wrap}
+.hero{font-family:var(--mono);font-size:38px;font-weight:700;line-height:1;
+  letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.hero.over{color:var(--critical)} .hero.under{color:var(--caution)} .hero.ok{color:#1fb013}
+.gap-sub{font-size:14px;color:var(--ink-2)}
+.gap-sub b{color:var(--ink);font-family:var(--mono);font-weight:600}
+.bullet-track{position:relative;height:22px;background:var(--sunken);margin-top:var(--s2);
+  border:1px solid var(--line-soft);border-radius:3px;overflow:hidden}
+.bullet-fill{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,#25405c,#3a6a9e)}
+.bullet-over{position:absolute;top:0;bottom:0;background:var(--critical);opacity:.85}
+.bullet-tick{position:absolute;top:-4px;bottom:-4px;width:3px;background:var(--target)}
+.bullet-scale{display:flex;justify-content:space-between;margin-top:3px;
+  font-family:var(--mono);font-size:11px;color:var(--ink-3)}
+
+.reality{background:var(--raised);border:1px solid var(--line);border-radius:4px;
+  padding:var(--s3) var(--s4);overflow:auto;max-height:116px}
+.reality.crit{border-left:3px solid var(--critical)}
+.reality h3{margin:0 0 6px;font-size:13px;font-weight:600}
+.reality p{margin:0;font-size:12px;color:var(--ink-2)}
+.wf{margin-top:var(--s2);display:flex;flex-direction:column;gap:3px}
+.wf-row{display:grid;grid-template-columns:120px 1fr 54px;gap:var(--s2);align-items:center;
+  font-family:var(--mono);font-size:11px;color:var(--ink-2)}
+.wf-name{color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wf-bar{height:8px;border-radius:2px 4px 4px 2px;min-width:2px;background:var(--caution)}
+.wf-bar.gap{background:var(--critical)}
+.wf-sum{border-top:1px solid var(--line);margin-top:5px;padding-top:5px}
+
+/* ---- transport ---- */
+.transport{display:flex;align-items:center;gap:var(--s3);padding:var(--s2) var(--s4);flex:none;
+  border-bottom:1px solid var(--line);background:var(--surface)}
+.seg{display:flex;border:1px solid var(--line);border-radius:3px;overflow:hidden}
+.seg button{background:var(--raised);color:var(--ink-2);border:0;border-right:1px solid var(--line);
+  padding:6px 12px;cursor:pointer}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed=true]{background:var(--measure);color:#06121f;font-weight:600}
+.meta{font-family:var(--mono);font-size:11px;color:var(--ink-3)}
+.minimap{position:relative;height:40px;flex:1;background:var(--sunken);
+  border:1px solid var(--line-soft);border-radius:3px;overflow:hidden;cursor:pointer}
+.mm-view{position:absolute;top:-1px;bottom:-1px;border:2px solid var(--ink);
+  background:rgba(240,243,246,.09);border-radius:2px;pointer-events:none}
+
+/* ---- lanes ---- */
+/* min-height:0 is what lets a flex child scroll instead of pushing the rest of
+   the column off-screen; the floor keeps ENERGY and SECTIONS -- both Tier 1 --
+   on screen at the shortest window we support. */
+.scroll{flex:1 1 auto;min-height:330px;overflow:auto;background:var(--surface)}
+/* the lanes share the column: TRACKS and SECTIONS keep their size, ENERGY takes
+   whatever height is left, so all three stay visible at any window height */
+.canvas{position:relative;padding-bottom:var(--s2);display:flex;flex-direction:column;
+  min-height:100%}
+.lane-h{position:sticky;left:0;padding:var(--s2) var(--s4) 2px;font-size:11px;font-weight:600;
+  letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);width:max-content}
+.ruler{position:relative;height:20px;border-bottom:1px solid var(--line-soft)}
+.rmark{position:absolute;top:0;bottom:0;border-left:1px solid var(--line-soft);padding-left:5px;
+  font-family:var(--mono);font-size:10px;color:var(--ink-3);line-height:20px;white-space:nowrap}
+.ruler,.tracks,.sections,.lane-h{flex:none}
+.tracks{position:relative;height:72px}
+.trk{position:absolute;top:0;bottom:0;overflow:hidden;cursor:pointer;
+  border-right:1px solid var(--sunken)}
+.ph{position:absolute;top:0;bottom:0}
+.trk .none{position:absolute;inset:0;
+  background:repeating-linear-gradient(45deg,#2a3038 0 6px,#20262d 6px 12px)}
+.trk-t{position:absolute;left:5px;right:4px;top:4px;font-size:11px;font-weight:600;color:#fff;
+  text-shadow:0 1px 2px rgba(0,0,0,.8);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  pointer-events:none}
+.trk-m{position:absolute;left:5px;bottom:3px;font-family:var(--mono);font-size:10px;
+  color:rgba(255,255,255,.75);text-shadow:0 1px 2px rgba(0,0,0,.85);pointer-events:none}
+.trk[data-sel="1"]{outline:2px solid var(--ink);outline-offset:-2px;z-index:3}
+.energy{position:relative;flex:1 1 auto;min-height:92px}
+.sections{position:relative;height:58px}
+.sec{position:absolute;top:0;bottom:0;border-left:1px solid var(--line);padding:3px 8px;
+  overflow:hidden}
+.sec-n{font-size:11px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sec-b{position:relative;height:10px;background:var(--sunken);border-radius:2px;margin-top:4px}
+.sec-f{position:absolute;left:0;top:0;bottom:0;background:#3a6a9e;border-radius:2px 4px 4px 2px}
+.sec-t{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--target)}
+.sec-v{font-family:var(--mono);font-size:11px;margin-top:2px;color:var(--ink-2)}
+.sec-v .o{color:var(--critical)} .sec-v .u{color:var(--caution)}
+.mile{position:absolute;top:0;bottom:0;width:2px;background:var(--ink);z-index:4}
+.mile::before{content:"";position:absolute;top:0;left:-5px;border:6px solid transparent;
+  border-top-color:var(--ink);border-bottom:0}
+.tline{position:absolute;top:0;bottom:0;border-left:2px dashed var(--target);z-index:4}
+.knob{cursor:grab}
+.knob:active{cursor:grabbing}
+
+/* ---- footer ---- */
+.foot{display:grid;grid-template-columns:1fr minmax(280px,360px);gap:var(--s4);
+  padding:var(--s3) var(--s4);border-top:1px solid var(--line);background:var(--surface);
+  flex:none;max-height:116px;overflow:auto}
+.warns{list-style:none;margin:var(--s2) 0 0;padding:0;display:flex;flex-direction:column;gap:5px}
+.warns li{display:grid;grid-template-columns:16px 1fr;gap:var(--s2);font-size:12px;color:var(--ink-2)}
+.bdg{display:grid;place-items:center;width:16px;height:16px;border-radius:3px;font-size:10px;
+  font-weight:700;color:#06121f}
+.bdg.c{background:var(--critical);color:#fff} .bdg.w{background:var(--caution)}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:3px var(--s3);margin-top:var(--s2);font-size:12px}
+.kv dt{color:var(--ink-3)} .kv dd{margin:0;font-family:var(--mono);font-variant-numeric:tabular-nums}
+.legend{display:flex;flex-wrap:wrap;gap:6px var(--s4);padding:6px var(--s4);flex:none;
+  border-top:1px solid var(--line);background:var(--surface);font-size:11px;color:var(--ink-2)}
+.lg{display:flex;align-items:center;gap:5px}
+.sw{width:20px;height:10px;border-radius:2px}
+.sw.hatch{background:repeating-linear-gradient(45deg,#2a3038 0 4px,#20262d 4px 8px)}
+
+/* ---- inspector controls ---- */
+.edit{display:flex;flex-direction:column;gap:6px;margin-top:var(--s3);padding-top:var(--s3);
+  border-top:1px solid var(--line-soft)}
+.edit label{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-3)}
+.edit select,.edit input[type=text]{background:var(--surface);color:var(--ink);
+  border:1px solid var(--line);border-radius:3px;padding:4px 6px;font-size:12px}
+.edit input[type=text]{width:78px;font-family:var(--mono);text-align:center}
+.locks{display:flex;gap:var(--s3)}
+.locks label{color:var(--ink-2)}
+
+/* ---- drag ---- */
+.trk.dragging{opacity:.45}
+.dropline{position:absolute;top:-4px;bottom:-4px;width:3px;background:var(--target);
+  z-index:6;pointer-events:none;border-radius:2px}
+
+/* ---- agent drawer (Tier 2: it appears when asked for, over the timeline) ---- */
+.drawer{position:fixed;top:0;right:0;bottom:0;width:430px;max-width:92vw;z-index:22;
+  background:var(--raised);border-left:1px solid var(--line);
+  box-shadow:-18px 0 44px rgba(0,0,0,.45);
+  display:flex;flex-direction:column;gap:var(--s2);padding:var(--s3) var(--s4) var(--s4)}
+.dw-head{display:flex;align-items:center;gap:var(--s3);flex:none}
+.dw-head h2{margin:0;font-size:14px;font-weight:600;letter-spacing:0;text-transform:none;
+  color:var(--ink)}
+.dw-head label{display:flex;align-items:center;gap:5px;margin-left:auto;font-size:12px;
+  color:var(--ink-3)}
+.dw-head select{background:var(--surface);color:var(--ink);border:1px solid var(--line);
+  border-radius:3px;padding:3px 6px;font-size:12px}
+.dw-status{margin:0;font-size:12px;color:var(--ink-3);flex:none;
+  border-bottom:1px solid var(--line-soft);padding-bottom:var(--s2)}
+.chat{flex:1 1 auto;min-height:80px;overflow:auto;display:flex;flex-direction:column;gap:7px;
+  padding-right:2px}
+.msg{font-size:13px;line-height:1.55;white-space:pre-wrap;word-break:break-word}
+.msg.you{color:var(--ink);background:var(--surface);border-left:2px solid var(--measure);
+  padding:5px 9px;border-radius:0 4px 4px 0}
+.msg.agent{color:var(--ink-2)}
+.msg.meta{color:var(--ink-3);font-size:11px;font-family:var(--mono)}
+.dw-ask{display:flex;gap:var(--s2);flex:none}
+.dw-ask input{flex:1;background:var(--surface);color:var(--ink);border:1px solid var(--line);
+  border-radius:3px;padding:7px 9px;font-size:13px}
+.cand{width:100%;display:grid;grid-template-columns:1fr 54px 44px 56px;gap:var(--s2);
+  align-items:center;background:var(--surface);border:1px solid var(--line-soft);
+  border-radius:3px;padding:5px 8px;font-family:var(--mono);font-size:11px;color:var(--ink-2);
+  cursor:pointer;text-align:left}
+.cand:hover{border-color:var(--measure);color:var(--ink)}
+.cand span:first-child{font-family:var(--sans);white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis}
+.cand-list{display:flex;flex-direction:column;gap:3px;margin-top:5px;max-height:130px;
+  overflow:auto}
+.card{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--target);
+  border-radius:4px;padding:var(--s3);margin-top:var(--s2)}
+.card h3{margin:0 0 5px;font-size:13px;font-weight:600;color:var(--ink)}
+.card .why{font-size:12px;color:var(--ink-2);margin:0 0 var(--s2)}
+.card label{display:grid;grid-template-columns:16px 1fr;gap:7px;align-items:start;
+  font-size:12px;color:var(--ink-2);margin-bottom:4px;cursor:pointer}
+.card .diff{font-family:var(--mono);font-size:11px;color:var(--ink-3);
+  border-top:1px solid var(--line-soft);margin-top:var(--s2);padding-top:var(--s2);
+  display:flex;flex-direction:column;gap:2px}
+.card .acts{display:flex;gap:var(--s2);margin-top:var(--s3)}
+.sec-title{font-size:11px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--ink-3);margin:var(--s2) 0 0}
+.plog{margin:0;font-size:11px;color:var(--ink-3);font-family:var(--mono);flex:none}
+/* the proposal drawn over the set before anything is applied (S4-3) */
+.ghost{position:absolute;top:0;bottom:0;border:1px dashed var(--target);
+  background:rgba(247,120,186,.13);pointer-events:none;z-index:2}
+
+/* ---- modal ---- */
+.modal{position:fixed;inset:0;background:rgba(6,9,12,.72);display:grid;place-items:center;
+  z-index:25;padding:var(--s4)}
+.sheet{background:var(--raised);border:1px solid var(--line);border-radius:6px;
+  padding:var(--s5);max-width:720px;width:100%;max-height:82vh;overflow:auto}
+.sheet h2{margin:0 0 var(--s3);font-size:16px;font-weight:600;letter-spacing:0;
+  text-transform:none;color:var(--ink)}
+.sheet pre{background:var(--sunken);border:1px solid var(--line-soft);border-radius:4px;
+  padding:var(--s3);font-family:var(--mono);font-size:12px;color:var(--ink-2);
+  white-space:pre-wrap;margin:0}
+.sheet p{color:var(--ink-2);font-size:13px;margin:0 0 var(--s3)}
+.sheet .field{display:flex;flex-direction:column;gap:5px;margin-bottom:var(--s3)}
+.sheet .field span{font-size:12px;color:var(--ink-3)}
+.sheet .field input{background:var(--surface);color:var(--ink);border:1px solid var(--line);
+  border-radius:3px;padding:7px 9px;font-family:var(--mono);font-size:13px}
+.mActions{display:flex;gap:var(--s2);justify-content:flex-end;margin-top:var(--s4)}
+.hint{font-size:12px;color:var(--ink-3);margin-top:var(--s2)}
+.hintq{color:var(--measure);text-decoration:none}
+.hintq:hover,.hintq:focus-visible{text-decoration:underline}
+.hint.warn{color:var(--caution)}
+.steps{margin:0;padding-left:1.3em;font-size:13px;color:var(--ink-2)}
+.steps li{margin-bottom:5px}
+.steps b{color:var(--ink)}
+
+/* ---- boot / error ---- */
+.curtain{position:fixed;inset:0;display:grid;place-items:center;background:var(--page);z-index:20}
+.curtain .box{max-width:620px;padding:var(--s6);text-align:left}
+.curtain h1{font-size:18px;margin:0 0 var(--s3)}
+.curtain p{color:var(--ink-2);margin:0 0 var(--s3)}
+.curtain pre{background:var(--raised);border:1px solid var(--line);border-radius:4px;
+  padding:var(--s3);font-family:var(--mono);font-size:11px;color:var(--ink-2);
+  white-space:pre-wrap;max-height:240px;overflow:auto}
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--raised);
+  border:1px solid var(--line);border-left:3px solid var(--caution);border-radius:4px;
+  padding:9px 15px;font-size:13px;z-index:30;max-width:70vw}
+[hidden]{display:none!important}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style></head>
+<body>
+
+<div class="app" id="app" hidden>
+  <div class="bar">
+    <label>Playlist <select id="pl"></select></label>
+    <label>Target <input type="text" id="target" value="60:00"></label>
+    <label>Mix <select id="preset"></select></label>
+    <label><input type="checkbox" id="cap32"> cap 32bar</label>
+    <label>Curve <select id="curve"></select><span class="meta" id="curveEdited"></span></label>
+    <button class="btn" id="undo">元に戻す</button>
+    <button class="btn" id="redo">やり直す</button>
+    <button class="btn" id="rescan">再スキャン</button>
+    <button class="btn primary" id="export">XMLへ書き出し</button>
+    <button class="btn" id="agentBtn">エージェント</button>
+    <button class="btn" id="settings">設定</button>
+  </div>
+
+  <section class="verdict">
+    <div>
+      <p class="eyebrow">目標との差</p>
+      <div class="gap-row">
+        <div class="hero" id="hero">—</div>
+        <div class="gap-sub" id="heroSub"></div>
+      </div>
+      <div class="bullet-track">
+        <div class="bullet-fill" id="bFill"></div>
+        <div class="bullet-over" id="bOver"></div>
+        <div class="bullet-tick" id="bTick"></div>
+      </div>
+      <div class="bullet-scale"><span>0:00</span><span id="bTargetLbl"></span><span id="bTotalLbl"></span></div>
+    </div>
+    <div class="reality" id="reality"></div>
+  </section>
+
+  <div class="transport">
+    <div class="seg" role="group" aria-label="時間軸の密度">
+      <button type="button" data-zoom="overview" aria-pressed="false">全体</button>
+      <button type="button" data-zoom="section" aria-pressed="true">区間</button>
+      <button type="button" data-zoom="detail" aria-pressed="false">詳細</button>
+    </div>
+    <span class="meta" id="density"></span>
+    <div class="minimap" id="minimap"><div class="mm-view" id="mmView"></div></div>
+  </div>
+
+  <div class="scroll" id="scroll">
+    <div class="canvas" id="canvas">
+      <div class="lane-h">Tracks — フレーズ構成</div>
+      <div class="ruler" id="ruler"></div>
+      <div class="tracks" id="tracks"></div>
+      <div class="lane-h">Energy — 実測とターゲット</div>
+      <div class="energy" id="energy"></div>
+      <div class="lane-h">Sections — 区間予算</div>
+      <div class="sections" id="sections"></div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span class="lg"><i class="sw" style="background:var(--ph-intro)"></i>Intro</span>
+    <span class="lg"><i class="sw" style="background:var(--ph-up)"></i>Up</span>
+    <span class="lg"><i class="sw" style="background:var(--ph-chorus)"></i>Chorus（ドロップ）</span>
+    <span class="lg"><i class="sw" style="background:var(--ph-down)"></i>Down</span>
+    <span class="lg"><i class="sw" style="background:var(--ph-outro)"></i>Outro</span>
+    <span class="lg"><i class="sw" style="background:var(--ph-verse)"></i>Verse / Bridge</span>
+    <span class="lg"><i class="sw hatch"></i>フレーズ解析なし</span>
+    <span class="lg"><i class="sw" style="background:var(--target)"></i>目標</span>
+    <span class="lg" id="analysisMeta" style="margin-left:auto;font-family:var(--mono)"></span>
+    <span class="lg" style="color:var(--ink-3)">色は rekordbox と同じ意味</span>
+  </div>
+
+  <div class="foot">
+    <div>
+      <p class="eyebrow">警告</p>
+      <ul class="warns" id="warns"></ul>
+    </div>
+    <div>
+      <p class="eyebrow">選択中</p>
+      <div id="selTitle" style="font-weight:600;font-size:13px">—</div>
+      <dl class="kv" id="selKv"></dl>
+      <div class="edit" id="selEdit" hidden>
+        <label>Preset <select id="tPreset"></select></label>
+        <label>Tempo <input type="text" id="tTempo" placeholder="原曲のまま"> BPM</label>
+        <label><input type="checkbox" id="tMile"> マイルストーン
+          <input type="text" id="tMileAt" placeholder="mm:ss"></label>
+        <div class="locks">
+          <label><input type="checkbox" class="lk" data-lock="position"> 位置</label>
+          <label><input type="checkbox" class="lk" data-lock="range"> 範囲</label>
+          <label><input type="checkbox" class="lk" data-lock="tempo"> テンポ</label>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="curtain" id="curtain">
+  <div class="box">
+    <h1 id="cTitle">ライブラリを読んでいる…</h1>
+    <p id="cMsg">rekordbox の master.db を復号して開いている。初回は少し時間がかかる。</p>
+    <pre id="cDetail" hidden></pre>
+    <button class="btn primary" id="cRetry" hidden>もう一度ためす</button>
+  </div>
+</div>
+
+<aside class="drawer" id="drawer" hidden aria-label="エージェント">
+  <div class="dw-head">
+    <h2>エージェント</h2>
+    <label>介入度 <select id="level"></select></label>
+    <button class="btn" id="dwClose">閉じる</button>
+  </div>
+  <p class="dw-status" id="agentStatus"></p>
+  <div class="chat" id="chat"></div>
+  <div class="dw-ask">
+    <input type="text" id="askText" placeholder="質問や指示を書く">
+    <button class="btn primary" id="askSend">送る</button>
+  </div>
+  <p class="hint" id="askHints"></p>
+  <div id="cands"></div>
+  <div id="pending"></div>
+  <p class="plog" id="plog"></p>
+</aside>
+
+<div class="modal" id="modal" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+    <h2 id="mTitle"></h2>
+    <div id="mBody"></div>
+    <div class="mActions" id="mActions"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const DENSITY = {overview:3, section:36, detail:96};   /* px per minute */
+const PH_COLOR = {intro:"var(--ph-intro)", up:"var(--ph-up)", chorus:"var(--ph-chorus)",
+                  down:"var(--ph-down)", outro:"var(--ph-outro)", verse:"var(--ph-verse)"};
+let ST = null, BOOT = null, mode = "section", toastTimer = null;
+
+const fmt = s => {
+  const n = Math.round(Math.abs(s));
+  return (s < 0 ? "-" : "") + Math.floor(n/60) + ":" + String(n%60).padStart(2,"0");
+};
+const pps = () => DENSITY[mode] / 60;
+
+function toast(msg){
+  const t = $("toast"); t.textContent = msg; t.hidden = false;
+  clearTimeout(toastTimer); toastTimer = setTimeout(()=>{t.hidden = true}, 4200);
+}
+function fail(title, msg, detail){
+  $("curtain").hidden = false; $("app").hidden = true;
+  $("cTitle").textContent = title; $("cMsg").textContent = msg;
+  $("cDetail").hidden = !detail; $("cDetail").textContent = detail || "";
+  $("cRetry").hidden = false;
+}
+
+/* ---------------- boot ---------------- */
+async function boot(){
+  const b = await window.pywebview.api.boot();
+  if(b.error){
+    fail("ライブラリが開けない", b.error + "\n\nrekordbox を一度起動してライブラリを作ってから、もう一度ためせ。",
+         b.detail);
+    return;
+  }
+  BOOT = b;
+  $("tPreset").innerHTML = b.presets.map(n=>`<option>${esc(n)}</option>`).join("");
+  $("pl").innerHTML = b.playlists.map(n=>`<option>${esc(n)}</option>`).join("");
+  if(b.playlist) $("pl").value = b.playlist;
+  $("preset").innerHTML = b.presets.map(n=>`<option>${esc(n)}</option>`).join("");
+  $("preset").value = b.preset;
+  $("cap32").checked = !!b.cap32;
+  $("curve").innerHTML = `<option value="">（なし）</option>` +
+    b.curves.map(c=>`<option value="${esc(c.key)}">${esc(c.label)}</option>`).join("");
+  $("target").value = fmt(b.target_s);
+  if(b.rekordbox_running)
+    toast("rekordbox が起動中だ。直前の編集が master.db に書かれていない場合がある");
+  await reload();
+}
+
+function targetSeconds(){
+  const m = /^(\d+):(\d{1,2})$/.exec($("target").value.trim());
+  return m ? (+m[1])*60 + (+m[2]) : 3600;
+}
+
+async function reload(){
+  $("cTitle").textContent = "セットを組んでいる…";
+  $("cMsg").textContent = "フレーズ解析を読んで再生範囲を決めている。";
+  $("curtain").hidden = false;
+  const s = await window.pywebview.api.load({
+    playlist: $("pl").value, preset: $("preset").value,
+    cap32: $("cap32").checked, target_s: targetSeconds(),
+  });
+  apply(s, true);
+}
+
+function apply(s, firstPaint){
+  if(!s){ return; }
+  /* only boot/load failures take over the screen; an ordinary refusal is a toast */
+  if(s.fatal){ fail("読み込みに失敗した", s.error, s.detail); return; }
+  if(s.error && !s.tracks){ toast(s.error); return; }
+  if(s.error) toast(s.error);
+  if(s.notice) toast(s.notice);
+  ST = s;
+  $("curtain").hidden = true; $("app").hidden = false;
+  render();
+  if(firstPaint) $("scroll").scrollLeft = 0;
+}
+
+/* ---------------- render ---------------- */
+const esc = t => String(t).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+function render(){
+  renderVerdict();
+  renderLanes();
+  renderMinimap();
+  renderWarnings();
+  renderSelected();
+  renderAgent();
+  syncView();
+}
+
+/* ---------------- agent drawer ---------------- */
+/* these are worded to hit the advisor's own vocabulary, so a DJ who clicks one
+   always gets a real answer instead of "その言い方はまだ解釈できない" */
+const HINTS = ["今のセット何分？", "バランスどう？", "ピークはどこ？",
+               "候補を出して", "区間の余白は？", "60:00 に収めて"];
+
+function renderAgent(){
+  const a = ST.agent || {};
+  if(!a.ready){ $("agentStatus").textContent = "セットを読み込むと使える"; return; }
+
+  $("agentStatus").textContent = a.status;
+  if($("level").options.length !== (a.levels || []).length){
+    $("level").innerHTML = (a.levels || []).map(l =>
+      `<option value="${esc(l)}">${esc(l)}</option>`).join("");
+  }
+  $("level").value = a.level;
+
+  const c = $("chat");
+  const atBottom = c.scrollHeight - c.scrollTop - c.clientHeight < 40;
+  c.innerHTML = (a.chat || []).map(m =>
+    `<div class="msg ${esc(m.who)}">${esc(m.text)}</div>`).join("") ||
+    `<div class="msg meta">まだ何も話していない。下の例をそのまま送ってもいい。</div>`;
+  if(atBottom) c.scrollTop = c.scrollHeight;
+
+  $("askHints").innerHTML = "例: " + HINTS.map(h =>
+    `<a href="#" class="hintq" data-q="${esc(h)}">${esc(h)}</a>`).join(" · ");
+
+  $("cands").innerHTML = !(a.candidates || []).length ? "" :
+    `<p class="sec-title">候補（クリックで挿入案）</p><div class="cand-list">` +
+    a.candidates.map(x => `<button class="cand" data-id="${esc(x.track_id)}">
+        <span title="${esc(x.title)}">${esc(x.title)}</span>
+        <span>${(+x.bpm).toFixed(1)}</span><span>${esc(x.key || "")}</span>
+        <span>${esc(x.in_slot || "")}</span></button>`).join("") + `</div>`;
+
+  const p = a.pending;
+  $("pending").innerHTML = !p ? "" :
+    `<div class="card">
+       <h3>${esc(p.title || "提案")}</h3>
+       ${p.reason ? `<p class="why">${esc(p.reason)}</p>` : ""}
+       ${p.items.map(it => `<label><input type="checkbox" class="op" data-i="${it.i}"
+           ${it.approved ? "checked" : ""}><span>${esc(it.text)}</span></label>`).join("")}
+       <div class="diff">${p.diff.map(l => `<span>${esc(l)}</span>`).join("")}</div>
+       <div class="acts">
+         <button class="btn primary" id="applyPending">チェックした操作を適用</button>
+         <button class="btn" id="rejectPending">却下</button>
+       </div>
+     </div>`;
+
+  $("plog").textContent = a.log || "";
+
+  /* a proactive notice is worthless if the drawer is shut and nothing says so */
+  const n = (a.chat || []).length;
+  if($("drawer").hidden && n > seenMsgs) $("agentBtn").classList.add("hasnew");
+  else { $("agentBtn").classList.remove("hasnew"); seenMsgs = n; }
+}
+let seenMsgs = 0;
+
+function renderVerdict(){
+  const d = ST.delta_s, tgt = ST.target_s || 0, tot = ST.total_s;
+  const h = $("hero");
+  h.className = "hero " + (d == null ? "" : d > ST.tolerance_s ? "over" : d < -ST.tolerance_s ? "under" : "ok");
+  h.textContent = d == null ? "—" : (d > 0 ? "+" : "") + fmt(d);
+  const ratio = tgt ? (tot/tgt) : 0;
+  const extra = ST.tracks.length && d > 0
+    ? Math.round(d / (tot / ST.tracks.length)) : 0;
+  $("heroSub").innerHTML =
+    `実測 <b>${fmt(tot)}</b> / 目標 <b>${fmt(tgt)}</b>` +
+    (tgt ? ` · 目標の <b>${ratio.toFixed(2)} 倍</b>` : "") +
+    (extra > 0 ? ` — およそ <b>${extra}曲</b>ぶん余っている` : "");
+
+  const span = Math.max(tot, tgt) || 1;
+  $("bFill").style.width = (Math.min(tot,tgt)/span*100) + "%";
+  const over = Math.max(0, tot - tgt);
+  $("bOver").style.left = (tgt/span*100) + "%";
+  $("bOver").style.width = (over/span*100) + "%";
+  $("bTick").style.left = (tgt/span*100) + "%";
+  $("curveEdited").textContent = ST.curve_edited ? " 編集済み" : "";
+  $("bTargetLbl").textContent = "目標 " + fmt(tgt);
+  $("bTotalLbl").textContent = fmt(tot);
+
+  /* the waterfall: what trimming can actually buy, against the gap */
+  const r = $("reality"), trims = ST.trims || [], sum = ST.trim_total_s || 0;
+  if(over <= 0){
+    r.className = "reality";
+    r.innerHTML = `<h3>目標の範囲に入っている</h3>
+      <p>削り代は使わなくていい。展開の山谷の確認に進め。</p>`;
+    return;
+  }
+  r.className = "reality crit";
+  const pct = sum ? (sum/over*100) : 0;
+  const scale = v => Math.max(2, v/over*100);
+  r.innerHTML = `<h3>削り代では届かない</h3>
+    <p>テンポ調整で稼げるのは全曲あわせて <b>${fmt(sum)}</b>。超過 <b>${fmt(over)}</b> の
+       <b>${pct.toFixed(1)}%</b> にしかならない。曲を抜く判断が要る。</p>
+    <div class="wf">` +
+    trims.slice(0,8).map(t=>`<div class="wf-row">
+        <span class="wf-name" title="${esc(t.title)}">${esc(t.title)}</span>
+        <span class="wf-bar" style="width:${scale(t.gain_s)}%"></span>
+        <span>−${fmt(t.gain_s)}</span></div>`).join("") +
+    `<div class="wf-row wf-sum"><span class="wf-name" style="color:var(--ink-2)">削り代の合計</span>
+       <span class="wf-bar" style="width:${scale(sum)}%"></span>
+       <span style="color:var(--caution)">−${fmt(sum)}</span></div>
+     <div class="wf-row"><span class="wf-name" style="color:var(--ink-2)">超過</span>
+       <span class="wf-bar gap" style="width:100%"></span>
+       <span style="color:var(--critical)">${fmt(over)}</span></div></div>`;
+}
+
+function renderLanes(){
+  const k = pps(), W = Math.max(ST.total_s*k, 800);
+  $("canvas").style.width = W + "px";
+  $("density").textContent = `1分 = ${DENSITY[mode]}px`;
+
+  const step = mode === "overview" ? 600 : mode === "section" ? 120 : 60;
+  let r = "";
+  for(let t = 0; t <= ST.total_s; t += step)
+    r += `<div class="rmark" style="left:${(t*k).toFixed(1)}px">${fmt(t)}</div>`;
+  $("ruler").innerHTML = r;
+
+  let h = "";
+  for(const t of ST.tracks){
+    const x = t.start_s*k, w = Math.max((t.end_s - t.start_s)*k, 1);
+    let inner;
+    if(t.phrases.length){
+      inner = t.phrases.map(p=>{
+        const px = (p.start_s - t.start_s)*k, pw = Math.max((p.end_s - p.start_s)*k, 1);
+        return `<div class="ph" style="left:${px.toFixed(1)}px;width:${pw.toFixed(1)}px;
+                 background:${PH_COLOR[p.group] || "var(--ph-verse)"}" title="${esc(p.label)}"></div>`;
+      }).join("");
+    } else {
+      inner = `<div class="none" title="フレーズ解析なし"></div>`;
+    }
+    h += `<div class="trk" data-i="${t.i}" data-sel="${t.i === ST.selected ? 1 : 0}"
+            style="left:${x.toFixed(1)}px;width:${w.toFixed(1)}px"
+            title="${esc(t.title)}
+${fmt(t.start_s)} → ${fmt(t.end_s)}  再生 ${fmt(t.play_s)}
+${t.bpm} BPM${t.set_tempo !== t.bpm ? " → " + t.set_tempo : ""} · ${esc(t.preset)}${t.locks.length ? " · ロック: " + esc(t.locks.join(",")) : ""}
+${t.phrases.length ? t.phrases.map(p=>p.label).join(" → ") : "フレーズ解析なし"}">${inner}` +
+         (w > 56 ? `<div class="trk-t">${t.i+1}. ${esc(t.title)}</div>` : "") +
+         (w > 76 ? `<div class="trk-m">${fmt(t.play_s)} · ${t.bpm}</div>` : "") +
+         `</div>`;
+    if(t.milestone_s != null)
+      h += `<div class="mile" style="left:${x.toFixed(1)}px" title="マイルストーン ${fmt(t.milestone_s)}"></div>`;
+  }
+  if(ST.target_s) h += `<div class="tline" style="left:${(ST.target_s*k).toFixed(1)}px"></div>`;
+
+  /* S4-3: what the ticked proposal would do, drawn over the set, nothing applied */
+  const g = (ST.agent || {}).ghost;
+  if(g && g.tracks){
+    for(const t of g.tracks){
+      const gx = t.start_s*k, gw = Math.max((t.end_s - t.start_s)*k, 1);
+      h += `<div class="ghost" style="left:${gx.toFixed(1)}px;width:${gw.toFixed(1)}px"
+              title="提案後: ${esc(t.title)}"></div>`;
+    }
+  }
+  $("tracks").innerHTML = h;
+
+  renderEnergy(W, k);
+  renderSections(W, k);
+}
+
+function renderEnergy(W, k){
+  /* the lane's height comes from the flex column, not a constant, so the curve
+     fills whatever the window leaves for it */
+  const H = Math.max(92, Math.round($("energy").clientHeight) || 150);
+  const top = 8, base = H - 6;
+  const ey = v => (base - v*(base - top)).toFixed(1);
+  const ex = s => (s*k).toFixed(1);
+
+  /* measured: one polyline, broken wherever analysis is missing */
+  let paths = "", run = [];
+  const flush = () => {
+    if(run.length > 1){
+      paths += `<path d="M${run[0][0]},${base}L` + run.map(p=>p[0]+","+p[1]).join("L") +
+               `L${run[run.length-1][0]},${base}Z" fill="var(--measure)" fill-opacity=".30"
+                 stroke="var(--measure)" stroke-width="1.5" stroke-linejoin="round"></path>`;
+    }
+    run = [];
+  };
+  for(const p of ST.energy){
+    if(!p.known){ flush(); continue; }
+    run.push([ex(p.t), ey(p.e)]);
+  }
+  flush();
+
+  /* unknown stretches get a hatch — never an interpolated value */
+  let holes = "";
+  for(const t of ST.tracks){
+    if(t.phrases.length) continue;
+    holes += `<rect x="${ex(t.start_s)}" y="${top}" width="${((t.end_s-t.start_s)*k).toFixed(1)}"
+               height="${base-top}" fill="url(#hatch)"></rect>`;
+  }
+
+  /* deviation bands */
+  let bands = "";
+  for(const d of (ST.deviation || [])){
+    const col = d.kind === "over" ? "var(--critical)" : "var(--caution)";
+    bands += `<rect x="${ex(d.start_s)}" y="${top}" width="${((d.end_s-d.start_s)*k).toFixed(1)}"
+               height="${base-top}" fill="${col}" fill-opacity=".13"></rect>`;
+  }
+
+  /* target curve, over set length */
+  let curve = "", knobs = "";
+  if(ST.curve && ST.curve.length){
+    curve = `<path d="` + ST.curve.map(([pos,v],i)=>
+      `${i?"L":"M"}${ex(pos*ST.total_s)},${ey(v)}`).join("") +
+      `" fill="none" stroke="var(--target)" stroke-width="2" stroke-dasharray="5 4"></path>`;
+    knobs = ST.curve.map(([pos,v],i)=>
+      `<circle class="knob" data-ci="${i}" cx="${ex(pos*ST.total_s)}" cy="${ey(v)}" r="5.5"
+        fill="var(--target)" stroke="var(--surface)" stroke-width="2"></circle>`).join("");
+  }
+
+  $("energy").innerHTML =
+    `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img"
+       aria-label="実測エネルギーとターゲットカーブ">
+      <defs><pattern id="hatch" width="8" height="8" patternUnits="userSpaceOnUse"
+        patternTransform="rotate(45)">
+        <rect width="8" height="8" fill="#20262d"></rect>
+        <rect width="4" height="8" fill="#2a3038"></rect></pattern></defs>
+      ${bands}${holes}
+      <line x1="0" y1="${base}" x2="${W}" y2="${base}" stroke="var(--line)" stroke-width="1"></line>
+      ${paths}${curve}${knobs}
+    </svg>`;
+  ENERGY_GEOM = {top, base, W};
+}
+
+/* ---- target curve: drag a control point, double-click to add, right-click to remove ---- */
+let ENERGY_GEOM = {top: 8, base: 144, W: 1};
+let knobDrag = null;
+
+function curveAt(clientX, clientY){
+  const svg = $("energy").querySelector("svg");
+  if(!svg) return null;
+  const r = svg.getBoundingClientRect();
+  const {top, base} = ENERGY_GEOM;
+  const pos = (clientX - r.left) / Math.max(r.width, 1);
+  const energy = (base - (clientY - r.top)) / Math.max(base - top, 1);
+  return {pos: Math.min(1, Math.max(0, pos)), energy: Math.min(1, Math.max(0, energy))};
+}
+$("energy").addEventListener("pointerdown", e=>{
+  const k = e.target.closest(".knob"); if(!k) return;
+  knobDrag = {i: +k.dataset.ci, node: k};
+  k.setPointerCapture?.(e.pointerId);
+});
+window.addEventListener("pointermove", e=>{
+  if(!knobDrag) return;
+  const c = curveAt(e.clientX, e.clientY); if(!c) return;
+  const {top, base, W} = ENERGY_GEOM;
+  knobDrag.at = c;
+  knobDrag.node.setAttribute("cx", (c.pos * W).toFixed(1));
+  knobDrag.node.setAttribute("cy", (base - c.energy * (base - top)).toFixed(1));
+});
+window.addEventListener("pointerup", async ()=>{
+  if(!knobDrag) return;
+  const d = knobDrag; knobDrag = null;
+  if(!d.at) return;
+  apply(await window.pywebview.api.move_curve_point(d.i, d.at.pos, d.at.energy));
+});
+$("energy").addEventListener("dblclick", async e=>{
+  if(!ST.curve || !ST.curve.length){ toast("先に目標カーブを選べ"); return; }
+  if(e.target.closest(".knob")) return;
+  const c = curveAt(e.clientX, e.clientY); if(!c) return;
+  apply(await window.pywebview.api.add_curve_point(c.pos, c.energy));
+});
+$("energy").addEventListener("contextmenu", async e=>{
+  const k = e.target.closest(".knob"); if(!k) return;
+  e.preventDefault();
+  apply(await window.pywebview.api.remove_curve_point(+k.dataset.ci));
+});
+
+function renderSections(W, k){
+  if(!ST.sections.length){ $("sections").innerHTML = ""; return; }
+  $("sections").innerHTML = ST.sections.map(s=>{
+    const x = s.start_s*k, w = Math.max((s.end_s - s.start_s)*k, 130);
+    const has = s.target_s != null && s.target_s > 0;
+    const ratio = has ? Math.min(s.actual_s/s.target_s, 1) : 1;
+    const diff = has ? s.actual_s - s.target_s : null;
+    return `<div class="sec" style="left:${x.toFixed(1)}px;width:${w.toFixed(1)}px">
+      <div class="sec-n" title="${esc(s.name)}">${esc(s.name)}</div>
+      <div class="sec-b"><div class="sec-f" style="width:${(ratio*100).toFixed(1)}%"></div>
+        ${has?`<div class="sec-t" style="left:98%"></div>`:""}</div>
+      <div class="sec-v">${s.tracks}曲 · ${fmt(s.actual_s)}` +
+        (diff == null ? " · 目標なし"
+          : ` · <span class="${diff>0?"o":"u"}">${diff>0?"+":"−"}${fmt(Math.abs(diff))}</span>`) +
+      `</div></div>`;
+  }).join("");
+}
+
+function renderMinimap(){
+  const mm = $("minimap"), w = mm.clientWidth, k = w/Math.max(ST.total_s,1);
+  let h = `<div class="mm-view" id="mmView"></div>`;
+  let lane = "";
+  for(const t of ST.tracks){
+    if(t.phrases.length){
+      for(const p of t.phrases)
+        lane += `<div style="position:absolute;top:0;height:14px;left:${(p.start_s*k).toFixed(1)}px;
+                  width:${Math.max((p.end_s-p.start_s)*k,.5).toFixed(1)}px;
+                  background:${PH_COLOR[p.group]||"var(--ph-verse)"}"></div>`;
+    } else {
+      lane += `<div style="position:absolute;top:0;height:14px;left:${(t.start_s*k).toFixed(1)}px;
+                width:${Math.max((t.end_s-t.start_s)*k,.5).toFixed(1)}px;background:#39404a"></div>`;
+    }
+  }
+  const H = 26, top = 14;
+  let d = `M0,${top+H}`;
+  for(const p of ST.energy) if(p.known) d += `L${(p.t*k).toFixed(1)},${(top+H-2-p.e*(H-4)).toFixed(1)}`;
+  d += `L${w},${top+H}Z`;
+  mm.innerHTML = lane +
+    `<svg width="${w}" height="${top+H}" style="position:absolute;left:0;top:0">
+       <path d="${d}" fill="var(--measure)" fill-opacity=".3" stroke="var(--measure)"
+         stroke-width="1"></path></svg>` +
+    (ST.target_s ? `<div style="position:absolute;top:0;bottom:0;width:2px;background:var(--target);
+       left:${(ST.target_s*k).toFixed(1)}px"></div>` : "") + h;
+}
+
+function syncView(){
+  const sc = $("scroll"), mmW = $("minimap").clientWidth, cw = $("canvas").clientWidth || 1;
+  const v = $("mmView"); if(!v) return;
+  v.style.left = (sc.scrollLeft/cw*mmW) + "px";
+  v.style.width = Math.min(sc.clientWidth/cw, 1)*mmW + "px";
+}
+
+function renderWarnings(){
+  $("warns").innerHTML = (ST.warnings || []).map(w=>
+    `<li><span class="bdg ${w.level === "critical" ? "c" : "w"}">${w.level === "critical" ? "!" : "△"}</span>
+      <span>${esc(w.text)}</span></li>`).join("") ||
+    `<li><span class="bdg w" style="background:#1fb013">✓</span><span>警告なし</span></li>`;
+  $("analysisMeta").textContent =
+    `${ST.playlist}: ${ST.analysis.total}曲中 ${ST.analysis.present}曲にフレーズ解析あり`;
+}
+
+function renderSelected(){
+  const t = ST.tracks.find(x => x.i === ST.selected);
+  if(!t){
+    $("selTitle").textContent = "—";
+    $("selKv").innerHTML = "";
+    $("selEdit").hidden = true;
+    return;
+  }
+  $("selTitle").textContent = `${t.i+1}. ${t.title}`;
+  const ph = t.phrases.length ? t.phrases.map(p=>p.label).join(" → ") : "データなし";
+  $("selKv").innerHTML =
+    `<dt>位置</dt><dd>${fmt(t.start_s)} → ${fmt(t.end_s)}</dd>
+     <dt>再生</dt><dd>${fmt(t.play_s)}</dd>
+     <dt>BPM</dt><dd>${t.bpm}${t.set_tempo !== t.bpm ? " → " + t.set_tempo : ""}</dd>
+     <dt>フレーズ</dt><dd style="white-space:normal">${esc(ph)}</dd>`;
+
+  $("selEdit").hidden = false;
+  $("tPreset").value = t.preset;
+  $("tTempo").value = (t.set_tempo !== t.bpm) ? t.set_tempo : "";
+  $("tMile").checked = t.milestone_s != null;
+  $("tMileAt").value = t.milestone_s != null ? fmt(t.milestone_s) : "";
+  $("tMileAt").disabled = t.milestone_s == null;
+  document.querySelectorAll(".lk").forEach(c =>
+    c.checked = t.locks.includes(c.dataset.lock) || t.locks.includes("all"));
+}
+
+/* ---------------- modal ---------------- */
+function modal(title, bodyHTML, actions){
+  $("mTitle").textContent = title;
+  $("mBody").innerHTML = bodyHTML;
+  $("mActions").innerHTML = "";
+  for(const a of actions){
+    const b = document.createElement("button");
+    b.className = "btn" + (a.primary ? " primary" : "") + (a.danger ? " danger" : "");
+    b.textContent = a.label;
+    b.addEventListener("click", ()=>{ if(a.run) a.run(); if(a.close !== false) closeModal(); });
+    $("mActions").appendChild(b);
+  }
+  $("modal").hidden = false;
+  const first = $("mBody").querySelector("input,select,textarea") || $("mActions").firstChild;
+  if(first) first.focus();
+}
+function closeModal(){ $("modal").hidden = true; }
+$("modal").addEventListener("click", e=>{ if(e.target === $("modal")) closeModal(); });
+window.addEventListener("keydown", e=>{ if(e.key === "Escape" && !$("modal").hidden) closeModal(); });
+
+/* ---------------- events ---------------- */
+$("scroll").addEventListener("scroll", syncView, {passive:true});
+let resizeTimer = null;
+window.addEventListener("resize", ()=>{
+  if(!ST) return;
+  clearTimeout(resizeTimer);            /* the energy lane resizes with the window */
+  resizeTimer = setTimeout(()=>{ renderLanes(); renderMinimap(); syncView(); }, 120);
+});
+
+/* click to select, drag to reorder — one pointer gesture, 5px decides which */
+let drag = null;
+function selectTrack(i){
+  ST.selected = i;
+  document.querySelectorAll(".trk").forEach(x => x.dataset.sel = (+x.dataset.i === i) ? 1 : 0);
+  renderSelected();
+  window.pywebview.api.select(i);
+}
+function dropIndexAt(clientX){
+  /* snap only to boundaries that are actually on screen (Phase 1 research) */
+  const host = $("tracks").getBoundingClientRect();
+  const x = clientX - host.left, k = pps();
+  let best = 0;
+  for(const t of ST.tracks){
+    if(t.start_s*k < x) best = t.i; else break;
+  }
+  const t = ST.tracks[best];
+  if(t && x > (t.start_s + (t.end_s - t.start_s)/2)*k) best += 1;
+  return Math.max(0, Math.min(ST.tracks.length - 1, best));
+}
+const EDGE_PX = 7;                      /* grab zone for trimming the play range */
+
+function edgeAt(node, clientX){
+  const r = node.getBoundingClientRect();
+  if(clientX - r.left <= EDGE_PX) return "in";
+  if(r.right - clientX <= EDGE_PX) return "out";
+  return null;
+}
+$("tracks").addEventListener("pointermove", e=>{
+  if(drag) return;                      /* mid-gesture: leave the cursor alone */
+  const n = e.target.closest(".trk");
+  $("tracks").style.cursor = (n && edgeAt(n, e.clientX)) ? "ew-resize" : "";
+});
+$("tracks").addEventListener("pointerdown", e=>{
+  const n = e.target.closest(".trk"); if(!n) return;
+  const t = ST.tracks.find(x => x.i === +n.dataset.i);
+  const edge = edgeAt(n, e.clientX);
+  drag = {i: +n.dataset.i, x0: e.clientX, node: n, moved: false,
+          edge, track: t,
+          w0: n.getBoundingClientRect().width,
+          left0: parseFloat(n.style.left) || 0};
+  n.setPointerCapture?.(e.pointerId);
+});
+$("tracks").addEventListener("pointermove", e=>{
+  if(!drag) return;
+  if(!drag.moved && Math.abs(e.clientX - drag.x0) < 5) return;
+  if(!drag.moved){
+    drag.moved = true;
+    if(!drag.edge){
+      drag.node.classList.add("dragging");
+      const line = document.createElement("div");
+      line.className = "dropline"; line.id = "dropline";
+      $("tracks").appendChild(line);
+    }
+  }
+  const dx = e.clientX - drag.x0;
+
+  if(drag.edge){                        /* trimming: the block follows the edge */
+    if(drag.edge === "in"){
+      const w = Math.max(6, drag.w0 - dx);
+      drag.node.style.left = (drag.left0 + dx) + "px";
+      drag.node.style.width = w + "px";
+    } else {
+      drag.node.style.width = Math.max(6, drag.w0 + dx) + "px";
+    }
+    drag.dx = dx;
+    return;
+  }
+
+  const to = dropIndexAt(e.clientX);
+  const target = ST.tracks[to];
+  const line = $("dropline");
+  if(line && target) line.style.left = ((to > drag.i ? target.end_s : target.start_s) * pps()) + "px";
+  drag.to = to;
+});
+$("tracks").addEventListener("pointerup", async e=>{
+  if(!drag) return;
+  const d = drag; drag = null;
+  $("dropline")?.remove();
+  d.node.classList.remove("dragging");
+  if(!d.moved){ selectTrack(d.i); return; }
+
+  if(d.edge){
+    /* set-time pixels -> source-time ms: undo the tempo scaling the engine applied */
+    const t = d.track;
+    const scale = (t.bpm && t.set_tempo) ? (t.set_tempo / t.bpm) : 1;
+    const deltaMs = (d.dx / pps()) * 1000 * scale;
+    const outMs = t.play_out_ms != null ? t.play_out_ms
+                : Math.round((t.source_len_s || 0) * 1000);
+    const inMs = d.edge === "in" ? Math.round(t.play_in_ms + deltaMs) : t.play_in_ms;
+    const newOut = d.edge === "out" ? Math.round(outMs + deltaMs) : outMs;
+    ST.selected = d.i;
+    apply(await window.pywebview.api.set_range(d.i, inMs, newOut));
+    return;
+  }
+
+  if(d.to == null || d.to === d.i) return;
+  ST.selected = d.to;
+  apply(await window.pywebview.api.move(d.i, d.to));
+});
+$("tracks").addEventListener("pointercancel", ()=>{
+  if(!drag) return;
+  $("dropline")?.remove();
+  drag.node.classList.remove("dragging");
+  const wasEdge = drag.edge;
+  drag = null;
+  if(wasEdge) renderLanes();            /* put the half-dragged block back */
+});
+
+/* ---- inspector edits: every one goes through Command/History ---- */
+const parseTime = v => {
+  const m = /^\s*(\d+):(\d{1,2})\s*$/.exec(v || "");
+  return m ? (+m[1])*60 + (+m[2]) : null;
+};
+$("tPreset").addEventListener("change", async ()=>
+  apply(await window.pywebview.api.set_preset(ST.selected, $("tPreset").value)));
+$("tTempo").addEventListener("change", async ()=>
+  apply(await window.pywebview.api.set_tempo(ST.selected, $("tTempo").value.trim() || null)));
+$("tMile").addEventListener("change", async ()=>{
+  const on = $("tMile").checked;
+  const t = ST.tracks.find(x => x.i === ST.selected);
+  const at = on ? (parseTime($("tMileAt").value) ?? Math.round(t ? t.start_s : 0)) : null;
+  apply(await window.pywebview.api.set_milestone(ST.selected, on ? at : null));
+});
+$("tMileAt").addEventListener("change", async ()=>{
+  const at = parseTime($("tMileAt").value);
+  if(at == null){ toast("時刻は mm:ss で入れろ"); return; }
+  apply(await window.pywebview.api.set_milestone(ST.selected, at));
+});
+document.querySelectorAll(".lk").forEach(c =>
+  c.addEventListener("change", async ()=>
+    apply(await window.pywebview.api.set_lock(ST.selected, c.dataset.lock, c.checked))));
+
+/* ---- XML export: show what actually lands there before writing ---- */
+$("export").addEventListener("click", async ()=>{
+  const p = await window.pywebview.api.export_preview();
+  if(p.error){ toast(p.error); return; }
+  modal("書き出す前に — 何が rekordbox に渡るか",
+    `<pre>${esc(p.text)}</pre>`,
+    [{label:"やめる"},
+     {label:"書き出す", primary:true, run: doExport}]);
+});
+async function doExport(){
+  const r = await window.pywebview.api.export_xml(null);
+  if(r.error){ toast(r.error); return; }
+  if(r.notice && !r.path){ toast(r.notice); return; }
+  modal("書き出した — rekordbox 側の手順",
+    `<p><span class="num">${esc(r.path)}</span> に書いた。rekordbox はこの3手順を踏まないと読まない。</p>
+     <ol class="steps">
+       <li>rekordbox の <b>環境設定 &gt; 詳細 &gt; データベース &gt; rekordbox xml</b> で、
+           読み込み用ライブラリにこのファイルを指定する<span class="hint">（初回だけ。以降は不要）</span></li>
+       <li><b>rekordbox を再起動する</b>（起動時にしか読まない。ツリーの再読込では反映されない）
+           <span class="hint">— 下の「rekordbox を再起動」で代行できる</span></li>
+       <li>ブラウザ左のアイコンレールで <b>「rekordbox xml を表示」</b> をオンにする</li>
+     </ol>
+     <p class="hint warn">取り込んだ曲をデッキに載せると「コレクションに追加するか」を訊かれる。
+        Yes を押すと自分のライブラリが書き換わる。</p>`,
+    [{label:"わかった"},
+     {label:"rekordbox を再起動", primary:true, close:false, run:()=>doRestart(false)}]);
+}
+
+/* Automate the one manual step that can be automated: the relaunch. rekordbox
+   reads the exported XML only at startup. Never force-quits past an unsaved
+   prompt without a second, explicit confirm. */
+async function doRestart(force){
+  $("mActions").innerHTML =
+    `<span class="hint">${force ? "強制終了して再起動中…" : "rekordbox を再起動中…"}</span>`;
+  let r;
+  try { r = await window.pywebview.api.restart_rekordbox(!!force); }
+  catch(e){ r = {error:String(e)}; }
+  if(r && r.ok){
+    closeModal();
+    toast(r.action === "launched" ? "rekordbox を起動した — 起動後 XML が読み込まれる"
+                                  : "rekordbox を再起動した — 起動後 XML が読み込まれる");
+    return;
+  }
+  if(r && r.action === "still_running"){
+    modal("rekordbox が終了しなかった",
+      `<p>${esc(r.error || "")}</p>
+       <p class="hint warn">未保存の作業があるなら、rekordbox 側で保存してから手で閉じてくれ。
+          強制終了すると未保存の編集は失われる。</p>`,
+      [{label:"手で閉じる（やめる）"},
+       {label:"強制終了して再起動", danger:true, close:false, run:()=>doRestart(true)}]);
+    return;
+  }
+  modal("再起動できなかった",
+    `<p>${esc((r && r.error) || "原因不明")}</p>
+     <p class="hint">rekordbox を手で起動すれば、書き出した XML は次回起動時に読み込まれる。</p>`,
+    [{label:"わかった", primary:true}]);
+}
+
+/* ---- settings: the LLM key, and the invariant that it is optional ---- */
+$("settings").addEventListener("click", async ()=>{
+  const s = await window.pywebview.api.llm_status();
+  const where = s.source === "settings"
+      ? (s.stored === "dpapi" ? "この PC の設定に暗号化して保存済み" : "設定に平文で保存済み")
+      : s.source === "env" ? "環境変数から読んでいる" : "未設定";
+  modal("設定 — エージェントの LLM",
+    `<p>${esc(s.note)}</p>
+     <div class="field"><span>API キー（${esc(where)}${s.masked ? " · " + esc(s.masked) : ""}）</span>
+       <input type="password" id="fKey" placeholder="${s.configured ? "変更するときだけ入力" : "sk-ant-…"}"></div>
+     <div class="field"><span>モデル</span>
+       <input type="text" id="fModel" value="${esc(s.model || "")}"></div>
+     <p class="hint">キーは Windows の DPAPI でこのアカウントに紐づけて暗号化する。
+        空のまま保存すればキーを消せる。</p>`,
+    [{label:"やめる"},
+     {label:"保存", primary:true, close:false, run: async ()=>{
+        const key = $("fKey").value, model = $("fModel").value;
+        const r = await window.pywebview.api.set_llm(key === "" ? null : key, model);
+        closeModal();
+        toast(r.warning || (r.configured ? `LLM を設定した（${r.model}）` : "LLM キーを外した。アドバイザで動く"));
+     }}]);
+});
+
+document.querySelectorAll("[data-zoom]").forEach(b=>{
+  b.addEventListener("click", ()=>{
+    mode = b.dataset.zoom;
+    document.querySelectorAll("[data-zoom]").forEach(o=>
+      o.setAttribute("aria-pressed", String(o === b)));
+    renderLanes(); syncView();
+  });
+});
+
+let dragging = false;
+function jump(clientX){
+  const r = $("minimap").getBoundingClientRect();
+  const f = Math.min(Math.max((clientX - r.left)/r.width, 0), 1);
+  const sc = $("scroll");
+  sc.scrollLeft = f*$("canvas").clientWidth - sc.clientWidth/2;
+}
+$("minimap").addEventListener("pointerdown", e=>{ dragging = true; jump(e.clientX); });
+window.addEventListener("pointermove", e=>{ if(dragging) jump(e.clientX); });
+window.addEventListener("pointerup", ()=>{ dragging = false; });
+
+$("pl").addEventListener("change", reload);
+$("preset").addEventListener("change", reload);
+$("cap32").addEventListener("change", reload);
+$("target").addEventListener("change", async ()=>
+  apply(await window.pywebview.api.set_target(targetSeconds())));
+$("curve").addEventListener("change", async ()=>
+  apply(await window.pywebview.api.set_curve($("curve").value)));
+$("undo").addEventListener("click", async ()=> apply(await window.pywebview.api.undo()));
+$("redo").addEventListener("click", async ()=> apply(await window.pywebview.api.redo()));
+$("rescan").addEventListener("click", async ()=>{
+  $("curtain").hidden = false; $("cTitle").textContent = "再スキャンしている…";
+  apply(await window.pywebview.api.rescan(), true);
+});
+$("cRetry").addEventListener("click", ()=>{ $("cRetry").hidden = true; boot(); });
+
+/* ---- agent drawer ---- */
+function openDrawer(on){
+  $("drawer").hidden = !on;
+  if(on){
+    seenMsgs = ((ST.agent || {}).chat || []).length;
+    $("agentBtn").classList.remove("hasnew");
+    const c = $("chat"); c.scrollTop = c.scrollHeight;
+    setTimeout(()=> $("askText").focus(), 30);
+  }
+}
+$("agentBtn").addEventListener("click", ()=> openDrawer($("drawer").hidden));
+$("dwClose").addEventListener("click", ()=> openDrawer(false));
+window.addEventListener("keydown", e=>{
+  if(e.key === "Escape" && $("modal").hidden && !$("drawer").hidden) openDrawer(false);
+});
+
+async function send(){
+  const t = $("askText").value.trim();
+  if(!t) return;
+  $("askText").value = "";
+  $("askSend").disabled = true;
+  try { apply(await window.pywebview.api.ask(t)); }
+  finally { $("askSend").disabled = false; $("askText").focus(); }
+}
+$("askSend").addEventListener("click", send);
+$("askText").addEventListener("keydown", e=>{ if(e.key === "Enter") send(); });
+$("askHints").addEventListener("click", e=>{
+  const a = e.target.closest(".hintq"); if(!a) return;
+  e.preventDefault();
+  $("askText").value = a.dataset.q;
+  send();
+});
+$("level").addEventListener("change", async ()=>
+  apply(await window.pywebview.api.set_level($("level").value)));
+$("cands").addEventListener("click", async e=>{
+  const b = e.target.closest(".cand"); if(!b) return;
+  apply(await window.pywebview.api.insert_candidate(b.dataset.id, null));
+});
+$("pending").addEventListener("change", async e=>{
+  const c = e.target.closest(".op"); if(!c) return;
+  apply(await window.pywebview.api.set_item_approved(+c.dataset.i, c.checked));
+});
+$("pending").addEventListener("click", async e=>{
+  if(e.target.id === "applyPending") apply(await window.pywebview.api.apply_pending());
+  if(e.target.id === "rejectPending") apply(await window.pywebview.api.reject_pending());
+});
+
+window.addEventListener("pywebviewready", boot);
+</script>
+</body></html>
