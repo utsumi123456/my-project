@@ -151,18 +151,29 @@ class AdvisorTests(unittest.TestCase):
     def test_fit_request_produces_a_change_set_when_it_can(self):
         a = Advisor(tools(draft(*"abcdef", target=1500)))
         r = a.ask("20:00に収めて")          # no phrase data -> it must say so, not invent
+        self.assertIn("フレーズ解析がない", r.text)
+        # ranges cannot shrink without phrases, so it proposes whole tracks to drop
+        self.assertIsNotNone(r.change_set)
+        ops = [i.op for i in r.change_set.items]
+        self.assertTrue(all(o.op == "remove" for o in ops))
+        self.assertEqual(len(ops), 2)        # 600 s over, 300 s per track
+        self.assertIn("候補です", r.text)
+
+    def test_fit_admits_when_locks_leave_nothing_to_drop(self):
+        d = draft(*"abcdef", target=1500)
+        for i in "abcdef":
+            SetLock(i, "position", True).execute(d)
+        r = Advisor(tools(d)).ask("20:00に収めて")
         self.assertIsNone(r.change_set)
-        self.assertIn("フレーズ解析が無い", r.text)
-        self.assertIn("曲を外す", r.text)
-        self.assertIn("3 曲分", r.text)      # arithmetic, not a shrug
+        self.assertIn("候補は出せません", r.text)
 
     def test_already_within_target_is_said_plainly(self):
         a = Advisor(tools(draft(*"abc", target=900)))
-        self.assertIn("収まっている", a.ask("15:00に収めて").text)
+        self.assertIn("収まってい", a.ask("15:00に収めて").text)
 
     def test_unparsed_request_admits_it(self):
         a = Advisor(tools(draft(*"abc")))
-        self.assertIn("解釈できない", a.ask("ヴァイブスを上げてくれ").text)
+        self.assertIn("解釈できま", a.ask("ヴァイブスを上げてくれ").text)
 
     def test_fill_returns_real_tracks_only(self):
         a = Advisor(tools(draft(*"abcdef")))

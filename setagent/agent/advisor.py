@@ -7,6 +7,9 @@ has something correct to imitate.
 
 `Advisor.ask()` returns a Reply: prose for the panel, optionally a ChangeSet for
 the user to approve, optionally a list of real candidate tracks.
+
+Voice (2026-09-16): plain, polite assistant Japanese (です・ます). The DJ decides;
+the agent reports numbers and offers options. No orders, no bravado.
 """
 from __future__ import annotations
 
@@ -17,6 +20,7 @@ from enum import Enum
 from setagent.agent.changeset import ChangeSet, ProposalLog, Proposal, Rejected, build_change_set
 from setagent.agent.tools import AgentTools
 from setagent.analysis.curve import flat_segments
+from setagent.analysis.removal import pick_removals, removal_candidates
 from setagent.analysis.sections import milestones, sections
 from setagent.analysis.timing import compute, fmt
 from setagent.rekordbox.library import PhraseStatus
@@ -45,6 +49,8 @@ FIT_WORDS = ("収めて", "収める", "縮めて", "短く", "削って", "fit"
 FILL_WORDS = ("足したい", "埋めたい", "追加", "候補", "add", "fill", "suggest", "recommend")
 FULL_WORDS = ("フル", "full", "丸ごと")
 
+OFF_TEXT = "エージェントはオフになっています。分析とタイムラインはそのまま使えます。"
+
 
 def _mmss(text: str) -> int | None:
     m = re.search(r"(\d{1,3}):(\d{2})", text)
@@ -64,7 +70,7 @@ class Advisor:
     # ------------------------------------------------------------------ api
     def ask(self, text: str, selected_index: int | None = None) -> Reply:
         if self.level is Intervention.OFF:
-            return Reply("エージェントはオフだ。分析とタイムラインはそのまま使える")
+            return Reply(OFF_TEXT)
         t = text.strip()
         low = t.lower()
 
@@ -84,26 +90,26 @@ class Advisor:
         if has(PEAK_WORDS) or has(TIME_WORDS):
             return self.set_report()
         return Reply(
-            "その言い方はまだ解釈できない。私にできるのは、"
+            "その言い方はまだ解釈できません。できることは、"
             "尺とピークを答える／区間の余白を出す／バランスを見る／"
-            "目標尺に収める案を出す／区間に合う曲を探す、あたりだ。"
-            "選んだ曲について「フルでかけたい」も通る")
+            "目標尺に収める案を出す／区間に合う曲を探す、です。"
+            "曲を選んだ状態で「フルでかけたい」も受け付けます。")
 
     # -------------------------------------------------------------- answers
     def set_report(self) -> Reply:
         s = self.tools.get_set_summary()
-        line = f"今のセットは {s['total']}"
+        line = f"今のセットは {s['total']} です"
         if s["target"]:
-            line += f"、目標 {s['target']} に対して {s['delta']}"
+            line += f"。目標 {s['target']} に対して {s['delta']}"
         if s["peak_at"]:
-            line += f"。ピークは {s['peak_at']} 付近だ"
+            line += f"。ピークは {s['peak_at']} 付近です"
         cov = s["phrase_coverage"]
         return Reply(line + f"\n（フレーズ解析の範囲: {cov}）", used_tools=["analysis.get_set_summary"])
 
     def section_report(self) -> Reply:
         d = self.tools.get_sections()
         if not d["sections"]:
-            return Reply("区間が無い。曲を選んで M キーでマイルストーンにすれば骨組みができる",
+            return Reply("区間がまだありません。曲を選んで M キーでマイルストーンにすると骨組みができます。",
                          used_tools=["analysis.get_sections"])
         lines = []
         for s in d["sections"]:
@@ -112,7 +118,7 @@ class Advisor:
                 row += f" / 目標 {s['target']}（{s['delta']}）"
             if s["room_for_tracks"]:
                 r = s["room_for_tracks"]
-                row += f"  → {'あと' + str(r) + '曲入る' if r > 0 else str(-r) + '曲分オーバー'}"
+                row += f"  → {'あと' + str(r) + '曲入ります' if r > 0 else str(-r) + '曲分オーバーです'}"
             lines.append(row)
         for m in d["milestones"]:
             if m["delta"]:
@@ -125,22 +131,22 @@ class Advisor:
         e = self.tools.get_energy_curve()
         lines: list[str] = []
         if s["target"] and s["within_target"] is False:
-            lines.append(f"尺が目標から {s['delta']} ずれている")
+            lines.append(f"尺が目標から {s['delta']} ずれています")
         for f in e["flat"][:2]:
-            lines.append(f"{f['from']}〜{f['to']} が平坦だ（振れ幅 {f['range']}）。"
-                         "そつなく終わるのはここだ")
+            lines.append(f"{f['from']}〜{f['to']} が平坦です（振れ幅 {f['range']}）。"
+                         "展開が止まって聞こえやすい区間です")
         if e["has_target_curve"]:
             over = [d for d in e["deviation"] if d["kind"] == "over"][:1]
             under = [d for d in e["deviation"] if d["kind"] == "under"][:1]
             for d in over + under:
                 lines.append(f"{d['from']}〜{d['to']} は目標より"
-                             f"{'高い' if d['kind'] == 'over' else '低い'}")
+                             f"{'高め' if d['kind'] == 'over' else '低め'}です")
         else:
-            lines.append("目標カーブがまだ無い。テンプレートを当てれば、意図とのズレを出せる")
+            lines.append("目標カーブがまだありません。テンプレートを当てると、意図とのズレを出せます")
         if s["peak_at"]:
-            lines.append(f"ピークは {s['peak_at']}。狙いどおりか、ここだけは自分で決めろ")
+            lines.append(f"ピークは {s['peak_at']} です。狙いどおりの位置かご確認ください")
         if not lines:
-            lines.append("大きな破綻は見当たらない")
+            lines.append("大きな問題は見当たりません")
         return Reply("\n".join(f"・{l}" for l in lines),
                      used_tools=["analysis.get_set_summary", "analysis.get_energy_curve"])
 
@@ -153,9 +159,9 @@ class Advisor:
                                   self.tools.curve)
         except Rejected as ex:
             self.log.record_drop()
-            return Reply(f"その案は出せない。{ex}")
+            return Reply(f"この案は出せません。{ex}")
         if self.log.already_seen(cs):
-            return Reply("同じ案は一度却下されている。別の手を考えるなら条件を足せ")
+            return Reply("同じ案は一度却下されています。別の案を出すには条件を追加してください。")
         self.log.record_proposal(cs)
         self._last = cs
         body = "\n".join(f"・{i.op.describe(self.tools.title_of)}" for i in cs.items)
@@ -164,17 +170,21 @@ class Advisor:
                      used_tools=["set.propose_changes"])
 
     def fit_to_target(self, target_s: int | None = None) -> Reply:
-        """S4-2 + S1-6: cut just enough to land inside the target, and be honest
-        about the part that presets cannot reach."""
+        """S4-2 + S1-6: cut just enough to land inside the target.
+
+        Ranges first (cheap, reversible), then whole tracks from
+        analysis.removal for what ranges cannot reach. Honest about the part
+        neither can cover.
+        """
         d = self.tools.draft
         if target_s:
             d.constraints.target_length_s = target_s
         tl = compute(d, self.tools.lib)
         if tl.target_s is None:
-            return Reply("目標尺が決まっていない。上の Target に mm:ss で入れろ")
+            return Reply("目標尺が設定されていません。上の Target に mm:ss で入力してください。")
         over = tl.total_s - tl.target_s
         if over <= tl.tolerance_s:
-            return Reply(f"すでに収まっている（{fmt(tl.total_s)} / 目標 {fmt(tl.target_s)}）")
+            return Reply(f"すでに収まっています（{fmt(tl.total_s)} / 目標 {fmt(tl.target_s)}）。")
 
         from setagent.analysis.phrases import preset_range
         ops: list[dict] = []
@@ -194,29 +204,46 @@ class Advisor:
                 break
 
         if ops and saved >= over:
-            return self._propose(f"目標の {fmt(tl.target_s)} を {fmt(over)} 超えている。"
-                                 f"{len(ops)}曲を one_drop に詰めれば収まる", ops, "目標尺に収める")
+            return self._propose(f"目標の {fmt(tl.target_s)} を {fmt(over)} 超えています。"
+                                 f"{len(ops)}曲を one_drop に詰めると収まります。", ops, "目標尺に収める")
 
-        # presets alone cannot get there — say by how much, and why
+        # ranges alone cannot get there: pick whole tracks to drop
         remaining = over - saved
-        avg = tl.total_s / max(len(tl.placements), 1)
-        need = int(remaining // avg) + 1
         no_phrase = sum(1 for e in d.tracks
                         if self.tools.lib.analysis(e.track_id).phrase_status is not PhraseStatus.PRESENT)
         why = ""
         if no_phrase:
-            why = (f"\n{len(d.tracks)}曲中 {no_phrase}曲にフレーズ解析が無い"
-                   "（クラウド保存の曲は rekordbox が解析しない）ので、範囲を自動で詰められない")
-        head = f"目標を {fmt(over)} 超えている。"
+            why = (f"{len(d.tracks)}曲中 {no_phrase}曲にフレーズ解析がない"
+                   "（クラウド保存の曲は rekordbox が解析しません）ため、範囲の自動短縮には限りがあります。")
+        head = f"目標を {fmt(over)} 超えています。"
         if ops:
-            head += f"one_drop で詰められるのは {fmt(saved)} 分まで、残り {fmt(remaining)} は範囲では消せない"
+            head += f"one_drop で詰められるのは {fmt(saved)} までで、残り {fmt(remaining)} は範囲では消せません。"
         else:
-            head += "範囲の短縮では届かない"
-        tail = (f"{why}\n残りを消すなら曲を外すしかない。1曲平均 {fmt(avg)} なので、"
-                f"およそ {need} 曲分だ。どれを外すかはお前が決めろ — "
-                "外したい曲を選んで Delete、または目標尺のほうを見直せ")
+            head += "範囲の短縮だけでは届きません。"
+        head += why
+
+        cands = removal_candidates(d, self.tools.lib, self.tools.anlz, self.tools.curve, tl)
+        picked = pick_removals(cands, remaining)
+        if picked:
+            shown = picked[:8]
+            lines = [f"・{c.title[:28]}（{fmt(c.saves_s)}）: " + "／".join(c.reasons) for c in shown]
+            if len(picked) > len(shown):
+                lines.append(f"・ほか {len(picked) - len(shown)} 曲（下の一覧に含まれています）")
+            reason = (head + f"\n曲を外す候補として、展開と繋ぎへの影響が小さい順に {len(picked)} 曲を選びました。"
+                      "\n" + "\n".join(lines))
+            reply = self._propose(reason, ops + [{"op": "remove", "track_ref": c.track_id} for c in picked],
+                                  "目標尺に収める（範囲と曲の削除）")
+            if reply.change_set is not None:
+                reply.text += "\n外す曲は候補です。チェックを外して適用すれば、その曲は残ります。"
+            return reply
+
+        avg = tl.total_s / max(len(tl.placements), 1)
+        need = int(remaining // avg) + 1
+        tail = (f"\n残りを消すには曲を外す必要があります。1曲平均 {fmt(avg)} なので、およそ {need} 曲分です。"
+                "ロックとマイルストーンを除くと外せる曲が足りないため、候補は出せません。"
+                "ロックを見直すか、目標尺のほうを調整してください。")
         if ops:
-            reply = self._propose(head + "。まず詰められる分だけ出す", ops, "できる範囲で詰める")
+            reply = self._propose(head + "まず詰められる分だけ出します。", ops, "できる範囲で詰める")
             reply.text += tail
             return reply
         return Reply(head + tail)
@@ -228,10 +255,10 @@ class Advisor:
         ops = [{"op": "set_range", "track_ref": e.track_id, "preset": "full",
                 "play_in": 0, "play_out": None}]
         sim = self.tools.simulate(ops)
-        reply = self._propose(f"{title[:28]} をフル尺にする。総尺は {sim['total_after']} になる",
+        reply = self._propose(f"{title[:28]} をフル尺にします。総尺は {sim['total_after']} になります。",
                               ops, "フルでかける")
         if sim.get("within_target") is False:
-            reply.text += "\n目標を超える。「60:00に収めて」と言えば、削り代の案を出す"
+            reply.text += "\n目標を超えます。「60:00 に収めて」のように指示すると、削り代の案を出します。"
         return reply
 
     def fill_gap(self, text: str, selected_index: int | None) -> Reply:
@@ -254,18 +281,18 @@ class Advisor:
         cands = self.tools.recommend_candidates(fmt(want), target_energy=target_e,
                                                 after_index=after, limit=5)
         if not cands:
-            return Reply("条件に合う曲がライブラリに無い。BPM の幅かキーの条件を緩めろ",
+            return Reply("条件に合う曲がライブラリにありません。BPM の幅かキーの条件を緩めてみてください。",
                          used_tools=["recommend.candidates"])
-        head = (f"{fmt(want)} の枠に入る候補だ（{after + 1} 曲目の次）。"
-                "どれもお前のライブラリの実在曲だ:")
+        head = (f"{fmt(want)} の枠に入る候補です（{after + 1} 曲目の次）。"
+                "いずれもライブラリにある曲です:")
         body = "\n".join(f"{i + 1}. {c['title'][:34]} — {c['reason']}"
                          for i, c in enumerate(cands))
-        return Reply(f"{head}\n{body}\n選んだらダブルクリックで挿入案にする",
+        return Reply(f"{head}\n{body}\n候補をダブルクリックすると挿入案になります。",
                      candidates=cands, used_tools=["recommend.candidates"])
 
     def insert_candidate(self, track_id: str, at_index: int) -> Reply:
         title = self.tools.title_of(track_id)
-        return self._propose(f"{title[:28]} を {at_index + 1} 番目に入れる",
+        return self._propose(f"{title[:28]} を {at_index + 1} 番目に入れます。",
                              [{"op": "insert", "track_id": track_id, "at_index": at_index}],
                              "候補を挿入")
 
@@ -276,12 +303,12 @@ class Advisor:
             return []
         tl = compute(self.tools.draft, self.tools.lib)
         if tl.within_target is False:
-            return [f"尺が目標から {fmt(tl.delta_s)} ずれている。「収めて」と言えば案を出す"]
+            return [f"尺が目標から {fmt(tl.delta_s)} ずれています。「収めて」と指示すると案を出します。"]
         flats = flat_segments(self.tools._points(tl))
         if flats:
             f = flats[0]
-            return [f"{fmt(f.start_s)}〜{fmt(f.end_s)} が平坦だ。「何か足したい」で候補を出す"]
+            return [f"{fmt(f.start_s)}〜{fmt(f.end_s)} が平坦です。「何か足したい」で候補を出します。"]
         for m in milestones(self.tools.draft, tl):
             if m.delta_s is not None and abs(m.delta_s) > tl.tolerance_s:
-                return [f"{m.title[:20]} が目標時刻から {fmt(abs(m.delta_s))} ずれている"]
+                return [f"{m.title[:20]} が目標時刻から {fmt(abs(m.delta_s))} ずれています。"]
         return []
