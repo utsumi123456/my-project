@@ -24,8 +24,19 @@
 - ピルの角を 999px（真のピル）に。全体の字間 .09em → .06em。スクロールバーをテーマ色に。
 - 緑 #1fb013 の直書きを `--ok` に集約。
 
-**変えていないもの（制約どおり）:** 表示項目、文言、各機能の位置と順番、フォント族（Segoe UI / Yu Gothic UI +
-Consolas）、大文字ラベル（TRACKS / ENERGY / SECTIONS は readme の呼称なので据え置き）。
+**変えていないもの（制約どおり）:** 表示項目、文言、各機能の位置と順番、大文字ラベル（TRACKS / ENERGY /
+SECTIONS は readme の呼称なので据え置き）。
+
+**フォントを rekordbox に合わせた（追加タスク、22:30〜）:** 調べた範囲では rekordbox 7.2.14 は
+フォントを同梱もインストールもしていない（`Program Files
+ekordbox` に .ttf/.otf なし、exe 内に
+フォント本体なし、レジストリの Fonts に Pioneer 由来なし）。ブラウザ／メニューの文字は設定の
+`MenuFontName`（既定 **Arial**、環境設定 > 表示 で変更可）で、日本語は OS のフォールバック。
+skins の SVG 3 枚に `HelveticaNeueLTW1G` があるが、これは画像素材の指定。exe 内の "Montserrat" は
+ICU ロケールの国名で、フォントではない。→ `--sans` と `--mono` をともに
+`"Arial","Yu Gothic UI","Meiryo UI",system-ui` にし、数字は `font-variant-numeric:tabular-nums` で
+桁を揃える（Consolas は廃止）。フォントは同梱しない（rekordbox と同じ機械のフォントを使うことで一致する）。
+ユーザーが rekordbox 側でフォントを変えている場合は一致しない点に注意。
 
 **実測（acid, 400×900 / 460×940）:** 文字サイズの集合 {11,12,13,14,15,56}、低コントラスト 0、
 フォーカス不可 0、Set BPM 欄 95px（必要 81px）、横はみ出しなし、バー 1 行 53px。
@@ -603,5 +614,5 @@ PowerShell の `Add-Type` は 60秒を超えることがあるので、同じこ
 旧 UI はこれが逆転していた（Tier 3 の BPM が曲ブロックの中、Tier 1 の差分が右上隅の14px）。
 **新しい画面を足すときは、この分類のどこに入るかを先に決めろ。**
 
-タイポグラフィは最低4段階（hero 38px / display / body 14px / caption 11px）、
+タイポグラフィは最低4段階（hero 56px / display / body 14px / caption 11px、字体は rekordbox と同じ Arial 系）、
 テキスト色は3段階（`--ink` / `--ink-2` / `--ink-3`）。2段階に戻すな。

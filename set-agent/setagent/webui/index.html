@@ -17,8 +17,13 @@
   /* fills keep the deep red; text uses a lighter step so 12px labels read (5.5:1) */
   --critical-ink:#ec6059; --ok:#1fb013;
   --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px;
-  --mono:"Consolas","IBM Plex Mono",ui-monospace,monospace;
-  --sans:"Segoe UI","Yu Gothic UI",system-ui,sans-serif;
+  /* Same face as rekordbox (2026-09-16): its browser and menus draw in the
+     Windows system Arial (Preferences > View, default "Arial"), with the OS
+     supplying Japanese glyphs. No font is bundled with rekordbox, so none is
+     bundled here either -- the two panels share the machine's fonts. Numbers
+     stay column-aligned through font-variant-numeric, not a monospace face. */
+  --sans:"Arial","Yu Gothic UI","Meiryo UI",system-ui,sans-serif;
+  --mono:"Arial","Yu Gothic UI","Meiryo UI",system-ui,sans-serif;
 }
 *{box-sizing:border-box}
 ::-webkit-scrollbar{width:10px;height:10px}
@@ -27,7 +32,7 @@
 ::-webkit-scrollbar-track{background:transparent}
 html,body{height:100%}
 body{margin:0;background:var(--page);color:var(--ink);font-family:var(--sans);
-  font-size:14px;line-height:1.5;overflow:hidden}
+  font-size:14px;line-height:1.5;overflow:hidden;font-variant-numeric:tabular-nums}
 button,select,input{font-family:inherit;font-size:13px}
 
 .app{display:flex;flex-direction:column;height:100vh}
