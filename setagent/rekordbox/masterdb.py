@@ -56,6 +56,11 @@ class MasterDB:
                      int(r["Length"] or 0), r["Key"], r["AnalysisDataPath"] or None,
                      int(r["Analysed"] or 0), r["FolderPath"], int(r["FileType"]))
 
+    def image_path(self, track_id: str) -> str | None:
+        """rekordbox's own artwork copy, e.g. '/PIONEER/Artwork/126/8c18.../artwork.jpg' (under share/)."""
+        r = self.con.execute("select ImagePath from djmdContent where ID = ?", (track_id,)).fetchone()
+        return (r["ImagePath"] or None) if r else None
+
     def tracks(self, include_deleted: bool = False) -> list[Track]:
         q = "select ID from djmdContent" + ("" if include_deleted else " where rb_local_deleted=0")
         return [self.track(r["ID"]) for r in self.con.execute(q)]

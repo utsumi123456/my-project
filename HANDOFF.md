@@ -94,11 +94,19 @@ llm（SYSTEM_PROMPT にも口調の規則を追加）/ tools / diagnostics / lib
 
 **判断済み:** frameless にはしない（OS のタイトルバーで移動・リサイズ・閉じるが無料で付く）。
 
+**アートワーク表示（2026-09-16）:** 取得元は `djmdContent.ImagePath`（例
+`/PIONEER/Artwork/126/8c18…/artwork.jpg`）→ `<share>/PIONEER/Artwork/…` の JPEG（100〜170 KB、
+実機 347 曲中 267 曲にあり、全件解決）。`MasterDB.image_path()` / `Library.artwork_path()` を追加。
+ページは pywebview のローカル HTTP サーバ経由なので file:// の img は読めない → `api.artwork(ids, 56)`
+が Pillow で 56px に切り出した JPEG を data URL で返す（1 枚 ≈ 1.8 KB、24 枚 0.28 秒、セッション内
+キャッシュ）。曲リストの行に 28px のサムネ列を追加（グリッド 28/22/1fr/50/56、行高 37px）。
+386px 幅で横はみ出しなし。`probe_views` に `artImgs` / `rowH` を追加。
+
 **未検証 / 次にやること（優先順）:**
-1. アートワーク表示（曲リストにサムネ）。取得元の調査から。
-2. LLM 実キー疎通（ユーザー指示で最後）。
-3. `python build.py` で exe 再ビルド（今日の変更はすべて未ビルド）。
-4. バーは 386px で 2 行に折り返す（98px）— 詰める余地あり。
+1. LLM 実キー疎通（ユーザー指示で最後。キーはユーザーが設定画面から入れる）。
+2. `python build.py` で exe 再ビルド。
+3. バーは 386px で 2 行に折り返す（98px）— 詰める余地あり。
+4. 詳細ビューの TRACKS レーンやインスペクタにもアートワークを出すか（未着手）。
 
 **地雷（今回踏んだ）:** `_load` は SetTargetLength / SetRange を History に積むので、`_done` が
 空かで「編集あり」を判定すると常に true になる。`api._done_base` に load 直後の長さを持たせて比較。

@@ -185,6 +185,13 @@ class Library:
             return None
         return self.share_dir / t.analysis_path.lstrip("/")
 
+    def artwork_path(self, track_id: str) -> Path | None:
+        rel = self.db.image_path(track_id)
+        if not rel:
+            return None
+        p = self.share_dir / rel.lstrip("/")
+        return p if p.is_file() else None
+
     # ---- analysis with phrase status
     def analysis(self, track_id: str) -> TrackAnalysis:
         if track_id in self._analysis:

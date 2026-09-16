@@ -278,11 +278,13 @@ button,select,input{font-family:inherit;font-size:13px}
   border:1px solid var(--line);border-radius:3px;padding:4px 7px}
 .cond-row input[type=text]{width:70px;font-family:var(--mono);text-align:center}
 .list{display:flex;flex-direction:column;border:1px solid var(--line-soft);border-radius:4px;overflow:hidden}
-.row,.list-h{display:grid;grid-template-columns:28px minmax(0,1fr) 52px 58px;gap:var(--s2);
-  align-items:center;padding:6px var(--s3)}
+.row,.list-h{display:grid;grid-template-columns:28px 22px minmax(0,1fr) 50px 56px;gap:var(--s2);
+  align-items:center;padding:4px var(--s3)}
+.row .art{width:28px;height:28px;border-radius:4px;background:var(--raised);overflow:hidden;display:block}
+.row .art img{width:100%;height:100%;object-fit:cover;display:block}
 .list-h{padding:4px var(--s3);font-size:10px;font-weight:600;letter-spacing:.09em;
   text-transform:uppercase;color:var(--ink-3);background:var(--sunken)}
-.list-h span:nth-child(n+3){text-align:right}
+.list-h span:nth-child(n+4){text-align:right}
 .row{border-top:1px solid var(--line-soft);font-size:12px;cursor:pointer;background:var(--surface)}
 .row:hover{background:var(--raised)}
 .row[data-sel="1"]{background:var(--raised);box-shadow:inset 3px 0 0 var(--ink)}
@@ -696,19 +698,44 @@ $("reco").addEventListener("click", ()=>{
    when it ends. Phrase colours stay in the detail view. */
 function renderList(){
   const tgt = ST.target_s || 0;
-  let h = `<div class="list-h"><span>#</span><span>曲</span><span>尺</span><span>累積</span></div>`;
+  let h = `<div class="list-h"><span></span><span>#</span><span>曲</span><span>尺</span><span>累積</span></div>`;
   for(const t of ST.tracks){
     const cls = "row" + (tgt && t.end_s > tgt + ST.tolerance_s ? " past" : "") +
                 (t.milestone_s != null ? " mile" : "");
     const tag = t.phrases.length ? "" : `<small>解析なし</small>`;
     h += `<div class="${cls}" data-i="${t.i}" data-sel="${t.i === ST.selected ? 1 : 0}"
             title="${esc(t.title)} · ${t.bpm} BPM${t.set_tempo !== t.bpm ? " → " + t.set_tempo : ""} · ${esc(t.preset)}">
+      <span class="art" data-art="${esc(t.track_id)}">${ART[t.track_id] ? `<img src="${ART[t.track_id]}" alt="">` : ""}</span>
       <span class="n">${t.i+1}</span>
       <span class="t">${esc(t.title)}${tag}</span>
       <span class="d">${fmt(t.play_s)}</span>
       <span class="at">${fmt(t.end_s)}</span></div>`;
   }
   $("list").innerHTML = h;
+  loadArtwork();
+}
+
+/* Artwork: rekordbox's own JPEG per track, downscaled by the bridge into data
+   URLs and cached here for the session. Rows render at once and fill in. */
+const ART = {};
+let artBusy = false;
+async function loadArtwork(){
+  if(artBusy || !ST) return;
+  const want = ST.tracks.map(t => t.track_id).filter(id => !(id in ART));
+  if(!want.length) return;
+  artBusy = true;
+  try {
+    for(let i = 0; i < want.length; i += 24){
+      const got = await window.pywebview.api.artwork(want.slice(i, i + 24), 56);
+      for(const [id, url] of Object.entries(got || {})){
+        ART[id] = url;
+        if(url) document.querySelectorAll(`.row .art[data-art="${id}"]`).forEach(el => {
+          el.innerHTML = `<img src="${url}" alt="">`;
+        });
+      }
+    }
+  } catch(e){ /* thumbnails are decoration; the list works without them */ }
+  finally { artBusy = false; }
 }
 $("list").addEventListener("click", e=>{
   const r = e.target.closest(".row"); if(!r) return;

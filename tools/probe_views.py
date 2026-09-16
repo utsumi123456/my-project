@@ -44,6 +44,8 @@ MAIN = "(() => {" + BOX + """
            q: document.getElementById('reco').dataset.q,
            text: txt('reco').replace(/\\s+/g,' ').trim()},
     rows: document.querySelectorAll('.row').length,
+    artImgs: document.querySelectorAll('.row .art img').length,
+    rowH: Math.round((document.querySelector('.row')||{getBoundingClientRect:()=>({height:0})}).getBoundingClientRect().height),
     pastRows: document.querySelectorAll('.row.past').length,
     firstRow: (document.querySelector('.row')||{}).textContent?.replace(/\\s+/g,' ').trim(),
     lastRow: [...document.querySelectorAll('.row')].pop()?.textContent.replace(/\\s+/g,' ').trim(),

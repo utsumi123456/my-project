@@ -9,6 +9,10 @@ Editing still goes through Command/History, exactly as the Canvas UI did.
 """
 from __future__ import annotations
 
+import io
+
+import base64
+
 import functools
 import re
 import threading
@@ -43,12 +47,13 @@ _SERIAL = ("boot", "load", "state", "select", "set_curve", "set_milestone",
            "export_preview", "export_xml", "llm_status", "set_llm",
            "agent_status", "set_level", "ask", "insert_candidate",
            "set_item_approved", "apply_pending", "reject_pending",
-           "restart_rekordbox")
+           "restart_rekordbox", "artwork")
 
 
 class Api:
     def __init__(self, playlist: str | None = None):
         self.lib: Library | None = None
+        self._art_cache: dict[tuple[str, int], str] = {}
         self.want_playlist = playlist
         self.cfgfile = Settings.load()
         self.draft: SetDraft | None = None
@@ -290,6 +295,36 @@ class Api:
         if self.history and self.history.redo():
             return self.state()
         return {**self.state(), "notice": "これ以上やり直せません"}
+
+    # -------------------------------------------------------------- artwork
+    # rekordbox keeps a JPEG per track under share/PIONEER/Artwork (ImagePath in
+    # djmdContent). The page is served by pywebview's local HTTP server, so it
+    # cannot load file:// images; thumbnails go over the bridge as data URLs,
+    # downscaled here so 100 rows cost a few hundred KB, not 15 MB.
+    def artwork(self, track_ids: list, size: int = 56) -> dict:
+        if not self.lib:
+            return {}
+        out: dict[str, str] = {}
+        for tid in track_ids:
+            key = (str(tid), int(size))
+            if key not in self._art_cache:
+                self._art_cache[key] = self._thumb(str(tid), int(size))
+            out[str(tid)] = self._art_cache[key]
+        return out
+
+    def _thumb(self, track_id: str, size: int) -> str:
+        p = self.lib.artwork_path(track_id)
+        if not p:
+            return ""
+        try:
+            from PIL import Image, ImageOps
+            with Image.open(p) as im:
+                im = ImageOps.fit(im.convert("RGB"), (size, size), Image.Resampling.LANCZOS)
+                buf = io.BytesIO()
+                im.save(buf, "JPEG", quality=72, optimize=True)
+            return "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
+        except Exception:
+            return ""                                   # a bad file is not worth a broken row
 
     def rescan(self) -> dict:
         if not self.lib:
