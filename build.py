@@ -1,12 +1,11 @@
-"""Build the distributable and lay out the zip the team receives.
+"""Build the distributable the team receives.
 
-  python build.py           build exe + package
-  python build.py --skip    package only (reuse dist/SetAgentTimeline.exe)
+  python build.py           build exe + lay out dist/
+  python build.py --skip    lay out only (reuse build/exe/SetAgentTimeline.exe)
 
-Produces  dist/SetAgent_<date>.zip  containing the exe and the readme, so a
-teammate unzips one folder and double-clicks one file. dist/ holds only the
-zips; the raw exe PyInstaller emits lives under build/exe/ (a work area) so
-nobody hands out the wrong file.
+Produces  dist/SetAgentTimeline.exe  (the one file to hand out; it is exactly the
+exe that runs here) next to  dist/はじめに.md.  No zip: one file, double-click.
+PyInstaller's own output goes under build/ so dist/ never holds two exes.
 """
 from __future__ import annotations
 
@@ -14,15 +13,12 @@ import os
 import shutil
 import subprocess
 import sys
-import zipfile
-from datetime import date
 from pathlib import Path
 
 ROOT = Path(__file__).parent
 DIST = ROOT / "dist"
 WORK = ROOT / "build" / "exe"
 EXE = WORK / "SetAgentTimeline.exe"
-NAME = f"SetAgent_{date.today():%Y%m%d}"
 
 
 def build_exe() -> None:
@@ -47,11 +43,13 @@ def package() -> Path:
     if not EXE.exists():
         raise SystemExit(f"{EXE} がありません。--skip を外して先にビルドしてください")
     DIST.mkdir(exist_ok=True)
-    out = DIST / f"{NAME}.zip"
-    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
-        z.write(EXE, f"{NAME}/SetAgentTimeline.exe")
-        for f in sorted((ROOT / "dist_readme").glob("*")):
-            z.write(f, f"{NAME}/{f.name}")
+    for old in DIST.glob("*"):
+        if old.is_file():
+            old.unlink()                        # dist/ is exactly what gets handed out
+    out = DIST / EXE.name
+    shutil.copy2(EXE, out)
+    for f in sorted((ROOT / "dist_readme").glob("*")):
+        shutil.copy2(f, DIST / f.name)
     print(f"{out}  ({out.stat().st_size / 1e6:.1f} MB)")
     return out
 
