@@ -64,6 +64,7 @@ class Settings:
     llm_key: str = ""                # stored as "dpapi:<base64>" where possible
     llm_model: str = ""              # "" = the agent's default
     rekordbox_exe: str = ""          # remembered path, for relaunch after export
+    window: str = ""                 # "x,y,w,h" of the panel when it was last closed
 
     # ------------------------------------------------------------- llm key
     # The key is a credential on someone else's PC, so it is not written in
