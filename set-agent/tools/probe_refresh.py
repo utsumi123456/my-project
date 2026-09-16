@@ -39,6 +39,24 @@ def fresh(window):
         "  loaded: LOADED_AT && LOADED_AT.getTime(), sig: LIB_SIG && LIB_SIG.db})")
 
 
+def wait_reload(window, prev_loaded, label):
+    """Wait until a reload finished: LOADED_AT moved on and the curtain is down.
+
+    #app stays visible under the curtain, so wait_ready alone returns at once
+    and reads values mid-reload (artwork makes a reload take several seconds).
+    """
+    for _ in range(60):
+        time.sleep(1)
+        try:
+            f = fresh(window)
+            if f["loaded"] and f["loaded"] != prev_loaded and                     window.evaluate_js("document.getElementById('curtain').hidden"):
+                return f
+        except Exception:
+            pass
+    print(label, "never finished reloading")
+    return fresh(window)
+
+
 def run(window):
     try:
         if not wait_ready(window, "boot"):
@@ -54,10 +72,9 @@ def run(window):
 
         # (1) untouched draft + master.db changed -> auto reload
         window.evaluate_js("LIB_SIG.db = 'fake'; pollLibrary();")
-        time.sleep(1)
-        wait_ready(window, "auto-reload")
-        time.sleep(1)
-        f1 = fresh(window)
+        t = time.time()
+        f1 = wait_reload(window, f0["loaded"], "auto-reload")
+        print(f"  reload took {time.time() - t:.1f}s")
         print("1 auto-reload:", f1)
         print("   reloaded:", f1["loaded"] != f0["loaded"], "state fresh:", f1["state"] == "fresh")
 
@@ -77,8 +94,7 @@ def run(window):
 
         # (3) button -> reload, back to fresh
         window.evaluate_js("document.getElementById('rescan').click()")
-        time.sleep(1)
-        wait_ready(window, "button-reload")
+        f3 = wait_reload(window, f2["loaded"], "button-reload")
         window.evaluate_js("pollLibrary()")
         time.sleep(4)
         f3 = fresh(window)
@@ -87,10 +103,7 @@ def run(window):
 
         # (4) WAL-only change on an untouched draft -> auto reload as well
         window.evaluate_js("LIB_SIG.wal = 'fakewal'; pollLibrary();")
-        time.sleep(1)
-        wait_ready(window, "wal-reload")
-        time.sleep(1)
-        f4 = fresh(window)
+        f4 = wait_reload(window, f3["loaded"], "wal-reload")
         print("4 wal-only:", f4)
         print("   reloaded:", f4["loaded"] != f3["loaded"], "state fresh:", f4["state"] == "fresh")
     except Exception as ex:

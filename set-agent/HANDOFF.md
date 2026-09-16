@@ -110,9 +110,23 @@ llm（SYSTEM_PROMPT にも口調の規則を追加）/ tools / diagnostics / lib
    `はじめに.md` だけを置く。PyInstaller の出力は `build/exe/`。`はじめに.md` は 2 ビュー UI・自動追従・外す候補に
    合わせて書き直し、口調も です・ます に統一。
    起動スモーク: exe を起こして 20 秒後にウィンドウ「Set Agent」が出ることを確認して終了。
-   実機での操作確認（サムネ・自動更新・提案）は未実施。
+   **実機確認済み（2026-09-16 18:10、新クローン `my-project/set-agent` にて）:** exe（17:52 ビルド）より新しいソースは
+   無し、Pillow は同梱（archive_viewer で確認）、`--playlist acid` で 25 秒以内に「Set Agent」ウィンドウ。
+   同じコードの Python 版に probe を当てた結果: `probe_views` サムネ 96/96・hero 137:18・詳細 3 レーン画面内、
+   `probe_refresh` 4 シナリオ OK、`probe_agent` B-8 境界 OK、`api.ask("60:00 に収めて")` が 48 件の Change Set。
+   exe は probe の入口を持たないので、exe そのものへの操作 probe は不可（同一ソースであることで代替）。
+   地雷: `probe_refresh` の `wait_ready` は再読込中も `#app` が見えるためすぐ抜けていた。アートワーク取得で
+   再読込が約 3 秒かかるようになり露見。`wait_reload`（`LOADED_AT` の更新 + カーテン消灯を待つ）に直した。
 3. バーは 386px で 2 行に折り返す（98px）— 詰める余地あり。
 4. 詳細ビューの TRACKS レーンやインスペクタにもアートワークを出すか（未着手）。
+
+**コンソールの点滅を修正（2026-09-16 18:20、ユーザー報告）:** 起動中にターミナルが開いて閉じるを繰り返していた。
+原因は 5 秒ポーリングの `library_changed()` → `rekordbox_running()` が `tasklist` を子プロセスで起こしていたこと。
+`--noconsole` の exe には親コンソールが無いので、子プロセスごとに新しいコンソールが作られて一瞬見える。
+`rekordbox/library.py` の `subprocess.run` に `creationflags=CREATE_NO_WINDOW` を付けた（`rbrestart.py` はもとから付いていた）。
+exe を再ビルド（18:18）。検証は user32 `EnumWindows` で可視の `ConsoleWindowClass` を 10 ms 間隔で数える方式:
+フラグ無しの最小再現で 2 件検出、フラグ有りで 0、新 exe 35 秒で 0。
+**地雷: GUI exe から `subprocess` を呼ぶときは必ず `CREATE_NO_WINDOW`。** `Process.MainWindowHandle` ではこの点滅は捉えられない。
 
 **地雷（今回踏んだ）:** `_load` は SetTargetLength / SetRange を History に積むので、`_done` が
 空かで「編集あり」を判定すると常に true になる。`api._done_base` に load 直後の長さを持たせて比較。
@@ -150,7 +164,7 @@ pywebview の `evaluate_js` に async 関数を渡すと `{}` が返る — 結�
 最終更新: 2026-09-15（**UI フェーズ完了。旧 tkinter 版の操作はすべて新 UI に移植し、実機で検証済み。配布 exe 済み**）
 
 > ⚠️ `rekordbox_set_agent_spec.md` は現在どこにも無い（クラウドの旧作業ディレクトリが消えている）。
-> 手元にあるなら `setagent_new/` に置け。無くてもこのファイルで作業は続けられる。
+> 手元にあるなら `my-project/set-agent/` に置け。無くてもこのファイルで作業は続けられる。
 
 ---
 
@@ -309,8 +323,8 @@ B-8 の境界はそのまま: `api.ask` は Change Set を返すだけで、`set
 cd /home/claude/setagent && python -m unittest discover -s tests -q
 
 # PC（ここで GUI と exe）
-cd /d C:\Users\7166700\source\setagent\setagent_new
-python -m unittest discover -s tests -q          # 131 tests
+cd /d C:\Users\7166700\source\my-project\set-agent
+python -m unittest discover -s tests -q          # 151 tests
 python -m setagent.webui.app acid                # 新 UI
 python -m tools.probe_state acid                 # ウィンドウ無しで状態を検算する
 python -m tools.probe_webview                    # WebView2 と bridge の疎通確認

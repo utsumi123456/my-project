@@ -52,8 +52,11 @@ def rekordbox_running() -> bool | None:
     """
     try:
         if sys.platform.startswith("win"):
+            # CREATE_NO_WINDOW: the windowed exe has no console, so without it
+            # every poll (5 s) flashed a console window for the child process.
             out = subprocess.run(["tasklist", "/FO", "CSV", "/NH"], capture_output=True,
-                                 text=True, timeout=10, errors="replace").stdout
+                                 text=True, timeout=10, errors="replace",
+                                 creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)).stdout
             return "rekordbox.exe" in out.lower()
         if sys.platform == "darwin":
             out = subprocess.run(["pgrep", "-x", "rekordbox"], capture_output=True,
