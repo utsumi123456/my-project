@@ -6,7 +6,7 @@
   color-scheme:dark;
   --page:#0d1014; --surface:#14171c; --raised:#1c2128; --sunken:#0a0c0f;
   --line:#2d333b; --line-soft:#222831;
-  --ink:#f0f3f6; --ink-2:#b9c2cc; --ink-3:#7d8794;
+  --ink:#f0f3f6; --ink-2:#b9c2cc; --ink-3:#8b95a3;   /* ink-3: 5.3:1 on raised (was 4.4) */
 
   /* phrase palette — rekordbox 7 hues, re-stepped for this surface.
      validated: lightness band / chroma floor / CVD / normal-vision / contrast */
@@ -14,11 +14,17 @@
   --ph-down:#955b00; --ph-outro:#2f84cf; --ph-verse:#5a6270;
 
   --target:#f778ba; --critical:#d03b3b; --caution:#fab219; --measure:#4a9be8;
+  /* fills keep the deep red; text uses a lighter step so 12px labels read (5.5:1) */
+  --critical-ink:#ec6059; --ok:#1fb013;
   --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px;
   --mono:"Consolas","IBM Plex Mono",ui-monospace,monospace;
   --sans:"Segoe UI","Yu Gothic UI",system-ui,sans-serif;
 }
 *{box-sizing:border-box}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:var(--line);border-radius:5px;border:2px solid var(--surface)}
+::-webkit-scrollbar-thumb:hover{background:#3d4550}
+::-webkit-scrollbar-track{background:transparent}
 html,body{height:100%}
 body{margin:0;background:var(--page);color:var(--ink);font-family:var(--sans);
   font-size:14px;line-height:1.5;overflow:hidden}
@@ -37,7 +43,11 @@ button,select,input{font-family:inherit;font-size:13px}
 .btn{appearance:none;background:var(--raised);color:var(--ink-2);border:1px solid var(--line);
   border-radius:3px;padding:6px 11px;cursor:pointer}
 .btn:hover{border-color:#3d4550;color:var(--ink)}
-.btn:focus-visible{outline:2px solid var(--target);outline-offset:1px}
+.btn:focus-visible,.seg button:focus-visible,select:focus-visible,input:focus-visible,
+.row:focus-visible,.trk:focus-visible,.reco:focus-visible,.cand:focus-visible,.hintq:focus-visible,
+.knob:focus-visible{outline:2px solid var(--target);outline-offset:1px}
+select:focus,input:focus{outline:none}
+select:focus-visible,input:focus-visible{outline-offset:0;border-color:var(--target)}
 .btn.primary{color:#06121f;background:var(--measure);border-color:var(--measure);font-weight:600}
 .btn.danger{color:#fff;background:var(--critical);border-color:var(--critical);font-weight:600}
 .btn.danger:hover{filter:brightness(1.08)}
@@ -47,12 +57,12 @@ button,select,input{font-family:inherit;font-size:13px}
 .spacer{margin-left:auto}
 
 /* ---- hero (main view) ---- */
-.eyebrow{font-size:11px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;
+.eyebrow{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
   color:var(--ink-3);margin:0 0 var(--s2)}
 .gap-row{display:flex;align-items:baseline;gap:var(--s4);flex-wrap:wrap}
 .hero{font-family:var(--mono);font-size:38px;font-weight:700;line-height:1;
   letter-spacing:-.02em;font-variant-numeric:tabular-nums}
-.hero.over{color:var(--critical)} .hero.under{color:var(--caution)} .hero.ok{color:#1fb013}
+.hero.over{color:var(--critical-ink)} .hero.under{color:var(--caution)} .hero.ok{color:var(--ok)}
 .gap-sub{font-size:14px;color:var(--ink-2)}
 .gap-sub b{color:var(--ink);font-family:var(--mono);font-weight:600}
 .bullet-track{position:relative;height:22px;background:var(--sunken);margin-top:var(--s2);
@@ -100,10 +110,10 @@ button,select,input{font-family:inherit;font-size:13px}
 .canvas{position:relative;padding-bottom:var(--s2);display:flex;flex-direction:column;
   min-height:100%}
 .lane-h{position:sticky;left:0;padding:var(--s2) var(--s4) 2px;font-size:11px;font-weight:600;
-  letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);width:max-content}
+  letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);width:max-content}
 .ruler{position:relative;height:20px;border-bottom:1px solid var(--line-soft)}
 .rmark{position:absolute;top:0;bottom:0;border-left:1px solid var(--line-soft);padding-left:5px;
-  font-family:var(--mono);font-size:10px;color:var(--ink-3);line-height:20px;white-space:nowrap}
+  font-family:var(--mono);font-size:11px;color:var(--ink-3);line-height:20px;white-space:nowrap}
 .ruler,.tracks,.sections,.lane-h{flex:none}
 /* TRACKS is a ruler for the ENERGY lane below: which track is playing where,
    and how long each one runs. Two greys, alternating per track, so the eye can
@@ -122,7 +132,7 @@ button,select,input{font-family:inherit;font-size:13px}
 .ph-list b{font-family:var(--mono);font-weight:500;color:var(--ink-3);margin-left:4px}
 .trk-t{position:absolute;left:5px;right:4px;top:3px;font-size:11px;font-weight:600;color:var(--ink);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
-.trk-m{position:absolute;left:5px;bottom:3px;font-family:var(--mono);font-size:10px;
+.trk-m{position:absolute;left:5px;bottom:3px;font-family:var(--mono);font-size:11px;
   color:var(--ink-3);pointer-events:none}
 .trk[data-sel="1"]{outline:2px solid var(--ink);outline-offset:-2px;z-index:3}
 .energy{position:relative;flex:1 1 auto;min-height:92px}
@@ -134,7 +144,7 @@ button,select,input{font-family:inherit;font-size:13px}
 .sec-f{position:absolute;left:0;top:0;bottom:0;background:#3a6a9e;border-radius:2px 4px 4px 2px}
 .sec-t{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--target)}
 .sec-v{font-family:var(--mono);font-size:11px;margin-top:2px;color:var(--ink-2)}
-.sec-v .o{color:var(--critical)} .sec-v .u{color:var(--caution)}
+.sec-v .o{color:var(--critical-ink)} .sec-v .u{color:var(--caution)}
 .mile{position:absolute;top:0;bottom:0;width:2px;background:var(--ink);z-index:4}
 .mile::before{content:"";position:absolute;top:0;left:-5px;border:6px solid transparent;
   border-top-color:var(--ink);border-bottom:0}
@@ -211,7 +221,7 @@ button,select,input{font-family:inherit;font-size:13px}
   border-top:1px solid var(--line-soft);margin-top:var(--s2);padding-top:var(--s2);
   display:flex;flex-direction:column;gap:2px}
 .card .acts{display:flex;gap:var(--s2);margin-top:var(--s3)}
-.sec-title{font-size:11px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;
+.sec-title{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
   color:var(--ink-3);margin:var(--s2) 0 0}
 .plog{margin:0;font-size:11px;color:var(--ink-3);font-family:var(--mono);flex:none}
 /* the proposal drawn over the set before anything is applied (S4-3) */
@@ -260,27 +270,32 @@ button,select,input{font-family:inherit;font-size:13px}
 .main{flex:1 1 auto;min-height:0;overflow:auto;display:flex;flex-direction:column;
   gap:var(--s4);padding:var(--s4);background:var(--surface)}
 .hero-block .hero{font-size:56px;color:var(--ink)}
-.hero-block .hero.over{color:var(--critical)} .hero-block .hero.under{color:var(--caution)}
+.hero-block .hero.over{color:var(--critical-ink)} .hero-block .hero.under{color:var(--caution)}
 .hero-block .gap-sub{margin-top:var(--s2);display:flex;align-items:center;gap:var(--s2);flex-wrap:wrap}
-.pill{display:inline-block;padding:1px 8px;border-radius:10px;font-family:var(--mono);font-size:12px;
+.pill{display:inline-block;padding:1px 9px;border-radius:999px;font-family:var(--mono);font-size:12px;
   font-weight:600;background:var(--raised);color:var(--ink-2);border:1px solid var(--line)}
 .pill.over{color:#fff;background:var(--critical);border-color:var(--critical)}
 .pill.under{color:#06121f;background:var(--caution);border-color:var(--caution)}
-.pill.ok{color:#06121f;background:#1fb013;border-color:#1fb013}
+.pill.ok{color:#06121f;background:var(--ok);border-color:var(--ok)}
 .reco{display:grid;grid-template-columns:1fr auto;align-items:center;gap:var(--s3);text-align:left;
   background:var(--raised);border:1px solid var(--line);border-left:3px solid var(--measure);
   border-radius:4px;padding:var(--s3) var(--s4);color:var(--ink);cursor:pointer;font:inherit}
-.reco:hover{border-color:#3d4550;border-left-color:inherit}
+.reco:hover{border-color:#3d4550}
+.reco.over:hover{border-left-color:var(--critical)} .reco.under:hover{border-left-color:var(--caution)}
+.reco.ok:hover{border-left-color:var(--ok)}
 .reco.over{border-left-color:var(--critical)} .reco.under{border-left-color:var(--caution)}
-.reco.ok{border-left-color:#1fb013}
-.reco h3{margin:0;font-size:14px;font-weight:600} .reco p{margin:2px 0 0;font-size:12px;color:var(--ink-2)}
+.reco.ok{border-left-color:var(--ok)}
+.reco h3{margin:0;font-size:14px;font-weight:600;line-height:1.35}
+.reco p{margin:3px 0 0;font-size:12px;line-height:1.5;color:var(--ink-2);max-width:60ch}
 .reco .go{font-size:12px;color:var(--measure);white-space:nowrap}
 .cond-row{display:flex;flex-wrap:wrap;gap:var(--s2) var(--s3)}
 .cond-row label{display:flex;align-items:center;gap:6px;color:var(--ink-3);font-size:12px}
 .cond-row select,.cond-row input[type=text]{background:var(--raised);color:var(--ink);
   border:1px solid var(--line);border-radius:3px;padding:4px 7px}
 .cond-row input[type=text]{width:70px;font-family:var(--mono);text-align:center}
-.list-note{margin:0 0 var(--s2);font-size:12px;color:var(--ink-2)}
+.cond-row #setBpm{width:96px}
+.cond-row select,.cond-row input[type=text]{height:28px}
+.list-note{margin:0 0 var(--s2);font-size:12px;line-height:1.5;color:var(--ink-2);max-width:60ch}
 /* BPM change points: "from track N on, the set runs at X" */
 .bpmv{margin-top:var(--s2);border:1px solid var(--line-soft);border-radius:4px;padding:var(--s2) var(--s3);
   display:flex;flex-direction:column;gap:6px;background:var(--sunken)}
@@ -296,10 +311,10 @@ button,select,input{font-family:inherit;font-size:13px}
 .pill.bpm{color:var(--ink);background:var(--raised)}
 .list{display:flex;flex-direction:column;border:1px solid var(--line-soft);border-radius:4px;overflow:hidden}
 .row,.list-h{display:grid;grid-template-columns:28px minmax(0,1fr) 56px 56px;gap:var(--s2);
-  align-items:center;padding:4px var(--s3)}
+  align-items:center;padding:6px var(--s3)}
 .row .art{width:28px;height:28px;border-radius:4px;background:var(--raised);overflow:hidden;display:block}
 .row .art img{width:100%;height:100%;object-fit:cover;display:block}
-.list-h{padding:4px var(--s3);font-size:10px;font-weight:600;letter-spacing:.09em;
+.list-h{padding:4px var(--s3);font-size:11px;font-weight:600;letter-spacing:.06em;
   text-transform:uppercase;color:var(--ink-3);background:var(--sunken)}
 .list-h span:nth-child(n+3){text-align:right}
 .row{border-top:1px solid var(--line-soft);font-size:12px;cursor:pointer;background:var(--surface)}
@@ -307,17 +322,17 @@ button,select,input{font-family:inherit;font-size:13px}
 .row[data-sel="1"]{background:var(--raised);box-shadow:inset 3px 0 0 var(--ink)}
 .row .n{font-family:var(--mono);font-size:11px;color:var(--ink-3)}
 .row .t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink)}
-.row .t small{color:var(--ink-3);font-family:var(--mono);margin-left:6px;font-size:10px}
-.row .t .why{display:block;font-size:10px;color:var(--ink-3);white-space:nowrap;overflow:hidden;
-  text-overflow:ellipsis;font-family:var(--sans)}
+.row .t small{color:var(--ink-3);font-family:var(--mono);margin-left:6px;font-size:11px}
+.row .t .why{display:block;font-size:11px;line-height:1.35;margin-top:1px;color:var(--ink-3);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:var(--sans)}
 .row .d,.row .at{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right;color:var(--ink-2)}
 .row .at{color:var(--ink-3)}
 /* removal rows: the clock after taking that track out turns green once it is
    inside the target, so the eye finds "from here down is enough" */
-.row.fits .at{color:#1fb013}
+.row.fits .at{color:var(--ok)}
 .row .d.minus{color:var(--caution)}
 .fresh{display:flex;align-items:center;gap:var(--s3);flex-wrap:wrap;margin-bottom:var(--s3)}
-.fresh .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#1fb013;margin-right:6px}
+.fresh .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--ok);margin-right:6px}
 .fresh .dot.rb{background:var(--caution)}
 .views button{padding:5px 10px}
 .bar .btn{padding:5px 9px;white-space:nowrap}
@@ -748,7 +763,7 @@ function renderList(){
     const tgt = ST.target_s || 0;
     for(const it of r.items){
       const fits = tgt && it.after_s <= tgt + ST.tolerance_s;
-      h += `<div class="row rm${fits ? " fits" : ""}" data-i="${it.i}" data-sel="${it.i === ST.selected ? 1 : 0}"
+      h += `<div class="row rm${fits ? " fits" : ""}" tabindex="0" data-i="${it.i}" data-sel="${it.i === ST.selected ? 1 : 0}"
               title="${esc(it.title)}\n${esc(it.reasons.join("\n") || "理由なし")}">
         <span class="art" data-art="${esc(it.track_id)}">${ART[it.track_id] ? `<img src="${ART[it.track_id]}" alt="">` : ""}</span>
         <span class="t">${it.i + 1}. ${esc(it.title)}<span class="why">${esc(it.reasons.join("／"))}</span></span>
@@ -762,7 +777,7 @@ function renderList(){
       : `${fmt(r.need_s)} 不足していますが、最後の曲に繋がる BPM・キーの曲がライブラリにありません`;
     h += `<div class="list-h"><span></span><span>曲</span><span>BPM</span><span>尺</span></div>`;
     for(const it of r.items){
-      h += `<div class="row add" data-id="${esc(it.track_id)}"
+      h += `<div class="row add" tabindex="0" data-id="${esc(it.track_id)}"
               title="${esc(it.title)}${it.artist ? " — " + esc(it.artist) : ""}\n${esc(it.reason || "")}">
         <span class="art" data-art="${esc(it.track_id)}">${ART[it.track_id] ? `<img src="${ART[it.track_id]}" alt="">` : ""}</span>
         <span class="t">${esc(it.title)}<span class="why">${esc(it.reason || "")}</span></span>
@@ -797,6 +812,9 @@ async function loadArtwork(){
   } catch(e){ /* thumbnails are decoration; the list works without them */ }
   finally { artBusy = false; }
 }
+$("list").addEventListener("keydown", e=>{
+  if((e.key === "Enter" || e.key === " ") && e.target.classList.contains("row")){ e.preventDefault(); e.target.click(); }
+});
 $("list").addEventListener("click", async e=>{
   const r = e.target.closest(".row"); if(!r) return;
   if(r.classList.contains("rm")){ selectTrack(+r.dataset.i); return; }
@@ -901,7 +919,7 @@ function renderReality(){
        <span style="color:var(--caution)">−${fmt(sum)}</span></div>
      <div class="wf-row"><span class="wf-name" style="color:var(--ink-2)">超過</span>
        <span class="wf-bar gap" style="width:100%"></span>
-       <span style="color:var(--critical)">${fmt(over)}</span></div></div>`;
+       <span style="color:var(--critical-ink)">${fmt(over)}</span></div></div>`;
 }
 
 function renderLanes(){
@@ -920,7 +938,7 @@ function renderLanes(){
     const x = t.start_s*k, w = Math.max((t.end_s - t.start_s)*k, 1);
     /* one grey per track, alternating; no analysis keeps its hatch */
     const inner = t.phrases.length ? "" : `<div class="none" title="フレーズ解析なし"></div>`;
-    h += `<div class="trk${t.i % 2 ? " alt" : ""}" data-i="${t.i}" data-sel="${t.i === ST.selected ? 1 : 0}"
+    h += `<div class="trk${t.i % 2 ? " alt" : ""}" tabindex="0" data-i="${t.i}" data-sel="${t.i === ST.selected ? 1 : 0}"
             style="left:${x.toFixed(1)}px;width:${w.toFixed(1)}px"
             title="${esc(t.title)}
 ${fmt(t.start_s)} → ${fmt(t.end_s)}  再生 ${fmt(t.play_s)}
@@ -1291,6 +1309,12 @@ function showPhrases(i){
      <div class="phrase-strip">${strip}</div>${body}`,
     [{label: "閉じる"}]);
 }
+/* keyboard: Enter selects the block, Shift+Enter opens its phrase sheet */
+$("tracks").addEventListener("keydown", e=>{
+  const n = e.target.closest(".trk"); if(!n || e.key !== "Enter") return;
+  e.preventDefault();
+  if(e.shiftKey) showPhrases(+n.dataset.i); else selectTrack(+n.dataset.i);
+});
 $("tracks").addEventListener("dblclick", e=>{
   const n = e.target.closest(".trk"); if(!n) return;
   showPhrases(+n.dataset.i);
