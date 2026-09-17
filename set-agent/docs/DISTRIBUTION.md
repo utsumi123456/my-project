@@ -3,6 +3,17 @@
 チームの PC に Set Agent を入れて、動くことを確かめるまでの手順。配布物は **1 ファイル**で、
 インストールは不要です。
 
+## 0. いちばん簡単な渡し方（Release のリンク）
+
+相手に送るリンクはこれ 1 つ: **https://github.com/utsumi123456/my-project/releases/latest**
+（開いて `SetAgent.exe` をクリック → ダウンロード。Mac は `SetAgent-macOS.zip`）。
+直接リンク: `https://github.com/utsumi123456/my-project/releases/download/v1.0/SetAgent.exe`
+
+リポジトリは **private** なので、相手は GitHub にログインしていて、このリポジトリを見られる必要がある
+（Settings → Collaborators で招待、または `gh repo add-collaborator`（gh 2.x では `gh api -X PUT
+repos/utsumi123456/my-project/collaborators/<user>`）。公開してよいなら Settings → Visibility を public に）。
+新しい版は `git tag v1.1 && git push origin v1.1` で Release が自動で作られる。
+
 ## 1. 配布物の取り方
 
 | OS | 何を渡すか | どこから |

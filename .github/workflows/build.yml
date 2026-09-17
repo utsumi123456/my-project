@@ -64,8 +64,24 @@ jobs:
           path: set-agent/dist/*
           if-no-files-found: error
 
+      # Release assets must have ASCII names: はじめに.md would be uploaded as
+      # "default.md", so it travels as SetAgent-README.md.
+      - name: Prepare release files (tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          mkdir -p release
+          for f in dist/*; do
+            case "$(basename "$f")" in
+              *.md) cp "$f" release/SetAgent-README.md ;;
+              *)    cp "$f" release/ ;;
+            esac
+          done
+          ls -la release
+
       - name: Release (tags only)
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: set-agent/dist/*
+          name: Set Agent ${{ github.ref_name }}
+          files: set-agent/release/*
