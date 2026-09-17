@@ -314,7 +314,11 @@ select:focus-visible,input:focus-visible{outline-offset:0;border-color:var(--tar
 .bpmv .cp .t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink-2)}
 .bpmv .cp b{font-family:var(--mono);font-weight:600;text-align:right}
 .bpmv .cp .btn{padding:2px 8px;font-size:11px}
-.bpmv .addcp{display:grid;grid-template-columns:minmax(0,1fr) 64px auto;gap:var(--s2);align-items:center}
+.bpmv .addcp{display:grid;grid-template-columns:minmax(0,1fr) auto 64px auto;gap:var(--s2);align-items:center}
+.bpmv .addcp #cpFrom{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+#setBpm.auto{color:var(--ink-2)}
+#setBpmAuto{margin-left:4px;font-size:11px}
+.minimap[hidden]{display:none}
 .bpmv select,.bpmv input[type=text]{background:var(--raised);color:var(--ink);border:1px solid var(--line);
   border-radius:3px;padding:3px 6px;font-size:12px;min-width:0}
 .bpmv input[type=text]{font-family:var(--mono);text-align:center}
@@ -395,7 +399,7 @@ select:focus-visible,input:focus-visible{outline-offset:0;border-color:var(--tar
         <label title="尺を予測する rekordbox のプレイリスト。rekordbox 側で編集すると自動で追従します">
           Playlist <select id="pl"></select></label>
         <label title="目標のセット時間（mm:ss）。予測時間との差を超過・不足で表示します">
-          Target <input type="text" id="target" value="60:00"></label>
+          Target Time <input type="text" id="target" value="60:00"></label>
         <label title="Mix: 1 曲をどこからどこまでかける前提で尺を予測するか（フレーズ解析から再生範囲を決めます）">
           Mix <select id="preset"></select></label>
         <label title="Curve: セット全体で目指す展開（盛り上がりの形）。詳細画面の ENERGY に点線で重なり、実測とのズレを出します">
@@ -403,8 +407,8 @@ select:focus-visible,input:focus-visible{outline-offset:0;border-color:var(--tar
         <label id="cap32Lbl"
           title="1ドロップ/2ドロップ のとき、32 小節を超える長いドロップを 32 小節で切り上げます（コーラス 1 つが曲の大半を占める曲向け）">
           <input type="checkbox" id="cap32"> ドロップ上限 32 小節</label>
-        <label title="セットをかける BPM。原曲の BPM と違う曲は尺が伸び縮みするので、予測時間に反映します。空欄なら各曲を原曲の BPM でかける前提">
-          Set BPM <input type="text" id="setBpm" placeholder="原曲のまま"></label>
+        <label title="セットをかける BPM。プレイリストの曲をすべてこの BPM でかける前提で尺を予測します（原曲と違う曲は伸び縮みします）。何も入れていないときはプレイリストの BPM 中央値です。空欄に戻すと中央値に戻ります">
+          Target BPM <input type="text" id="setBpm" placeholder="BPM"><span class="meta" id="setBpmAuto"></span></label>
         <label id="bpmVarLbl" title="セットの途中で BPM を変えるとき。どの曲から何 BPM にするかを指定します">
           <input type="checkbox" id="bpmVar"> BPM 変化あり</label>
       </div>
@@ -412,6 +416,7 @@ select:focus-visible,input:focus-visible{outline-offset:0;border-color:var(--tar
         <div id="cpList"></div>
         <div class="addcp">
           <select id="cpTrack" title="この曲から BPM を変える"></select>
+          <span class="meta" id="cpFrom" title="この変化点の直前まで効いている BPM"></span>
           <input type="text" id="cpBpm" placeholder="BPM" title="この曲からの BPM">
           <button class="btn" id="cpAdd" title="変化点を追加">追加</button>
         </div>
@@ -526,7 +531,9 @@ select:focus-visible,input:focus-visible{outline-offset:0;border-color:var(--tar
 const $ = id => document.getElementById(id);
 /* px per minute. The 3px "overview" left on 2026-09-16: it squeezed 137 minutes
    into 400px and read as noise; the minimap already gives the whole-set view. */
-const DENSITY = {section:36, detail:96};
+/* "全体" fits the whole set to the lane width (no horizontal scroll; the panel
+   lives beside rekordbox as a tall window, review 2026-09-17); "詳細" is 96px/min */
+const DENSITY = {section:null, detail:96};
 const PH_COLOR = {intro:"var(--ph-intro)", up:"var(--ph-up)", chorus:"var(--ph-chorus)",
                   down:"var(--ph-down)", outro:"var(--ph-outro)", verse:"var(--ph-verse)"};
 let ST = null, BOOT = null, mode = "section", toastTimer = null;
@@ -541,7 +548,12 @@ const fmt = s => {
   const n = Math.round(Math.abs(s));
   return (s < 0 ? "-" : "") + Math.floor(n/60) + ":" + String(n%60).padStart(2,"0");
 };
-const pps = () => DENSITY[mode] / 60;
+/* fit mode: the canvas is width:100% of the scroll box, so its own clientWidth
+   (measured after layout, scrollbar included) is the truth -- not the box's */
+function laneWidth(){ return Math.max($("canvas").clientWidth || $("scroll").clientWidth || 400, 200); }
+const pps = () => mode === "section"
+  ? laneWidth() / Math.max(ST ? ST.total_s : 1, 1)
+  : DENSITY[mode] / 60;
 /* narrowest block that still shows a label: 5px + 4px padding, one 11px glyph, "…" */
 const LABEL_MIN_PX = 24;
 
@@ -713,8 +725,12 @@ function renderHero(){
              : cls === "ok" ? `<span class="pill ok">目標内</span>` : "";
   /* the target itself is read off the bar's scale below; here only the verdict,
      plus the tempo the prediction assumes, since that is what stretches it */
-  const bpm = ST.set_bpm ? `<span class="pill bpm" title="この BPM でかける前提の予測です">@ ${ST.set_bpm} BPM${(ST.bpm_changes || []).length ? " →変化あり" : ""}</span>`
-            : `<span class="pill bpm" title="各曲を原曲の BPM でかける前提の予測です。Set BPM を入れると補正します">原曲 BPM</span>`;
+  const chain = [ST.set_bpm, ...(ST.bpm_changes || []).map(c => c.bpm)].filter(v => v != null);
+  const bpm = chain.length
+    ? `<span class="pill bpm" title="${ST.set_bpm_auto
+          ? "プレイリストの BPM 中央値でかける前提の予測です。Target BPM に数字を入れると置き換わります"
+          : "この BPM でかける前提の予測です"}">${chain.join(" → ")} BPM${ST.set_bpm_auto ? "（自動）" : ""}</span>`
+    : `<span class="pill bpm" title="BPM が分からないため、各曲を原曲の BPM でかける前提の予測です">原曲 BPM</span>`;
   $("heroSub").innerHTML = pill + bpm + `<span style="color:var(--ink-3)">${ST.tracks.length}曲</span>`;
   renderBpmVar();
 
@@ -1006,15 +1022,21 @@ function renderReality(){
 }
 
 function renderLanes(){
-  const k = pps(), W = Math.max(ST.total_s*k, 800);
-  $("canvas").style.width = W + "px";
-  $("density").textContent = `1分 = ${DENSITY[mode]}px`;
+  if(mode === "section") $("canvas").style.width = "100%";      /* measure after this */
+  const k = pps(), W = mode === "section" ? laneWidth() : Math.max(ST.total_s*k, 800);
+  if(mode !== "section") $("canvas").style.width = W + "px";
+  $("density").textContent = mode === "section" ? "全体を横幅に収めて表示（曲線は近似）" : `1分 = ${DENSITY[mode]}px`;
+  $("minimap").hidden = mode === "section";      /* the whole set is already in view */
 
-  const step = mode === "section" ? 120 : 60;
+  /* ruler marks at the coarsest step that leaves ≥48px between labels */
+  const step = [60, 120, 300, 600, 900, 1800, 3600].find(s => s*k >= 48) || 3600;
   let r = "";
-  for(let t = 0; t <= ST.total_s; t += step)
+  for(let t = 0; t <= ST.total_s; t += step){
+    if(mode === "section" && t*k + 44 > W) break;   /* a label past the right edge would force a scrollbar */
     r += `<div class="rmark" style="left:${(t*k).toFixed(1)}px">${fmt(t)}</div>`;
+  }
   $("ruler").innerHTML = r;
+  $("scroll").style.overflowX = mode === "section" ? "hidden" : "";
 
   let h = "";
   for(const t of ST.tracks){
@@ -1070,7 +1092,7 @@ function renderEnergy(W, k){
     }
     run = [];
   };
-  for(const p of ST.energy){
+  for(const p of energyPoints(k)){
     if(!p.known){ flush(); continue; }
     run.push([ex(p.t), ey(p.e)]);
   }
@@ -1115,6 +1137,29 @@ function renderEnergy(W, k){
       ${paths}${curve}${knobs}
     </svg>`;
   ENERGY_GEOM = {top, base, W};
+}
+
+/* At the fit-to-width density a 137-minute set is ~3px per minute, and every
+   sample drawn is noise. The measured curve is averaged into 3px buckets so the
+   hills and valleys stay readable in a tall, narrow panel. Gaps stay gaps: a
+   bucket that is mostly "no analysis" breaks the line (never interpolated). */
+function energyPoints(k){
+  const pts = ST.energy || [];
+  if(mode !== "section" || pts.length < 4) return pts;
+  const bucketS = 3 / k, n = Math.max(1, Math.ceil(ST.total_s / bucketS));
+  const sum = new Float64Array(n), cnt = new Uint32Array(n), unk = new Uint32Array(n);
+  for(const p of pts){
+    const b = Math.min(n - 1, Math.max(0, Math.floor(p.t / bucketS)));
+    if(p.known){ sum[b] += p.e; cnt[b]++; } else unk[b]++;
+  }
+  const out = [];
+  for(let b = 0; b < n; b++){
+    if(!cnt[b] && !unk[b]) continue;
+    const t = (b + .5) * bucketS;
+    if(cnt[b] < unk[b]) out.push({t, e: 0, known: false});
+    else out.push({t, e: sum[b] / cnt[b], known: true});
+  }
+  return out;
 }
 
 /* ---- target curve: drag a control point, double-click to add, right-click to remove ---- */
@@ -1201,6 +1246,7 @@ function renderMinimap(){
 }
 
 function syncView(){
+  if($("minimap").hidden) return;
   const sc = $("scroll"), mmW = $("minimap").clientWidth, cw = $("canvas").clientWidth || 1;
   const v = $("mmView"); if(!v) return;
   v.style.left = (sc.scrollLeft/cw*mmW) + "px";
@@ -1287,6 +1333,7 @@ const EDGE_PX = 7;                      /* grab zone for trimming the play range
 
 function edgeAt(node, clientX){
   const r = node.getBoundingClientRect();
+  if(r.width < EDGE_PX * 3) return null;    /* a sliver at the fit density has no edges to grab */
   if(clientX - r.left <= EDGE_PX) return "in";
   if(r.right - clientX <= EDGE_PX) return "out";
   return null;
@@ -1415,20 +1462,40 @@ $("selKv").addEventListener("click", e=>{
 
 /* ---- set tempo: one BPM for the set, plus change points ---- */
 let bpmVarOpen = false;
+/* the BPM in force just before track `idx` (set BPM, then each earlier change point) */
+function bpmBefore(idx){
+  let running = ST.set_bpm;
+  for(const c of (ST.bpm_changes || [])) if(c.i < idx) running = c.bpm;
+  return running;
+}
+function renderCpFrom(){
+  const from = bpmBefore(+$("cpTrack").value || 0);
+  $("cpFrom").textContent = from != null ? `${from} →` : "";
+}
 function renderBpmVar(){
+  /* the field always shows the BPM the prediction uses; "自動" marks the playlist median */
+  const f = $("setBpm");
+  if(document.activeElement !== f) f.value = ST.set_bpm != null ? String(ST.set_bpm) : "";
+  f.classList.toggle("auto", !!ST.set_bpm_auto);
+  $("setBpmAuto").textContent = ST.set_bpm_auto && ST.set_bpm != null ? "自動" : "";
+  $("setBpmAuto").title = ST.set_bpm_auto ? "プレイリストの BPM 中央値です。数字を入れると置き換わります" : "";
+
   const cps = ST.bpm_changes || [];
   if(cps.length) bpmVarOpen = true;
   $("bpmVar").checked = bpmVarOpen;
   $("bpmv").hidden = !bpmVarOpen;
   if(!bpmVarOpen) return;
   $("cpList").innerHTML = cps.length ? cps.map(c =>
-    `<div class="cp"><span class="t">${c.i + 1}. ${esc(c.title)} から</span><b>${c.bpm} BPM</b>
+    `<div class="cp"><span class="t">${c.i + 1}. ${esc(c.title)} から</span>
+       <b title="${c.from_bpm != null ? c.from_bpm + " BPM からこの BPM に" : "この曲からの BPM"}">${c.from_bpm != null ? c.from_bpm + " → " : ""}${c.bpm} BPM</b>
        <button class="btn" data-cp="${c.i}" title="この変化点を外す">外す</button></div>`).join("")
     : `<p class="none-yet">まだ変化点がありません。下で「この曲から何 BPM」を追加してください</p>`;
   const sel = $("cpTrack"), keep = sel.value;
   sel.innerHTML = ST.tracks.map(t => `<option value="${t.i}">${t.i + 1}. ${esc(t.title)}</option>`).join("");
   if(keep && [...sel.options].some(o => o.value === keep)) sel.value = keep;
+  renderCpFrom();
 }
+$("cpTrack").addEventListener("change", renderCpFrom);
 $("setBpm").addEventListener("change", async ()=>
   apply(await window.pywebview.api.set_set_bpm($("setBpm").value.trim() || null)));
 $("bpmVar").addEventListener("change", async ()=>{

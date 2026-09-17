@@ -83,6 +83,18 @@ def phrase_spans(anlz, play_in_ms: int, play_out_ms: int | None,
     return out
 
 
+def _bpm_changes(draft, tl) -> list[dict]:
+    out = []
+    running = draft.constraints.set_bpm
+    for p in tl.placements:
+        if p.track_id in draft.constraints.bpm_changes:
+            to = draft.constraints.bpm_changes[p.track_id]
+            out.append({"i": p.index, "track_id": p.track_id, "title": p.title,
+                        "from_bpm": running, "bpm": to})
+            running = to
+    return out
+
+
 def build(draft, lib, anlz_by_id: dict, curve=None, cfg=None,
           selected: int | None = None) -> dict:
     """The whole view model, as JSON-safe primitives."""
@@ -161,10 +173,9 @@ def build(draft, lib, anlz_by_id: dict, curve=None, cfg=None,
                       "start_s": round(s.start_s, 2), "end_s": round(s.end_s, 2)}
                      for s in secs],
         "set_bpm": draft.constraints.set_bpm,
-        # change points in running order, with the title the DJ recognises
-        "bpm_changes": [{"i": p.index, "track_id": p.track_id, "title": p.title,
-                         "bpm": draft.constraints.bpm_changes[p.track_id]}
-                        for p in tl.placements if p.track_id in draft.constraints.bpm_changes],
+        # change points in running order, with the title the DJ recognises and
+        # the BPM in force just before each one ("140 → 150", then "150 → 170")
+        "bpm_changes": _bpm_changes(draft, tl),
         "trims": trims,
         "trim_total_s": round(sum(t["gain_s"] for t in trims), 1),
         "warnings": warnings,

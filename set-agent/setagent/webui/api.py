@@ -53,6 +53,17 @@ _SERIAL = ("boot", "load", "state", "select", "set_curve", "set_milestone",
            "restart_rekordbox", "artwork")
 
 
+def median_bpm(bpms) -> float | None:
+    """The BPM a playlist is most naturally played at: the median of the tracks'
+    own BPMs, rounded to a whole number. None when nothing has a BPM."""
+    xs = sorted(b for b in bpms if b and b > 0)
+    if not xs:
+        return None
+    n = len(xs)
+    m = xs[n // 2] if n % 2 else (xs[n // 2 - 1] + xs[n // 2]) / 2
+    return float(round(m))
+
+
 class Api:
     def __init__(self, playlist: str | None = None):
         self.lib: Library | None = None
@@ -69,6 +80,10 @@ class Api:
         self.cap32 = self.cfgfile.cap32
         self.target_s = 60 * 60
         self.set_bpm: float | None = self._parse_bpm(self.cfgfile.set_bpm)
+        # 2026-09-17 feedback: a set is almost never played at each track's own
+        # BPM, so there is always a target BPM. Untyped = the playlist's median.
+        self.set_bpm_auto: bool = self.set_bpm is None
+        self.auto_bpm: float | None = None
         self.selected: int | None = None
         self.plog = ProposalLog()
         self.tools = None
@@ -145,6 +160,9 @@ class Api:
         d = SetDraft(name=pl.name, tracks=[TrackEntry(i) for i in pl.track_ids])
         h = History(d)
         h.run(SetTargetLength(self.target_s, 60))
+        self.auto_bpm = median_bpm(self.lib.track(i).bpm for i in pl.track_ids)
+        if self.set_bpm_auto:
+            self.set_bpm = self.auto_bpm
         if self.set_bpm:
             h.run(SetSetBpm(self.set_bpm))
 
@@ -197,6 +215,8 @@ class Api:
                                      and self.curve_key)
             s["preset"] = self.preset
             s["cap32"] = self.cap32
+            s["set_bpm_auto"] = self.set_bpm_auto
+            s["auto_bpm"] = self.auto_bpm
             if self.tools:                       # keep the agent's view in step
                 self.tools.curve = self.curve
                 self.tools.anlz = self.anlz
@@ -338,9 +358,14 @@ class Api:
         return b if b and 40 <= b <= 300 else None
 
     def set_set_bpm(self, bpm) -> dict:
+        """Empty means "back to automatic" (the playlist's median), never "each
+        track at its own BPM" -- that is not how a set is played."""
         v = self._parse_bpm(bpm)
         if bpm not in (None, "") and v is None:
             return {**self.state(), "notice": "BPM は 40〜300 の数字で入力してください"}
+        self.set_bpm_auto = v is None
+        if v is None:
+            v = self.auto_bpm
         self.set_bpm = v
         if not self.history:
             self._persist_set_bpm()
@@ -353,7 +378,10 @@ class Api:
         """Remember the set BPM the draft actually has (undo can move it)."""
         v = self.draft.constraints.set_bpm if self.draft else self.set_bpm
         self.set_bpm = v
-        self.cfgfile.set_bpm = "" if v is None else (str(int(v)) if v == int(v) else str(v))
+        if v is not None and self.auto_bpm is not None and v != self.auto_bpm:
+            self.set_bpm_auto = False              # undo/redo landed on a typed value
+        self.cfgfile.set_bpm = "" if (v is None or self.set_bpm_auto) else (
+            str(int(v)) if v == int(v) else str(v))
         try:
             self.cfgfile.save()
         except Exception:

@@ -63,6 +63,8 @@ MAIN = "(() => {" + BOX + """
     /* reading order: conditions above the hero, hero above the card and list */
     order: ['.cond-row','.hero-block','#reco','#listBlock'].map(sel => box(sel)?.top),
     setBpm: {value: document.getElementById('setBpm').value, st: ST && ST.set_bpm,
+             auto: ST && ST.set_bpm_auto, autoMark: (document.getElementById('setBpmAuto')||{}).textContent,
+             chip: (document.querySelector('.pill.bpm')||{}).textContent,
              varOn: document.getElementById('bpmVar').checked, panelHidden: document.getElementById('bpmv').hidden,
              changes: (ST && ST.bpm_changes || []).map(c => c.i + ':' + c.bpm)},
     boxes: {bar: box('.bar'), main: box('#main'), hero: box('.hero-block'),
@@ -165,6 +167,19 @@ def run(window):
                   "  clipped: [...document.querySelectorAll('.trk .trk-t')].filter(l => l.scrollWidth > l.clientWidth).length,"
                   "  first: (document.querySelector('.trk .trk-t')||{}).textContent,"
                   "  fontPx: parseFloat(getComputedStyle(document.querySelector('.trk .trk-t')||document.body).fontSize)})")
+        print("section (fit) zoom:", json.dumps(window.evaluate_js("""({
+            canvasW: document.getElementById('canvas').clientWidth,
+            scrollW: document.getElementById('scroll').clientWidth,
+            hScrollbar: getComputedStyle(document.getElementById('scroll')).overflowX !== 'hidden' && document.getElementById('scroll').scrollWidth > document.getElementById('scroll').clientWidth + 1,
+            minimapHidden: document.getElementById('minimap').hidden,
+            density: document.getElementById('density').textContent,
+            rulerMarks: document.querySelectorAll('.rmark').length,
+            energyPaths: document.querySelectorAll('#energy path').length,
+            energyPolyPoints: (document.querySelector('#energy path')||{getAttribute(){return ''}}).getAttribute('d').split('L').length,
+            scrollW2: document.getElementById('scroll').scrollWidth,
+            pastEdge: (() => { const R = document.getElementById('scroll').getBoundingClientRect().right;
+              return [...document.querySelectorAll('#canvas *')].filter(e => e.getBoundingClientRect().right > R + 1)
+                .slice(0, 6).map(e => e.className + ':' + Math.round(e.getBoundingClientRect().right - R)); })()})""")))
         print("section zoom labels:", window.evaluate_js(LABELS))
         window.evaluate_js("document.querySelector('[data-zoom=detail]').click()")
         time.sleep(0.8)
@@ -216,14 +231,19 @@ def run(window):
             hero: document.getElementById('hero').textContent,
             panelHidden: document.getElementById('bpmv').hidden,
             rows: document.querySelectorAll('#cpList .cp').length,
+            rowText: (document.querySelector('#cpList .cp b')||{}).textContent,
+            cpFrom: document.getElementById('cpFrom').textContent,
+            chip: (document.querySelector('.pill.bpm')||{}).textContent,
             tempos: ST.tracks.slice(0,6).map(t => t.set_tempo),
             changes: ST.bpm_changes})"""), ensure_ascii=False))
         window.evaluate_js("document.getElementById('undo').click()")
         time.sleep(2)
         window.evaluate_js("const e=document.getElementById('setBpm'); e.value=''; e.dispatchEvent(new Event('change'))")
         time.sleep(2.5)
-        print("cleared:", window.evaluate_js(
-            "({hero: document.getElementById('hero').textContent, st: ST.set_bpm, changes: ST.bpm_changes.length})"))
+        print("cleared (back to the playlist median):", window.evaluate_js(
+            "({hero: document.getElementById('hero').textContent, st: ST.set_bpm, auto: ST.set_bpm_auto,"
+            " field: document.getElementById('setBpm').value, mark: document.getElementById('setBpmAuto').textContent,"
+            " changes: ST.bpm_changes.length})"))
     except Exception as ex:
         print("probe failed:", type(ex).__name__, ex)
     finally:
