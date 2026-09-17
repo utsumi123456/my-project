@@ -1,6 +1,6 @@
 # Set Agent — 引き継ぎメモ
 
-## ▶ 次のセッションはここから（2026-09-17 15:00 時点の引き継ぎ）
+## ▶ 次のセッションはここから（2026-09-17 16:30 時点の引き継ぎ）
 
 ここだけ読めば続きから拾える。詳細は下の日付付き追記に全部ある。
 
@@ -18,6 +18,12 @@
   目盛は 48px 以上空く粗さを自動選択）。「詳細」は 96px/分で横スクロール。fit 密度ではブロックの端トリムは無効。
 - **アートワークはホバーの小窓**（`#artpop`、120px）。TRACKS のブロックと候補リストの行に 260ms 乗せると出る。
   キーボードフォーカスでも出る。ドラッグ開始・クリック・スクロール・離脱で消える。
+- **マイルストーン起点のプレイリスト生成（2026-09-17 実装）**: TRACKS のブロック（または外す候補の行）を
+  **右クリック**（キーボードは M）→「マイルストーンにする／目標時刻を設定…／位置をロック」。エージェントに
+  「埋めて」「プレイリストを作って」「組んで」と言うと `analysis.plan_fill_sections`（`agent/fillplan.py`）が
+  区間ごとの予算（目標時刻、無ければ目標尺の残りを均等配分）を、直前の曲の BPM・キーに繋がる実在曲で埋めた
+  Change Set を出す。ルールベースの Advisor も同じ計画（BUILD_WORDS）。実測 15min_mix: 11 曲で 10:02 → 57:37。
+  結果は Set Agent 内の Draft（read-only 方針のまま。rekordbox へ渡す手段は XML 書き出し凍結中で未決）。
 - **エージェント**（右ドロワー）: 提案は Change Set、チェックして適用、undo 可。**LLM は API キー不要**:
   この PC の Claude Code のログイン（企業アカウント）を `claude -p` 子プロセスで使い、ツールは自前の
   ローカル MCP サーバ（`agent/mcp_server.py`、stdlib のみ）で渡す。順位は Claude Code → API キー → ルールベース。
@@ -30,7 +36,8 @@
 - GitHub `utsumi123456/my-project` `main` = 2026-09-17 の「TRACKS labels at both densities; artwork in a hover popover」コミット
   （作業ツリー clean、push 済み）。
 - 配布 exe: `C:\Users\7166700\source\my-project\set-agent\dist\SetAgent.exe`（2026-09-17 ビルド、同コミットと同一ソース）。
-- テスト 189 件 OK。**`python -m tools.eval_agent acid` 6/6 PASS（平均 11.5 秒、最大 23.9 秒）、`15min_mix` 5/5 PASS。**
+- テスト 199 件 OK。**`python -m tools.eval_agent acid` 6/6 PASS（平均 11.5 秒、最大 23.9 秒）、`15min_mix` 5/5 PASS、
+  `15min_mix build fill` 2/2 PASS（build 18.9 秒、fill 25.6 秒）。**
   `probe_views` acid 460×940、`probe_agent` acid（ルールベース経路。probe 内で `SETAGENT_LLM_BACKEND=api` に固定）。
 - gh CLI はログイン済み（`utsumi123456`）。**この Claude のシェルでは PATH に無い**ので
   `"C:\Program Files\GitHub CLI\gh.exe"` のフルパスで呼ぶ。git の資格情報は gh に設定済み（push はそのまま通る）。
@@ -44,13 +51,15 @@
    「30 秒以内か」を自動判定する。直したこと（下の 14 時台の追記）: fit 計画をツール化（48 曲外して 58:46 に届く。
    以前は手選びの 4 曲で 106:16 止まり）、ツール出力の圧縮と壊れない切り詰め、操作スキーマの厳密化と別名許容、
    diff に増減を明記、プロンプト（summary の値を引用・引き算しない・確認を聞き返さず Change Set を出す）。
-   **次:** 解析精度の向上（フレーズ解析なし曲の扱い、removal のスコア、recommend の重み）→ その後に
-   「マイルストーン起点のプレイリスト生成」。eval に新シナリオを足してから直す、の順で。
+   ~~その後に「マイルストーン起点のプレイリスト生成」~~ **済み（16:30、上記）**。
+   **次:** 解析精度の向上（フレーズ解析なし曲の扱い、removal のスコア、recommend の重み）。eval に新シナリオを
+   足してから直す、の順で。生成結果を rekordbox に渡す手段（XML 書き出しの復活か、手動でのプレイリスト作成手順）は
+   ユーザー判断待ち。
 3. ~~TRACKS の「全体」密度にもトラック No.＋曲名~~ **済み（2026-09-17）**。`renderLanes` は幅 `LABEL_MIN_PX`（24px）以上の
    ブロック全部に `.trk-t` を出し、`text-overflow:ellipsis` で省略。acid 全体密度: 96/96 にラベル、幅不足 0、うち 92 が省略表示。
 4. ~~アートワークはホバーのウィンドウで表示~~ **済み（2026-09-17）**。`#artpop`（fixed、120px、pointer-events:none）。
    `ART_L` に track_id ごとに 120px 版をキャッシュ（`api.artwork([id], 120)`）。行の 28px サムネは据え置き。
-5. マイルストーン／ロックの UI 復帰は AI エージェント検証後に判断（今は UI から付けられない）。
+5. ~~マイルストーン／ロックの UI 復帰~~ **済み（2026-09-17 16:30）**: 右クリックメニュー（`#ctx`）。
 
 次の着手候補は 2（エージェント検証・解析精度）。
 

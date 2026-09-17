@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable
 
 from setagent.agent.changeset import ChangeSet, Proposal, Rejected, build_change_set
+from setagent.agent.fillplan import plan_fill
 from setagent.agent.fitplan import plan_fit, scored_removals
 from setagent.agent.recommend import Slot, candidates
 from setagent.analysis.curve import TargetCurve, deviation, flat_segments
@@ -253,6 +254,18 @@ class AgentTools:
         secs = parse_mmss(target) if target else None
         return plan_fit(self, secs).to_json()
 
+    def plan_fill_sections(self, section: int | None = None, per_section_limit: int = 20,
+                           playlist: str = "") -> dict:
+        """analysis.plan_fill_sections — real tracks to fill the room between
+        milestones (or up to the target length), chained by BPM/key, curve-aware."""
+        pool = None
+        if playlist:
+            try:
+                pool = list(self.lib.db.playlist_by_name(playlist).track_ids)
+            except Exception:
+                return {"error": f"プレイリスト「{playlist}」が見つかりません"}
+        return plan_fill(self, section=section, per_section_limit=int(per_section_limit), pool=pool).to_json()
+
     def removal_candidates(self, limit: int = 30) -> list[dict]:
         """analysis.removal_candidates — which tracks the set can spare, easiest first."""
         return scored_removals(self, limit=limit)
@@ -304,6 +317,7 @@ TOOL_DISPATCH: dict[str, Callable] = {
     "recommend.candidates": AgentTools.recommend_candidates,
     "analysis.plan_fit_to_target": AgentTools.plan_fit_to_target,
     "analysis.removal_candidates": AgentTools.removal_candidates,
+    "analysis.plan_fill_sections": AgentTools.plan_fill_sections,
     "set.propose_changes": AgentTools.propose_changes,
 }
 
@@ -350,6 +364,16 @@ TOOL_SCHEMA: list[dict] = [
                      "total/target/over を含むので、このあと get_set_summary を呼ぶ必要はない"),
      "input_schema": {"type": "object", "properties": {
          "target": {"type": "string", "description": "mm:ss。省略時は現在の目標"}}}},
+    {"name": "analysis.plan_fill_sections",
+     "description": ("マイルストーン（要になる曲）の間の空きを、ライブラリの実在曲で埋める計画。区間ごとの予算"
+                     "（マイルストーンの目標時刻、無ければ目標尺の残りを均等配分）に合わせ、直前の曲の BPM・キーに"
+                     "繋がり、目標カーブに沿う曲を順に選ぶ。「埋めて」「プレイリストを作って／生成して」「組んで」の"
+                     "依頼ではこれを呼び、operations を set.propose_changes に渡す。playlist を指定すると候補を"
+                     "そのプレイリストの曲に限る"),
+     "input_schema": {"type": "object", "properties": {
+         "section": {"type": "integer", "description": "この区間だけ埋める（省略時は全区間）"},
+         "per_section_limit": {"type": "integer", "description": "1 区間に足す最大曲数（既定 20）"},
+         "playlist": {"type": "string", "description": "候補の母集団にするプレイリスト名（省略時はライブラリ全体）"}}}},
     {"name": "analysis.removal_candidates",
      "description": "外しても展開と繋ぎに響きにくい曲の一覧（スコア順、節約できる尺と理由付き）。1〜数曲を外す相談に使う",
      "input_schema": {"type": "object", "properties": {"limit": {"type": "integer"}}}},

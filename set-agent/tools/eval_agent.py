@@ -65,6 +65,9 @@ def scenarios(api: Api) -> list[dict]:
     else:
         S.append({"id": "fill", "q": "足りない分を埋める候補曲を出してください",
                   "expect": {"tools_any": ["recommend.candidates", "lib.search"], "titles_exist": True}})
+        S.append({"id": "build", "q": "マイルストーンの間を候補曲で埋めて、目標尺のプレイリストを作ってください",
+                  "expect": {"change_set": True, "no_unknown_tracks": True,
+                             "tools_any": ["analysis.plan_fill_sections"]}})
     return S
 
 

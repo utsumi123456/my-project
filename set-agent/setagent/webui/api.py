@@ -300,8 +300,10 @@ class Api:
         return self.state()
 
     def set_milestone(self, index, at_s) -> dict:
-        return self._run(lambda e: SetMilestone(e.track_id, at_s is not None,
-                                                None if at_s is None else int(at_s)), index)
+        """at_s: None = not a milestone; negative = milestone without a target
+        time (the DJ marks the anchor first, times it later); else the target."""
+        target = None if at_s is None or int(at_s) < 0 else int(at_s)
+        return self._run(lambda e: SetMilestone(e.track_id, at_s is not None, target), index)
 
     def set_preset(self, index, name) -> dict:
         if not self.draft:

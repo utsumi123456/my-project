@@ -200,6 +200,25 @@ def run(window):
         time.sleep(0.2)
         print("after leave hidden:", window.evaluate_js("document.getElementById('artpop').hidden"))
 
+        # right-click menu: mark the 5th block as a milestone, then undo it
+        window.evaluate_js("(() => { const n = document.querySelectorAll('.trk')[4]; const r = n.getBoundingClientRect();"
+                           "  n.dispatchEvent(new MouseEvent('contextmenu', {bubbles: true, clientX: r.left + 3, clientY: r.top + 10})); })()")
+        time.sleep(0.3)
+        print("context menu:", json.dumps(window.evaluate_js("""({
+            open: !document.getElementById('ctx').hidden,
+            items: [...document.querySelectorAll('#ctx button')].map(b => b.textContent),
+            head: (document.querySelector('#ctx .h')||{}).textContent})"""), ensure_ascii=False))
+        window.evaluate_js("(document.querySelector('#ctx [data-act=mile]')||{click(){}}).click()")
+        time.sleep(1.5)
+        print("after marking:", json.dumps(window.evaluate_js("""({
+            ctxHidden: document.getElementById('ctx').hidden,
+            milestone: ST.tracks[4].milestone, target: ST.tracks[4].milestone_s,
+            mileMarks: document.querySelectorAll('.mile').length,
+            sections: document.querySelectorAll('.sec').length})"""), ensure_ascii=False))
+        window.evaluate_js("document.getElementById('undo').click()")
+        time.sleep(1.5)
+        print("after undo:", window.evaluate_js("({milestone: ST.tracks[4].milestone, mileMarks: document.querySelectorAll('.mile').length})"))
+
         window.evaluate_js("document.querySelector('[data-view=main]').click()")
         time.sleep(0.3)
         print("back to main, detail hidden:",

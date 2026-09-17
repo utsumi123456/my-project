@@ -45,6 +45,7 @@ SECTION_WORDS = ("区間", "骨組み", "セクション", "section", "milestone
 BALANCE_WORDS = ("バランス", "どう", "どうか", "評価", "balance", "review", "flow")
 FIT_WORDS = ("収めて", "収める", "縮めて", "短く", "削って", "fit", "trim", "shorten")
 FILL_WORDS = ("足したい", "埋めたい", "追加", "候補", "add", "fill", "suggest", "recommend")
+BUILD_WORDS = ("埋めて", "生成", "組んで", "組み立て", "作って", "build", "generate")
 FULL_WORDS = ("フル", "full", "丸ごと")
 
 OFF_TEXT = "エージェントはオフになっています。分析とタイムラインはそのまま使えます。"
@@ -79,6 +80,8 @@ class Advisor:
             return self.fit_to_target(_mmss(t))
         if has(FULL_WORDS) and selected_index is not None:
             return self.play_full(selected_index)
+        if has(BUILD_WORDS):
+            return self.build_from_milestones()
         if has(FILL_WORDS):
             return self.fill_gap(t, selected_index)
         if has(BALANCE_WORDS):
@@ -223,6 +226,32 @@ class Advisor:
             reply.text += tail
             return reply
         return Reply(head + tail)
+
+    def build_from_milestones(self) -> Reply:
+        """マイルストーン起点のプレイリスト生成: fill the room between the DJ's
+        anchor tracks with real tracks (agent/fillplan.py), as one proposal."""
+        from setagent.agent.fillplan import plan_fill
+        plan = plan_fill(self.tools)
+        if not plan.picks:
+            return Reply(plan.note or "埋める余地がありません。", used_tools=["analysis.plan_fill_sections"])
+        lines = []
+        for s in plan.sections:
+            if not s.picks:
+                continue
+            lines.append(f"[{s.index}] {s.start_title[:16]} → {(s.end_title or 'END')[:16]}: "
+                         f"{len(s.picks)}曲 {fmt(s.filled_s)}（余地 {fmt(s.room_s)}）")
+            for p in s.picks[:6]:
+                lines.append(f"　・{p.title[:28]} — {p.reason}")
+            if len(s.picks) > 6:
+                lines.append(f"　・ほか {len(s.picks) - 6} 曲")
+            if s.note:
+                lines.append(f"　{s.note}")
+        reason = (f"マイルストーンの間を {len(plan.picks)} 曲で埋めます（{fmt(plan.total_before_s)} → "
+                  f"{fmt(plan.total_after_s)}）。候補はすべてライブラリの実在曲で、直前の曲の BPM・キーに繋がる順です。\n"
+                  + "\n".join(lines))
+        reply = self._propose(reason, plan.operations, "マイルストーンの間を埋める")
+        reply.used_tools = ["analysis.plan_fill_sections", "set.propose_changes"]
+        return reply
 
     def play_full(self, index: int) -> Reply:
         """'this one full' — and then what it costs (the E-5 dialogue)."""

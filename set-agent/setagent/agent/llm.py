@@ -67,6 +67,8 @@ SYSTEM_PROMPT = """\
   返った operations をそのまま set.propose_changes に渡す（1 回の提案で目標に届くのが原則）。自分で曲を
   選び直すのは、ユーザーが特定の曲を残したいと言ったときだけ。届かないときは残りの尺を正直に言う。
 - 曲を 1〜数曲外す相談は analysis.removal_candidates の上位から選び、理由をそのまま添える。
+- 「埋めて」「プレイリストを作って／生成して」「組んで」など、マイルストーン（要の曲）の間を曲で満たす依頼では
+  analysis.plan_fill_sections を呼び、その operations を set.propose_changes に渡す。曲を自分で選ばない。
 - 時間（総尺・曲ごとの尺・開始/終了）は analysis.get_set_summary の値を mm:ss のまま引用する。
   set.get_draft の play_in_ms/play_out_ms から自分で計算しない。
 - 曲名はツールが返した表記のまま書く（空白やハイフンを変えない）。

@@ -274,6 +274,14 @@ select:focus-visible,input:focus-visible{outline-offset:0;border-color:var(--tar
 .artpop{position:fixed;z-index:28;padding:4px;background:var(--raised);border:1px solid var(--line);
   border-radius:6px;box-shadow:0 6px 24px rgba(0,0,0,.45);pointer-events:none}
 .artpop img{display:block;width:120px;height:120px;border-radius:4px;object-fit:cover;background:var(--sunken)}
+/* Context menu (2026-09-17): the way to mark milestones and locks since the
+   inspector's edit block left. Same surface as the popover. */
+.ctx{position:fixed;z-index:29;min-width:200px;padding:4px;background:var(--raised);border:1px solid var(--line);
+  border-radius:6px;box-shadow:0 6px 24px rgba(0,0,0,.45);display:flex;flex-direction:column}
+.ctx .h{font-size:11px;color:var(--ink-3);padding:4px 8px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:260px}
+.ctx button{background:none;border:0;color:var(--ink);font:inherit;font-size:12px;text-align:left;padding:6px 8px;border-radius:4px;cursor:pointer}
+.ctx button:hover,.ctx button:focus-visible{background:var(--surface);outline:none}
+.ctx button.on::before{content:"✓ ";color:var(--ok)}
 /* ---- main view: the panel a DJ keeps beside rekordbox ----
    Only what they came to read: the set's predicted length, whether it fits, the
    way into recommendations, the conditions they set, and the running order.
@@ -526,6 +534,8 @@ select:focus-visible,input:focus-visible{outline-offset:0;border-color:var(--tar
 <div class="toast" id="toast" hidden></div>
 <!-- artwork on hover: one image, no text (the native title carries the words) -->
 <div class="artpop" id="artpop" hidden aria-hidden="true"><img alt=""></div>
+<!-- right-click menu on a track: milestone / target time / position lock -->
+<div class="ctx" id="ctx" hidden role="menu"></div>
 
 <script>
 const $ = id => document.getElementById(id);
@@ -914,6 +924,72 @@ for(const host of [$("tracks"), $("list")]){
   host.addEventListener("focusout", hideArtPop);
 }
 addEventListener("scroll", hideArtPop, true);
+
+/* ---- context menu: milestone / target time / position lock ----
+   Milestones are the DJ's anchors; the agent fills the room between them
+   (analysis.plan_fill_sections). Locks pin a track's position. Both go through
+   the existing bridge calls, so they land in History and can be undone. */
+let ctxIndex = null;
+function parseMmss(v){
+  const m = /^\s*(\d{1,3}):(\d{2})\s*$/.exec(v || "");
+  if(m) return +m[1]*60 + +m[2];
+  const n = parseFloat(v); return isNaN(n) ? null : Math.round(n*60);
+}
+function openCtx(x, y, i){
+  const t = ST && ST.tracks.find(o => o.i === i); if(!t) return;
+  ctxIndex = i; hideArtPop();
+  const isMile = !!t.milestone, locked = (t.locks || []).includes("position");
+  const c = $("ctx");
+  c.innerHTML = `<div class="h">${i + 1}. ${esc(t.title)}</div>
+    <button data-act="mile" class="${isMile ? "on" : ""}" title="この曲をセットの要にします。エージェントは要の間を候補曲で埋めます">${isMile ? "マイルストーンを解除" : "マイルストーンにする"}</button>
+    <button data-act="time" title="この曲を鳴らしたい時刻（mm:ss）。区間の予算になります">目標時刻を設定…${t.milestone_s != null ? `（今 ${fmt(t.milestone_s)}）` : ""}</button>
+    <button data-act="lock" class="${locked ? "on" : ""}" title="曲順の並べ替えや削除の提案から守ります">${locked ? "位置のロックを解除" : "位置をロック"}</button>`;
+  c.hidden = false;
+  const W = 220, H = c.offsetHeight || 120;
+  c.style.left = Math.max(4, Math.min(x, innerWidth - W - 4)) + "px";
+  c.style.top = Math.max(4, Math.min(y, innerHeight - H - 4)) + "px";
+  c.querySelector("button").focus();
+}
+function hideCtx(){ $("ctx").hidden = true; ctxIndex = null; }
+for(const host of [$("tracks"), $("list")]){
+  host.addEventListener("contextmenu", e=>{
+    const n = e.target.closest(".trk, .row.rm"); if(!n || n.dataset.i == null) return;
+    e.preventDefault(); openCtx(e.clientX, e.clientY, +n.dataset.i);
+  });
+}
+$("tracks").addEventListener("keydown", e=>{
+  const n = e.target.closest(".trk"); if(!n) return;
+  if(e.key === "m" || e.key === "M"){ e.preventDefault(); const r = n.getBoundingClientRect(); openCtx(r.left, r.bottom, +n.dataset.i); }
+});
+$("ctx").addEventListener("click", async e=>{
+  const b = e.target.closest("button[data-act]"); if(!b || ctxIndex == null) return;
+  const i = ctxIndex, t = ST.tracks.find(o => o.i === i);
+  const act = b.dataset.act; hideCtx();
+  if(act === "mile"){
+    apply(await window.pywebview.api.set_milestone(i, t.milestone ? null : -1));
+    toast(t.milestone ? "マイルストーンを解除しました" : "マイルストーンにしました。目標時刻は右クリックで設定できます");
+    return;
+  }
+  if(act === "lock"){
+    apply(await window.pywebview.api.set_lock(i, "position", !(t.locks || []).includes("position")));
+    return;
+  }
+  modal("目標時刻",
+    `<p>${esc(t.title)} を鳴らしたい時刻を mm:ss で入力してください。</p>
+     <div class="field"><span>目標時刻</span><input type="text" id="fTime" value="${t.milestone_s != null ? fmt(t.milestone_s) : fmt(t.start_s)}"></div>
+     <p class="hint">この曲はマイルストーンになり、前の区間の予算がこの時刻までになります。</p>`,
+    [{label:"キャンセル"},
+     {label:"設定", primary:true, close:false, run: async ()=>{
+        const secs = parseMmss($("fTime").value);
+        if(secs == null){ toast("mm:ss で入力してください"); return; }
+        closeModal();
+        apply(await window.pywebview.api.set_milestone(i, secs));
+     }}]);
+  setTimeout(()=>{ const f = $("fTime"); if(f){ f.focus(); f.select(); } }, 30);
+});
+addEventListener("pointerdown", e=>{ if(!e.target.closest("#ctx")) hideCtx(); }, true);
+addEventListener("keydown", e=>{ if(e.key === "Escape") hideCtx(); });
+addEventListener("scroll", hideCtx, true);
 $("list").addEventListener("click", async e=>{
   const r = e.target.closest(".row"); if(!r) return;
   if(r.classList.contains("rm")){ selectTrack(+r.dataset.i); return; }
@@ -1054,8 +1130,8 @@ ${t.phrases.length ? "ダブルクリックでフレーズ構成" : "フレー�
             glyph plus the ellipsis gets none, so a row of lone "…" never appears */
          (w >= LABEL_MIN_PX ? `<div class="trk-t">${t.i+1}. ${esc(t.title)}</div>` : "") +
          `</div>`;
-    if(t.milestone_s != null)
-      h += `<div class="mile" style="left:${x.toFixed(1)}px" title="マイルストーン ${fmt(t.milestone_s)}"></div>`;
+    if(t.milestone)
+      h += `<div class="mile" style="left:${x.toFixed(1)}px" title="マイルストーン${t.milestone_s != null ? " 目標 " + fmt(t.milestone_s) : "（目標時刻なし）"}"></div>`;
   }
   if(ST.target_s) h += `<div class="tline" style="left:${(ST.target_s*k).toFixed(1)}px"></div>`;
 
