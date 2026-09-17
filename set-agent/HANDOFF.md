@@ -1,6 +1,6 @@
 # Set Agent — 引き継ぎメモ
 
-## ▶ 次のセッションはここから（2026-09-17 11:40 時点の引き継ぎ）
+## ▶ 次のセッションはここから（2026-09-17 13:00 時点の引き継ぎ）
 
 ここだけ読めば続きから拾える。詳細は下の日付付き追記に全部ある。
 
@@ -14,30 +14,41 @@
   目標カーブ、点の編集可）/ SECTIONS / 削り代カード（超過時のみ）/ 選択中（読み取りのみ）。
 - **アートワークはホバーの小窓**（`#artpop`、120px）。TRACKS のブロックと候補リストの行に 260ms 乗せると出る。
   キーボードフォーカスでも出る。ドラッグ開始・クリック・スクロール・離脱で消える。
-- **エージェント**（右ドロワー、ルールベース。LLM キーは任意）: 提案は Change Set、チェックして適用、undo 可。
-- **設定シート**: rekordbox の手動再読込、LLM キー（DPAPI）。
+- **エージェント**（右ドロワー）: 提案は Change Set、チェックして適用、undo 可。**LLM は API キー不要**:
+  この PC の Claude Code のログイン（企業アカウント）を `claude -p` 子プロセスで使い、ツールは自前の
+  ローカル MCP サーバ（`agent/mcp_server.py`、stdlib のみ）で渡す。順位は Claude Code → API キー → ルールベース。
+  設計と実測は `docs/llm_backend_2026-09-17.md`。
+- **設定シート**: rekordbox の手動再読込、Claude の接続状態（接続中／未ログイン→「ログイン」ボタン／見つかりません）、
+  モデル（Sonnet／Opus）、API キー（任意、DPAPI）。
 - フォントは rekordbox と同じ **Arial 系**（同梱なし）。磨き込み済み: AA コントラスト・11px 下限・全要素フォーカス可。
 
 ### 最新の状態
 - GitHub `utsumi123456/my-project` `main` = 2026-09-17 の「TRACKS labels at both densities; artwork in a hover popover」コミット
   （作業ツリー clean、push 済み）。
 - 配布 exe: `C:\Users\7166700\source\my-project\set-agent\dist\SetAgent.exe`（2026-09-17 ビルド、同コミットと同一ソース）。
-- テスト 157 件 OK。`probe_views` acid 460×940（両密度 96/96 ラベル、ホバー小窓 trk/row とも表示→離脱・pointerdown で消灯）、
-  `probe_polish` acid 400×900 main/detail PASS。
+- テスト 175 件 OK。`probe_llm acid`（実 Claude、7.1 秒 / 36.5 秒、Change Set 4 件）、`probe_views` acid 460×940、
+  `probe_agent` acid（ルールベース経路。probe 内で `SETAGENT_LLM_BACKEND=api` に固定）。
 - gh CLI はログイン済み（`utsumi123456`）。**この Claude のシェルでは PATH に無い**ので
   `"C:\Program Files\GitHub CLI\gh.exe"` のフルパスで呼ぶ。git の資格情報は gh に設定済み（push はそのまま通る）。
 
 ### 次にやること（ユーザー決定、2026-09-16 22:17。上から順）
-1. **検証は後日** — LLM 実キー疎通（`python -m tools.probe_llm acid`、キーは設定シートから入れる）、
-   rekordbox 新版での動作確認（手順案は 09-16 深夜の追記）。
+1. ~~LLM 実キー疎通~~ **キー不要になった（2026-09-17）**。`python -m tools.probe_llm acid` が Claude Code 経由で通る。
+   残りは rekordbox 新版での動作確認（手順案は 09-16 深夜の追記）。
 2. **AI エージェントの検証＋解析精度の向上** → その後に「マイルストーン起点のプレイリスト生成」を実装。
+   LLM が本物になったので、ここから着手できる。気になった点: 2 ターン目 36.5 秒（ツール 3 回）。
 3. ~~TRACKS の「全体」密度にもトラック No.＋曲名~~ **済み（2026-09-17）**。`renderLanes` は幅 `LABEL_MIN_PX`（24px）以上の
    ブロック全部に `.trk-t` を出し、`text-overflow:ellipsis` で省略。acid 全体密度: 96/96 にラベル、幅不足 0、うち 92 が省略表示。
 4. ~~アートワークはホバーのウィンドウで表示~~ **済み（2026-09-17）**。`#artpop`（fixed、120px、pointer-events:none）。
    `ART_L` に track_id ごとに 120px 版をキャッシュ（`api.artwork([id], 120)`）。行の 28px サムネは据え置き。
 5. マイルストーン／ロックの UI 復帰は AI エージェント検証後に判断（今は UI から付けられない）。
 
-次の着手候補は 2（エージェント検証・解析精度）。1 の LLM 実キーはユーザーがキーを入れたときに。
+次の着手候補は 2（エージェント検証・解析精度）。
+
+**Claude Code backend の地雷:** `--bare` を付けると OAuth を読まず「Not logged in」になる／stdin は閉じて渡す／
+この Claude セッションの中から子 `claude` を起こすと `CLAUDECODE` 等が継承されるので `_child_env()` で落としている／
+`claude auth status` は 1〜2 秒かかるので 10 分キャッシュ（`forget_cli_status()` で破棄）／MCP のツール名に `.` は使えない
+（`analysis_get_sections`）／ツール本体は HTTP スレッドではなく、`ask()` で待っている api ワーカーが `pump()` で実行する
+（SQLite のスレッド固定のため。HTTP スレッドで直接呼ぶと `ProgrammingError`）。
 
 ### 動かし方と判定
 ```

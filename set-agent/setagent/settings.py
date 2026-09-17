@@ -62,7 +62,9 @@ class Settings:
     level: str = "passive"
     last_export_dir: str = ""
     llm_key: str = ""                # stored as "dpapi:<base64>" where possible
-    llm_model: str = ""              # "" = the agent's default
+    llm_model: str = ""              # "" = the agent's default (cli: sonnet / api: claude-sonnet-5)
+    llm_backend: str = ""            # "" = auto (Claude Code sign-in, then API key), cli, api, off
+    claude_exe: str = ""             # manual path to claude.exe when the search fails
     rekordbox_exe: str = ""          # remembered path, for relaunch after export
     window: str = ""                 # "x,y,w,h" of the panel when it was last closed
     set_bpm: str = ""                # the set's tempo as typed ("160"); "" = each track's own

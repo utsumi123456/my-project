@@ -22,7 +22,8 @@ from pathlib import Path
 
 from setagent.agent.advisor import Advisor, Intervention
 from setagent.agent.changeset import ProposalLog
-from setagent.agent.llm import LLMAgent, LLMConfig
+from setagent.agent.llm import (LLMAgent, LLMConfig, cli_status, find_claude,
+                                forget_cli_status, open_login_console)
 from setagent.agent.tools import AgentTools
 from setagent.analysis.curve import TEMPLATE_LABELS, TargetCurve, template
 from setagent.analysis.phrases import PRESET_CONFIG, preset_range
@@ -521,35 +522,67 @@ class Api:
 
     # ----------------------------------------------------------------- llm
     def llm_config(self) -> LLMConfig:
-        """Settings first, environment second. Neither is required."""
+        """Settings first, environment second. Neither is required: with no
+        Claude Code sign-in and no key the deterministic Advisor answers."""
         cfg = LLMConfig.from_env()
         k = self.cfgfile.llm_key_plain()
         if k:
             cfg.api_key = k
         if self.cfgfile.llm_model:
             cfg.model = self.cfgfile.llm_model
+        if self.cfgfile.llm_backend:
+            cfg.backend = self.cfgfile.llm_backend
+        if self.cfgfile.claude_exe:
+            cfg.claude_exe = self.cfgfile.claude_exe
         return cfg
 
-    def llm_status(self) -> dict:
+    def llm_status(self, refresh=False) -> dict:
+        """How the agent will reach Claude: Claude Code sign-in (cli), API key
+        (api), or neither (advisor). `refresh` re-runs `claude auth status`."""
         cfg = self.llm_config()
+        exe = find_claude(cfg.claude_exe) if cfg.backend in ("auto", "cli") else ""
+        cli = cli_status([exe], refresh=bool(refresh)) if exe else {
+            "found": False, "logged_in": False, "subscription": "", "org": "",
+            "version": "", "error": "", "exe": ""}
+        if cfg.backend == "off":
+            mode = "advisor"
+        elif cli["logged_in"] and cfg.backend in ("auto", "cli"):
+            mode = "cli"
+        elif cfg.available and cfg.backend in ("auto", "api"):
+            mode = "api"
+        else:
+            mode = "advisor"
         from_settings = bool(self.cfgfile.llm_key_plain())
         stored = ("dpapi" if self.cfgfile.llm_key.startswith("dpapi:")
                   else "plain" if self.cfgfile.llm_key else "")
         return {
+            "mode": mode,
+            "backend": cfg.backend,
+            "cli": cli,
             "configured": bool(cfg.api_key),
             "source": "settings" if from_settings else ("env" if cfg.api_key else ""),
             "stored": stored,
             "model": cfg.model,
+            "cli_model": cfg.cli_model,
+            "api_model": cfg.api_model,
             "masked": (cfg.api_key[:7] + "…" + cfg.api_key[-4:]) if len(cfg.api_key) > 14 else "",
+            "status": self.agent.status() if self.agent else "",
             # The invariant, stated where the DJ can read it (spec B-7).
-            "note": "キーがなくても全機能が動きます。決定的アドバイザで動作します",
+            "note": "Claude に接続できなくても全機能が動きます。そのときは決定的アドバイザで動作します",
         }
 
-    def set_llm(self, key=None, model=None) -> dict:
+    def set_llm(self, key=None, model=None, backend=None, claude_exe=None) -> dict:
         how = self.cfgfile.set_llm_key(key) if key is not None else None
         if model is not None:
             self.cfgfile.llm_model = (model or "").strip()
+        if backend is not None:
+            self.cfgfile.llm_backend = (backend or "").strip()
+        if claude_exe is not None:
+            self.cfgfile.claude_exe = (claude_exe or "").strip()
         saved = self.cfgfile.save()
+        forget_cli_status()
+        if self.agent:                                  # pick the new backend up at once
+            self.agent = LLMAgent(self.tools, self.advisor, cfg=self.llm_config())
         s = self.llm_status()
         s["saved"] = saved
         if how == "plain":
@@ -558,6 +591,16 @@ class Api:
         if not saved:
             s["warning"] = "設定ファイルに書き込めませんでした。次回起動時には残りません"
         return s
+
+    # Not on the worker thread: it only starts a console for the DJ to sign in.
+    def claude_login(self) -> dict:
+        cfg = self.llm_config()
+        exe = find_claude(cfg.claude_exe)
+        if not exe:
+            return {"ok": False, "error": "Claude Code が見つかりません。Claude Desktop をインストールしてください"}
+        forget_cli_status()
+        ok = open_login_console([exe])
+        return {"ok": ok, "error": "" if ok else "ログイン用のコンソールを開けませんでした"}
 
     # --------------------------------------------------------------- agent
     # The boundary from spec B-8 is intact here: the agent proposes a Change Set,

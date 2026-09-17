@@ -132,7 +132,9 @@ def run(window):
             open: !document.getElementById('modal').hidden,
             fresh: (document.getElementById('freshTxt')||{}).textContent,
             rescan: (document.getElementById('rescan')||{}).textContent,
-            hasKey: !!document.getElementById('fKey')})"""), ensure_ascii=False))
+            hasKey: !!document.getElementById('fKey'),
+            model: (document.getElementById('fModel')||{}).value,
+            conn: (document.getElementById('llmConn')||{}).textContent?.replace(/\\s+/g,' ').trim()})"""), ensure_ascii=False))
         window.evaluate_js("closeModal()")
 
         window.evaluate_js("document.querySelector('[data-view=detail]').click()")

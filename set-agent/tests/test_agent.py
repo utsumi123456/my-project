@@ -209,10 +209,13 @@ class AdvisorTests(unittest.TestCase):
 class LLMFallbackTests(unittest.TestCase):
     def setUp(self):
         import os
-        self.saved = {k: os.environ.pop(k, None) for k in ("SETAGENT_LLM_KEY", "ANTHROPIC_API_KEY")}
+        self.saved = {k: os.environ.pop(k, None)
+                      for k in ("SETAGENT_LLM_KEY", "ANTHROPIC_API_KEY", "SETAGENT_LLM_BACKEND")}
+        os.environ["SETAGENT_LLM_BACKEND"] = "api"     # never reach a real Claude Code sign-in
 
     def tearDown(self):
         import os
+        os.environ.pop("SETAGENT_LLM_BACKEND", None)
         for k, v in self.saved.items():
             if v is not None: os.environ[k] = v
 
@@ -227,13 +230,13 @@ class LLMFallbackTests(unittest.TestCase):
     def test_off_silences_the_llm_path_too(self):
         from setagent.agent.llm import LLMAgent, LLMConfig
         t = tools(draft(*"abc"))
-        a = LLMAgent(t, Advisor(t, level=Intervention.OFF), cfg=LLMConfig(api_key="x"))
+        a = LLMAgent(t, Advisor(t, level=Intervention.OFF), cfg=LLMConfig(api_key="x", backend="api"))
         self.assertIn("オフ", a.ask("バランスどう？").text)
 
     def test_unreachable_endpoint_falls_back_with_a_note(self):
         from setagent.agent.llm import LLMAgent, LLMConfig
         t = tools(draft(*"abcdef", target=1500))
-        cfg = LLMConfig(api_key="x", endpoint="http://127.0.0.1:9/none", timeout_s=1)
+        cfg = LLMConfig(api_key="x", endpoint="http://127.0.0.1:9/none", timeout_s=1, backend="api")
         r = LLMAgent(t, Advisor(t), cfg=cfg).ask("今のセット何分？")
         self.assertIn("ルールベース", r.text)
         self.assertIn("30:00", r.text)

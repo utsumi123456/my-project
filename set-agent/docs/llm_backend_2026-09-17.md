@@ -73,7 +73,7 @@ ClaudeCliBackend.ask(text):
          --system-prompt <SYSTEM_PROMPT> --setting-sources "" --strict-mcp-config
          --mcp-config {"mcpServers":{"setagent":{"type":"http","url":"http://127.0.0.1:<port>/mcp"}}}
          --allowedTools "mcp__setagent__*" --tools "" --max-turns 8
-         [--resume <session-id>]   ← 会話の継続。詳細は実装時に確定
+         --session-id <uuid>（初回） / --resume <uuid>（2 回目以降。会話が続く。実測で確認）
          <text>          (stdin は閉じる。CREATE_NO_WINDOW。timeout 60 秒)
   → result(JSON).result を本文に、積まれた Change Set と使ったツール名を Reply に。
 ```
@@ -115,12 +115,24 @@ CLI の探索順（見つかった最初のものを使い、設定シートで�
 - **ユーザーの CLAUDE.md・hooks・プラグインの混入** — `--setting-sources ""` と `--system-prompt` で遮断
   （実測で確認。応答に他プロジェクトの文脈は出ていない）。
 - **コンソールの点滅** — GUI exe から子プロセスを起こすときは `CREATE_NO_WINDOW`（HANDOFF の地雷）。
-- **セッションファイルの蓄積** — `--no-session-persistence` を使うと `--resume` が使えない。会話の継続を
-  自前 history で行うか、persistence を許して `--resume` を使うかは実装時に測って決める。
+- **セッションファイルの蓄積** — 会話継続に `--resume` を使うため persistence は許す。cwd を
+  `%LOCALAPPDATA%\SetAgent\claude` にしているので、セッションは `~/.claude/projects/` のその cwd 用の
+  フォルダにだけ溜まる。消えていれば（`No conversation found`）新しいセッションで自動的にやり直す。
 - **送信内容** — 曲名・BPM・キー・尺がプロンプトとツール結果として Anthropic へ渡る。個人の API キーより
   企業契約の経路のほうが管理上は望ましい。音声ファイルや master.db 本体は送らない。
 
-## 6. 検証計画（実装フェーズ）
+## 6. 検証結果（2026-09-17 実装）
+
+- 単体テスト 175 件 OK（新規 18 件 `tests/test_llm_cli.py`: `tests/fake_claude.py` が CLI を偽装し、
+  ToolServer のプロトコル・ワーカースレッドでのツール実行・引数組み立て・`--resume`・失敗時の Advisor 降格・
+  timeout・セッション消失時の再開を固定）。
+- `python -m tools.probe_llm acid`（実 CLI、Desktop 同梱 2.1.271、企業アカウント、sonnet）:
+  1 ターン目「収まっていますか」7.1 秒、ツール 1 回、137:18 / 60:00 / 77:18 超過を正しく引用。
+  2 ターン目「提案を 1 件」36.5 秒、ツール 3 回（trim_candidates → sections → propose_changes）、
+  Change Set 4 件（137:18 → 106:16）。`--resume` で 1 ターン目の文脈（「その分」）が通じた。
+- 2 ターン目は理想 2（30 秒）を 6 秒超えた。ツール回数と推論量に比例する。`--max-turns 8` のまま様子見。
+
+### 当初の検証計画
 
 1. 単体テスト: `claude` を偽装するスタブスクリプト（引数を記録し、固定 JSON を返す）で
    backend の引数組み立て・JSON 解釈・timeout・フォールバックを固定。MCP サーバは `http.client` で

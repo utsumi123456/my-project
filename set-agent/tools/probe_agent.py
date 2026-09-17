@@ -14,6 +14,9 @@ import time
 
 import webview
 
+import os
+os.environ.setdefault("SETAGENT_LLM_BACKEND", "api")   # deterministic: Advisor unless a key is set
+
 from setagent.webui.api import Api
 from setagent.webui.app import index_path
 

@@ -319,6 +319,13 @@ select:focus-visible,input:focus-visible{outline-offset:0;border-color:var(--tar
   border-radius:3px;padding:3px 6px;font-size:12px;min-width:0}
 .bpmv input[type=text]{font-family:var(--mono);text-align:center}
 .bpmv .none-yet{font-size:11px;color:var(--ink-3);margin:0}
+.field select{background:var(--raised);color:var(--ink);border:1px solid var(--line);border-radius:3px;
+  padding:4px 6px;font-size:12px;height:28px}
+.conn{display:flex;align-items:center;gap:var(--s2);flex-wrap:wrap;margin:0 0 var(--s2);font-size:12px;line-height:1.5}
+.conn .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--ink-3);flex:none}
+.conn .dot.on{background:var(--ok)}
+.conn .dot.warn{background:var(--caution)}
+.conn .btn{padding:2px 8px;font-size:11px}
 .pill.bpm{color:var(--ink);background:var(--raised)}
 .list{display:flex;flex-direction:column;border:1px solid var(--line-soft);border-radius:4px;overflow:hidden}
 .row,.list-h{display:grid;grid-template-columns:28px minmax(0,1fr) 56px 56px;gap:var(--s2);
@@ -1447,22 +1454,48 @@ $("cpList").addEventListener("click", async e=>{
    Set Agent is read-only now. api.export_* / api.restart_rekordbox still
    exist in Python, unused. */
 
-/* ---- settings: the LLM key, and the invariant that it is optional ---- */
-$("settings").addEventListener("click", async ()=>{
-  const s = await window.pywebview.api.llm_status();
+/* ---- settings: how the agent reaches Claude ----
+   First choice is the Claude Code sign-in already on this PC (the company
+   seat; no key). An API key is the fallback for a PC without Claude Code.
+   Either way the invariant holds: with neither, the Advisor answers. */
+const MODELS = [["sonnet", "Sonnet（標準・速い）"], ["opus", "Opus（高度・遅い）"]];
+function connHtml(s){
+  const c = s.cli || {};
+  const seat = c.subscription === "enterprise" ? "企業アカウント" : (c.subscription || "ログイン済み");
+  if(s.mode === "cli")
+    return `<span class="dot on"></span><span>Claude Code ${esc(c.version || "")} に接続しています（${esc(c.org || seat)}）</span>`;
+  if(c.found && !c.logged_in)
+    return `<span class="dot warn"></span><span>Claude Code は見つかりましたが、ログインしていません</span>
+            <button class="btn" id="fLogin" title="Claude Code のログイン画面をコンソールで開きます。会社のアカウントでログインしてください">ログイン</button>`;
+  if(!c.found && s.backend !== "off")
+    return `<span class="dot"></span><span>Claude Code が見つかりません。Claude Desktop を入れてログインすると、キーなしで使えます</span>`;
+  if(s.mode === "api")
+    return `<span class="dot on"></span><span>API キーで接続しています（${esc(s.api_model)}）</span>`;
+  return `<span class="dot"></span><span>${esc(s.status || "ルールベースのアドバイザで動いています")}</span>`;
+}
+function modelOptions(s){
+  const cur = s.model || "sonnet";
+  const opts = MODELS.slice();
+  if(!opts.some(o => o[0] === cur)) opts.push([cur, cur]);
+  return opts.map(([v, l]) => `<option value="${esc(v)}"${v === cur ? " selected" : ""}>${esc(l)}</option>`).join("");
+}
+async function openSettings(refresh){
+  const s = await window.pywebview.api.llm_status(!!refresh);
   const where = s.source === "settings"
-      ? (s.stored === "dpapi" ? "この PC の設定に暗号化して保存済み" : "設定に平文で保存済み")
-      : s.source === "env" ? "環境変数から読み込んでいます" : "未設定";
+      ? (s.stored === "dpapi" ? "暗号化して保存済み" : "平文で保存済み")
+      : s.source === "env" ? "環境変数" : "未設定";
   modal("設定",
     `<p class="sec-title" style="margin-top:0">rekordbox ライブラリ</p>
      <div class="fresh"><span class="meta" id="freshTxt"></span>
        <button class="btn" id="rescan" title="rekordbox の master.db と -wal を今すぐ読み直します。ふだんは自動で追従するので、この画面の試行を保っているときだけ必要です"></button></div>
-     <p class="sec-title">エージェントの LLM</p>
-     <p>${esc(s.note)}</p>
-     <div class="field"><span>API キー（${esc(where)}${s.masked ? " · " + esc(s.masked) : ""}）</span>
-       <input type="password" id="fKey" placeholder="${s.configured ? "変更するときだけ入力" : "sk-ant-…"}"></div>
+     <p class="sec-title">エージェント（Claude）</p>
+     <div class="conn" id="llmConn">${connHtml(s)}
+       <button class="btn" id="fRecheck" title="Claude Code のログイン状態を今すぐ確かめます">再確認</button></div>
+     <p class="hint">${esc(s.note)}</p>
      <div class="field"><span>モデル</span>
-       <input type="text" id="fModel" value="${esc(s.model || "")}"></div>
+       <select id="fModel" title="Sonnet は速く、席の利用上限にも余裕があります。Opus はより高度ですが遅く、上限を早く使います">${modelOptions(s)}</select></div>
+     <div class="field"><span>API キー（Claude Code が使えない PC 用・任意 · ${esc(where)}${s.masked ? " · " + esc(s.masked) : ""}）</span>
+       <input type="password" id="fKey" placeholder="${s.configured ? "変更するときだけ入力" : "sk-ant-…"}"></div>
      <p class="hint">キーは Windows の DPAPI でこのアカウントに紐づけて暗号化します。
         空のまま保存するとキーを削除できます。</p>`,
     [{label:"キャンセル"},
@@ -1470,11 +1503,21 @@ $("settings").addEventListener("click", async ()=>{
         const key = $("fKey").value, model = $("fModel").value;
         const r = await window.pywebview.api.set_llm(key === "" ? null : key, model);
         closeModal();
-        toast(r.warning || (r.configured ? `LLM を設定しました（${r.model}）` : "LLM キーを削除しました。アドバイザで動作します"));
+        toast(r.warning || (r.mode === "cli" ? `Claude Code で動きます（${r.cli_model}）`
+                          : r.mode === "api" ? `API キーで動きます（${r.api_model}）`
+                          : "Claude に接続していません。アドバイザで動作します"));
+        apply(await window.pywebview.api.state());
      }}]);
   renderFresh();
   $("rescan").addEventListener("click", ()=>{ closeModal(); refreshFromRekordbox(null); });
-});
+  $("fRecheck").addEventListener("click", ()=>{ closeModal(); openSettings(true); });
+  const lg = $("fLogin");
+  if(lg) lg.addEventListener("click", async ()=>{
+    const r = await window.pywebview.api.claude_login();
+    toast(r.ok ? "コンソールでログインを完了したら「再確認」を押してください" : r.error);
+  });
+}
+$("settings").addEventListener("click", ()=> openSettings(false));
 
 document.querySelectorAll("[data-zoom]").forEach(b=>{
   b.addEventListener("click", ()=>{
