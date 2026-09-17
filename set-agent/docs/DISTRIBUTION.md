@@ -9,9 +9,8 @@
 （開いて `SetAgent.exe` をクリック → ダウンロード。Mac は `SetAgent-macOS.zip`）。
 直接リンク: `https://github.com/utsumi123456/my-project/releases/download/v1.0/SetAgent.exe`
 
-リポジトリは **private** なので、相手は GitHub にログインしていて、このリポジトリを見られる必要がある
-（Settings → Collaborators で招待、または `gh repo add-collaborator`（gh 2.x では `gh api -X PUT
-repos/utsumi123456/my-project/collaborators/<user>`）。公開してよいなら Settings → Visibility を public に）。
+リポジトリは **public**（2026-09-17 19:10 に切り替え、ユーザー決定）。リンクはログインなしで開け、
+直接リンクは 302 でファイルに飛ぶことを確認済み。
 新しい版は `git tag v1.1 && git push origin v1.1` で Release が自動で作られる。
 
 ## 1. 配布物の取り方
