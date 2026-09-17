@@ -1,0 +1,16 @@
+# Runtime + build dependencies (Python 3.12). Standard library covers the rest:
+# the MCP server, the Claude Code backend, the SQLCipher page decryptor's
+# framing, settings, and the whole analysis engine have no third-party imports.
+pywebview==6.2.1
+pillow==12.3.0
+cryptography==50.0.1
+pyinstaller==6.22.2
+# pywebview's Windows backend (WebView2 via WinForms)
+pythonnet==3.1.0; sys_platform == "win32"
+clr_loader==0.3.1; sys_platform == "win32"
+# pywebview's macOS backend (WKWebView via pyobjc); pulled in by pywebview[qt]? no -- explicit here
+pyobjc-core; sys_platform == "darwin"
+pyobjc-framework-Cocoa; sys_platform == "darwin"
+pyobjc-framework-WebKit; sys_platform == "darwin"
+pyobjc-framework-Quartz; sys_platform == "darwin"
+pyobjc-framework-Security; sys_platform == "darwin"

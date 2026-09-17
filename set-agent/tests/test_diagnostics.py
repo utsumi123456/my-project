@@ -25,7 +25,9 @@ class ReportTests(unittest.TestCase):
 
 class RunTests(unittest.TestCase):
     def setUp(self):
-        self.dir = tempfile.TemporaryDirectory()
+        # the decrypted cache now lives under SETAGENT_HOME; a still-open SQLite
+        # handle keeps the file locked on Windows until it is collected
+        self.dir = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
         self.saved_home = os.environ.get("SETAGENT_HOME")
         self.saved_db = os.environ.pop("SETAGENT_MASTER_DB", None)
         os.environ["SETAGENT_HOME"] = self.dir.name
@@ -37,6 +39,8 @@ class RunTests(unittest.TestCase):
             os.environ["SETAGENT_HOME"] = self.saved_home
         if self.saved_db is not None:
             os.environ["SETAGENT_MASTER_DB"] = self.saved_db
+        import gc
+        gc.collect()
         self.dir.cleanup()
 
     def test_missing_library_is_reported_not_raised(self):

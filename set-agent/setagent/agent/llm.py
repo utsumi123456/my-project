@@ -151,12 +151,19 @@ def find_claude(explicit: str = "") -> str:
     if explicit:
         return explicit if Path(explicit).is_file() else ""
     cands: list[str] = []
-    appdata = os.environ.get("APPDATA", "")
-    if appdata:
-        bundled = glob.glob(os.path.join(appdata, "Claude", "claude-code", "*", "claude.exe"))
-        cands += sorted(bundled, key=_version_key, reverse=True)
     home = Path.home()
-    cands.append(str(home / ".local" / "bin" / ("claude.exe" if sys.platform == "win32" else "claude")))
+    if sys.platform == "win32":
+        appdata = os.environ.get("APPDATA", "")
+        if appdata:
+            bundled = glob.glob(os.path.join(appdata, "Claude", "claude-code", "*", "claude.exe"))
+            cands += sorted(bundled, key=_version_key, reverse=True)
+        cands.append(str(home / ".local" / "bin" / "claude.exe"))
+    else:
+        # Claude Desktop for macOS keeps its Claude Code build under Application Support
+        for pat in (str(home / "Library" / "Application Support" / "Claude" / "claude-code" / "*" / "claude"),
+                    "/Applications/Claude.app/Contents/Resources/claude-code/*/claude"):
+            cands += sorted(glob.glob(pat), key=_version_key, reverse=True)
+        cands += [str(home / ".local" / "bin" / "claude"), "/opt/homebrew/bin/claude", "/usr/local/bin/claude"]
     for name in ("claude.exe", "claude", "claude.cmd"):
         p = shutil.which(name)
         if p:
@@ -234,6 +241,10 @@ def open_login_console(argv: list[str]) -> bool:
         if sys.platform == "win32":
             subprocess.Popen(["cmd", "/c", "start", "", *argv, "auth", "login"],
                              creationflags=subprocess.CREATE_NEW_CONSOLE, env=_child_env())
+        elif sys.platform == "darwin":
+            cmd = " ".join(f"'{a}'" for a in argv + ["auth", "login"])
+            subprocess.Popen(["osascript", "-e", f'tell application "Terminal" to do script "{cmd}"',
+                              "-e", 'tell application "Terminal" to activate'], env=_child_env())
         else:
             subprocess.Popen(argv + ["auth", "login"], env=_child_env())
         return True

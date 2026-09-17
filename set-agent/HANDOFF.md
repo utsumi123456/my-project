@@ -1,6 +1,6 @@
 # Set Agent — 引き継ぎメモ
 
-## ▶ 次のセッションはここから（2026-09-17 16:30 時点の引き継ぎ）
+## ▶ 次のセッションはここから（2026-09-17 19:30 時点の引き継ぎ）
 
 ここだけ読めば続きから拾える。詳細は下の日付付き追記に全部ある。
 
@@ -31,6 +31,20 @@
 - **設定シート**: rekordbox の手動再読込、Claude の接続状態（接続中／未ログイン→「ログイン」ボタン／見つかりません）、
   モデル（Sonnet／Opus）、API キー（任意、DPAPI）。
 - フォントは rekordbox と同じ **Arial 系**（同梱なし）。磨き込み済み: AA コントラスト・11px 下限・全要素フォーカス可。
+
+### 配布（2026-09-17 夜）
+- 手順は `docs/DISTRIBUTION.md`。**GitHub Actions**（`.github/workflows/build.yml`）が `main` push ごとに
+  Windows / macOS でテスト → PyInstaller → artifact（SetAgent-windows / SetAgent-macos）。タグ `v*` で Release。
+- **macOS 版は実機未検証**（この環境は Windows）。コードは `sys.platform` 分岐済み（master.db の場所、pgrep、
+  Claude CLI の探索、Terminal でのログイン、`build.py` の `--windowed` + `.app` を zip）。最初の Mac ユーザーに
+  `--compat` と `--doctor` の結果をもらう。
+- **rekordbox の版**: この PC は 7.2.14、最新は 7.2.17（2026-07-30）。7.2.15〜17 のリリースノートにライブラリ・
+  解析ファイルの変更なし（7.2.16 で Spotify 曲がコレクションに入る → クラウド曲としてフレーズ解析なし扱い）。
+  更新はユーザーの操作が要るため未実施。更新後は `python -m tools.probe_compat`（exe なら `--compat`）で
+  復号・必要列・単位・PSSI・アートワークを一括確認。基準値 `docs/compat_baseline.json`（7.2.14、47 テーブル、
+  200 曲中フレーズあり 169）。
+- `requirements.txt` を新設（pyobjc は darwin のみ、pythonnet は win32 のみ）。復号キャッシュは `app_home()/cache`
+  に統一（Mac では `~/.config/SetAgent/cache`）。
 
 ### 最新の状態
 - GitHub `utsumi123456/my-project` `main` = 2026-09-17 の「TRACKS labels at both densities; artwork in a hover popover」コミット

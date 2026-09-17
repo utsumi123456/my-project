@@ -122,7 +122,11 @@ class Library:
              plain_db: Path | str | None = None) -> "Library":
         """plain_db: use an already-decrypted copy (tests / sandbox). Otherwise decrypt."""
         mdb = find_master_db(master_db)
-        cache = Path(cache_dir) if cache_dir else Path(os.environ.get("LOCALAPPDATA", Path.home())) / "SetAgent" / "cache"
+        if cache_dir:
+            cache = Path(cache_dir)
+        else:                                   # %LOCALAPPDATA%\SetAgent on Windows, ~/.config/SetAgent elsewhere
+            from setagent.settings import app_home
+            cache = app_home() / "cache"
         cache.mkdir(parents=True, exist_ok=True)
         lib = cls(mdb, mdb.parent / "share", cache)
         lib.plain_db = Path(plain_db) if plain_db else cache / "master_plain.db"

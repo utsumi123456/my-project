@@ -25,6 +25,9 @@ def _playlist_arg(argv) -> str | None:
 
 def main() -> int:
     argv = sys.argv[1:]
+    if "--compat" in argv:                        # rekordbox compatibility report, no window
+        from tools.probe_compat import main as compat
+        return compat([a for a in argv if a != "--compat"])
     if "--doctor" in argv or "--classic" in argv:
         from setagent.gui.timeline import main as classic
         return classic()
