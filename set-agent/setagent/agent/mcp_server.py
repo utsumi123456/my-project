@@ -64,6 +64,7 @@ class ToolServer:
         self._srv: ThreadingHTTPServer | None = None
         self._thread: threading.Thread | None = None
         self.calls: list[str] = []            # tool names in the order the child asked
+        self.transcript: list[dict] = []      # {name, args, text} -- what the model was shown
         self.log: Callable[[str], None] | None = None
 
     # ------------------------------------------------------------ lifecycle
@@ -158,9 +159,13 @@ class ToolServer:
             name = params.get("name", "")
             if name not in _BACK:
                 return _ok(id_, _tool_text({"error": f"unknown tool '{name}'"}, is_error=True))
-            out = self.call_tool(name, params.get("arguments") or {})
+            args = params.get("arguments") or {}
+            out = self.call_tool(name, args)
             is_err = isinstance(out, dict) and "error" in out and len(out) == 1
-            return _ok(id_, _tool_text(out, is_error=is_err))
+            r = _tool_text(out, is_error=is_err)
+            self.transcript.append({"name": _BACK.get(name, name), "args": args,
+                                    "text": r["content"][0]["text"]})
+            return _ok(id_, r)
         if id_ is None:
             return None                                 # notifications/initialized etc.
         return {"jsonrpc": "2.0", "id": id_, "error": {"code": -32601, "message": f"unknown method {m}"}}
@@ -170,10 +175,29 @@ def _ok(id_, result) -> dict:
     return {"jsonrpc": "2.0", "id": id_, "result": result}
 
 
+TEXT_CAP = 24000                                        # ~8k tokens; compact outputs stay well under
+
+
 def _tool_text(out: Any, *, is_error: bool = False) -> dict:
     text = json.dumps(out, ensure_ascii=False, default=str)
-    if len(text) > 12000:                               # same cap the API path used
-        text = text[:12000] + "…"
+    if len(text) > TEXT_CAP:
+        # Cut the long list, not the JSON: the model must never see a broken object.
+        if isinstance(out, dict):
+            key = next((k for k, v in out.items() if isinstance(v, list) and len(v) > 8), None)
+            if key:
+                keep = list(out[key])
+                while keep and len(json.dumps({**out, key: keep}, ensure_ascii=False, default=str)) > TEXT_CAP - 120:
+                    keep = keep[: max(1, len(keep) * 3 // 4)]
+                out = {**out, key: keep,
+                       "truncated": f"{key}: {len(out[key])} 件のうち先頭 {len(keep)} 件だけを返しました"}
+        elif isinstance(out, list):
+            keep = list(out)
+            while keep and len(json.dumps(keep, ensure_ascii=False, default=str)) > TEXT_CAP - 120:
+                keep = keep[: max(1, len(keep) * 3 // 4)]
+            out = keep + [{"truncated": f"{len(out)} 件のうち先頭 {len(keep)} 件だけを返しました"}]
+        text = json.dumps(out, ensure_ascii=False, default=str)
+        if len(text) > TEXT_CAP:
+            text = text[:TEXT_CAP] + "…"
     r = {"content": [{"type": "text", "text": text}]}
     if is_error:
         r["isError"] = True

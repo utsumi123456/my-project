@@ -20,10 +20,8 @@ from enum import Enum
 from setagent.agent.changeset import ChangeSet, ProposalLog, Proposal, Rejected, build_change_set
 from setagent.agent.tools import AgentTools
 from setagent.analysis.curve import flat_segments
-from setagent.analysis.removal import pick_removals, removal_candidates
 from setagent.analysis.sections import milestones, sections
 from setagent.analysis.timing import compute, fmt
-from setagent.rekordbox.library import PhraseStatus
 
 
 class Intervention(str, Enum):
@@ -172,48 +170,26 @@ class Advisor:
     def fit_to_target(self, target_s: int | None = None) -> Reply:
         """S4-2 + S1-6: cut just enough to land inside the target.
 
-        Ranges first (cheap, reversible), then whole tracks from
-        analysis.removal for what ranges cannot reach. Honest about the part
-        neither can cover.
+        The plan itself lives in agent/fitplan.py (shared with the LLM's
+        analysis.plan_fit_to_target tool); this only puts words around it.
         """
-        d = self.tools.draft
-        if target_s:
-            d.constraints.target_length_s = target_s
-        tl = compute(d, self.tools.lib)
-        if tl.target_s is None:
+        from setagent.agent.fitplan import plan_fit
+        plan = plan_fit(self.tools, target_s)
+        if plan.target_s is None:
             return Reply("目標尺が設定されていません。上の Target に mm:ss で入力してください。")
-        over = tl.total_s - tl.target_s
-        if over <= tl.tolerance_s:
-            return Reply(f"すでに収まっています（{fmt(tl.total_s)} / 目標 {fmt(tl.target_s)}）。")
-
-        from setagent.analysis.phrases import preset_range
-        ops: list[dict] = []
-        saved = 0.0
-        for c in self.tools.get_trim_candidates(limit=60):
-            if c["action"] != "range->one_drop":
-                continue
-            ta = self.tools.lib.analysis(c["track_id"])
-            r = preset_range(ta.anlz, "one_drop", self.tools.cfg) if ta.anlz else None
-            if not r:
-                continue
-            ops.append({"op": "set_range", "track_ref": c["track_id"], "preset": "one_drop",
-                        "play_in": r.play_in_ms, "play_out": r.play_out_ms})
-            mm, ss = c["saves"].lstrip("-").split(":")
-            saved += int(mm) * 60 + int(ss)
-            if saved >= over:
-                break
+        if plan.already_fits:
+            return Reply(f"すでに収まっています（{fmt(plan.total_s)} / 目標 {fmt(plan.target_s)}）。")
+        over, ops, saved = plan.over_s, plan.range_ops, plan.range_saves_s
 
         if ops and saved >= over:
-            return self._propose(f"目標の {fmt(tl.target_s)} を {fmt(over)} 超えています。"
+            return self._propose(f"目標の {fmt(plan.target_s)} を {fmt(over)} 超えています。"
                                  f"{len(ops)}曲を one_drop に詰めると収まります。", ops, "目標尺に収める")
 
-        # ranges alone cannot get there: pick whole tracks to drop
+        # ranges alone cannot get there: whole tracks to drop
         remaining = over - saved
-        no_phrase = sum(1 for e in d.tracks
-                        if self.tools.lib.analysis(e.track_id).phrase_status is not PhraseStatus.PRESENT)
         why = ""
-        if no_phrase:
-            why = (f"{len(d.tracks)}曲中 {no_phrase}曲にフレーズ解析がない"
+        if plan.no_phrase_tracks:
+            why = (f"{plan.track_count}曲中 {plan.no_phrase_tracks}曲にフレーズ解析がない"
                    "（クラウド保存の曲は rekordbox が解析しません）ため、範囲の自動短縮には限りがあります。")
         head = f"目標を {fmt(over)} 超えています。"
         if ops:
@@ -222,8 +198,8 @@ class Advisor:
             head += "範囲の短縮だけでは届きません。"
         head += why
 
-        cands = removal_candidates(d, self.tools.lib, self.tools.anlz, self.tools.curve, tl)
-        picked = pick_removals(cands, remaining)
+        picked = plan.removals
+        tl = compute(self.tools.draft, self.tools.lib)
         if picked:
             shown = picked[:8]
             lines = [f"・{c.title[:28]}（{fmt(c.saves_s)}）: " + "／".join(c.reasons) for c in shown]

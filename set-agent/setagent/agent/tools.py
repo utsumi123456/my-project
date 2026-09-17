@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable
 
 from setagent.agent.changeset import ChangeSet, Proposal, Rejected, build_change_set
+from setagent.agent.fitplan import plan_fit, scored_removals
 from setagent.agent.recommend import Slot, candidates
 from setagent.analysis.curve import TargetCurve, deviation, flat_segments
 from setagent.analysis.energy import set_energy_curve
@@ -57,14 +58,17 @@ class AgentTools:
                 "tolerance_s": self.draft.constraints.tolerance_s,
                 "default_overlap_bars": self.draft.constraints.default_overlap_bars,
             },
-            "tracks": [{
+            "track_count": len(self.draft.tracks),
+            # Compact on purpose: a 96-track set must fit in one tool result.
+            # Only non-default fields are present on a track.
+            "tracks": [_compact({
                 "index": i, "track_id": e.track_id, "title": self.title_of(e.track_id),
                 "preset": e.preset, "tempo": e.tempo,
-                "play_in_ms": e.play_in_ms, "play_out_ms": e.play_out_ms,
-                "is_milestone": e.is_milestone,
+                "play_in_ms": e.play_in_ms or None, "play_out_ms": e.play_out_ms,
+                "is_milestone": e.is_milestone or None,
                 "target_time": fmt(e.target_time_s) if e.target_time_s is not None else None,
-                "locks": sorted(e.locks),
-            } for i, e in enumerate(self.draft.tracks)],
+                "locks": sorted(e.locks) or None,
+            }) for i, e in enumerate(self.draft.tracks)],
         }
 
     def get_set_summary(self) -> dict:
@@ -82,11 +86,12 @@ class AgentTools:
             "peak_at": fmt(peak.time_s) if peak else None,
             "phrase_coverage": f"{len(known)}/{len(pts)} sample points have phrase data",
             "warnings": list(tl.warnings),
-            "tracks": [{
+            "tracks": [_compact({
                 "index": p.index, "title": p.title, "start": fmt(p.start_s), "end": fmt(p.end_s),
                 "play": fmt(p.play_s), "bpm": round(p.original_bpm, 1),
-                "set_tempo": round(p.set_tempo, 1), "warnings": list(p.warnings),
-            } for p in tl.placements],
+                "set_tempo": round(p.set_tempo, 1) if round(p.set_tempo, 1) != round(p.original_bpm, 1) else None,
+                "warnings": list(p.warnings) or None,
+            }) for p in tl.placements],
         }
 
     def get_energy_curve(self, resolution_s: int = 60) -> dict:
@@ -241,6 +246,17 @@ class AgentTools:
                  "score": c.score, "reason": c.reason}
                 for c in candidates(self.lib, slot, pool=pool, exclude=used, limit=limit)]
 
+    def plan_fit_to_target(self, target: str | None = None) -> dict:
+        """analysis.plan_fit_to_target — the engine's own plan for landing inside
+        the target: range cuts first, then whole tracks, with the shortfall stated."""
+        from setagent.agent.changeset import parse_mmss
+        secs = parse_mmss(target) if target else None
+        return plan_fit(self, secs).to_json()
+
+    def removal_candidates(self, limit: int = 30) -> list[dict]:
+        """analysis.removal_candidates — which tracks the set can spare, easiest first."""
+        return scored_removals(self, limit=limit)
+
     def propose_changes(self, reason: str, operations: list[dict], title: str = "") -> dict:
         """set.propose_changes — build a Change Set and show it. Applies nothing."""
         try:
@@ -270,6 +286,11 @@ class AgentTools:
             return {"error": f"{name} failed: {ex}"}
 
 
+def _compact(d: dict) -> dict:
+    """Drop None / empty values so a long list stays inside one tool result."""
+    return {k: v for k, v in d.items() if v is not None}
+
+
 TOOL_DISPATCH: dict[str, Callable] = {
     "set.get_draft": AgentTools.get_draft,
     "analysis.get_set_summary": AgentTools.get_set_summary,
@@ -281,15 +302,22 @@ TOOL_DISPATCH: dict[str, Callable] = {
     "lib.search": AgentTools.search,
     "lib.get_play_history": AgentTools.get_play_history,
     "recommend.candidates": AgentTools.recommend_candidates,
+    "analysis.plan_fit_to_target": AgentTools.plan_fit_to_target,
+    "analysis.removal_candidates": AgentTools.removal_candidates,
     "set.propose_changes": AgentTools.propose_changes,
 }
 
 # JSON schema for LLM tool-calling. Kept in one place so the prompt and the
 # dispatch table cannot drift apart.
 TOOL_SCHEMA: list[dict] = [
-    {"name": "set.get_draft", "description": "現在の Set Draft（曲順・範囲・テンポ・ロック・マイルストーン・制約）",
+    {"name": "set.get_draft",
+     "description": ("現在の Set Draft の編集状態（曲順・track_id・プリセット・ロック・マイルストーン・制約）。"
+                     "尺や開始時刻はここから計算しないこと（play_in_ms/play_out_ms は範囲の生値）。"
+                     "「何分」「一番長い曲」「何時から」は analysis.get_set_summary の start/end/play を使う"),
      "input_schema": {"type": "object", "properties": {}}},
-    {"name": "analysis.get_set_summary", "description": "推定総尺・目標との過不足・曲ごとの開始/終了・ピーク位置・警告",
+    {"name": "analysis.get_set_summary",
+     "description": ("推定総尺 total・目標 target・差 delta・曲ごとの start/end/play（mm:ss、セット BPM 適用後）・"
+                     "ピーク位置・警告。時間に関する質問はまずこれ。値はそのまま引用する"),
      "input_schema": {"type": "object", "properties": {}}},
     {"name": "analysis.get_energy_curve", "description": "展開カーブの実測と目標、乖離区間と平坦区間",
      "input_schema": {"type": "object", "properties": {"resolution_s": {"type": "integer"}}}},
@@ -315,9 +343,37 @@ TOOL_SCHEMA: list[dict] = [
          "target_energy": {"type": "number"}, "after_index": {"type": "integer"},
          "playlist": {"type": "string"}, "limit": {"type": "integer"}},
          "required": ["duration"]}},
-    {"name": "set.propose_changes", "description": "変更操作と理由から Change Set を作って提示する。適用はしない",
+    {"name": "analysis.plan_fit_to_target",
+     "description": ("目標尺に収めるための解析エンジンの計画。one_drop への範囲短縮 → 外す曲（影響が小さい順、"
+                     "理由付き）の順で operations を返す。「収めて」「削って」「短くして」の依頼ではまずこれを呼び、"
+                     "その operations を set.propose_changes に渡す。曲を残したい場合は remove を外して残りを渡す。"
+                     "total/target/over を含むので、このあと get_set_summary を呼ぶ必要はない"),
+     "input_schema": {"type": "object", "properties": {
+         "target": {"type": "string", "description": "mm:ss。省略時は現在の目標"}}}},
+    {"name": "analysis.removal_candidates",
+     "description": "外しても展開と繋ぎに響きにくい曲の一覧（スコア順、節約できる尺と理由付き）。1〜数曲を外す相談に使う",
+     "input_schema": {"type": "object", "properties": {"limit": {"type": "integer"}}}},
+    {"name": "set.propose_changes",
+     "description": ("変更操作と理由から Change Set を作って提示する。適用はしない。"
+                     "operations の各要素は必ず op と track_ref を持つ。例: "
+                     "{\"op\":\"remove\",\"track_ref\":\"110943202\"} / "
+                     "{\"op\":\"set_range\",\"track_ref\":\"…\",\"preset\":\"one_drop\",\"play_in\":ms,\"play_out\":ms} / "
+                     "{\"op\":\"move\",\"track_ref\":\"…\",\"to_index\":n} / "
+                     "{\"op\":\"insert\",\"track_id\":\"…\",\"at_index\":n} / "
+                     "{\"op\":\"set_tempo\",\"track_ref\":\"…\",\"bpm\":x}。"
+                     "analysis.plan_fit_to_target の operations はこの形なのでそのまま渡せる"),
      "input_schema": {"type": "object", "properties": {
          "reason": {"type": "string"}, "title": {"type": "string"},
-         "operations": {"type": "array", "items": {"type": "object"}}},
+         "operations": {"type": "array", "items": {
+             "type": "object",
+             "properties": {
+                 "op": {"type": "string",
+                        "enum": ["set_range", "move", "insert", "remove", "set_tempo", "set_milestone", "set_transition"]},
+                 "track_ref": {"type": "string", "description": "track_id（set.get_draft の値）"},
+                 "track_id": {"type": "string", "description": "insert のときの曲"},
+                 "preset": {"type": "string"}, "play_in": {"type": "integer"}, "play_out": {"type": "integer"},
+                 "to_index": {"type": "integer"}, "at_index": {"type": "integer"},
+                 "bpm": {"type": "number"}, "reason": {"type": "string"}},
+             "required": ["op"]}}},
          "required": ["reason", "operations"]}},
 ]

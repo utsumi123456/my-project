@@ -49,6 +49,15 @@ class Op:
     def from_dict(cls, d: dict) -> "Op":
         d = dict(d)
         name = d.pop("op", None)
+        for alias in ("operation", "type", "action", "kind"):     # what models write instead of "op"
+            v = d.pop(alias, None)
+            if name is None and v is not None:
+                name = v
+        if "track_ref" not in d and name in ("set_range", "move", "remove", "set_tempo", "set_milestone"):
+            for alias in ("track_id", "track", "id"):
+                if alias in d:
+                    d["track_ref"] = d.pop(alias)
+                    break
         reason = d.pop("reason", "")
         if name not in OPS:
             raise Rejected(f"未知の操作 '{name}' です。使えるのは {', '.join(OPS)} です")
@@ -124,7 +133,8 @@ class Snapshot:
     warnings: int
 
     def diff_lines(self, other: "Snapshot") -> list[str]:
-        out = [f"総尺 {fmt(self.total_s)} → {fmt(other.total_s)}"]
+        # the change itself is spelled out so nobody (model included) has to subtract
+        out = [f"総尺 {fmt(self.total_s)} → {fmt(other.total_s)}（{_signed(other.total_s - self.total_s)}）"]
         if self.delta_s is not None and other.delta_s is not None:
             out.append(f"目標との差 {fmt(self.delta_s)} → {fmt(other.delta_s)}")
         if self.peak_time_s is not None and other.peak_time_s is not None and \
@@ -135,6 +145,12 @@ class Snapshot:
         if abs(self.flat_s - other.flat_s) > 1:
             out.append(f"平坦な区間 {fmt(self.flat_s)} → {fmt(other.flat_s)}")
         return out
+
+
+def _signed(delta_s: float) -> str:
+    if abs(delta_s) < 0.5:
+        return "±0:00"
+    return ("+" if delta_s > 0 else "−") + fmt(abs(delta_s))
 
 
 def snapshot(draft: SetDraft, lib, anlz: dict, curve: TargetCurve | None = None,

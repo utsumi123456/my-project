@@ -1,6 +1,6 @@
 # Set Agent — 引き継ぎメモ
 
-## ▶ 次のセッションはここから（2026-09-17 13:00 時点の引き継ぎ）
+## ▶ 次のセッションはここから（2026-09-17 14:00 時点の引き継ぎ）
 
 ここだけ読めば続きから拾える。詳細は下の日付付き追記に全部ある。
 
@@ -26,16 +26,22 @@
 - GitHub `utsumi123456/my-project` `main` = 2026-09-17 の「TRACKS labels at both densities; artwork in a hover popover」コミット
   （作業ツリー clean、push 済み）。
 - 配布 exe: `C:\Users\7166700\source\my-project\set-agent\dist\SetAgent.exe`（2026-09-17 ビルド、同コミットと同一ソース）。
-- テスト 175 件 OK。`probe_llm acid`（実 Claude、7.1 秒 / 36.5 秒、Change Set 4 件）、`probe_views` acid 460×940、
-  `probe_agent` acid（ルールベース経路。probe 内で `SETAGENT_LLM_BACKEND=api` に固定）。
+- テスト 189 件 OK。**`python -m tools.eval_agent acid` 6/6 PASS（平均 11.5 秒、最大 23.9 秒）、`15min_mix` 5/5 PASS。**
+  `probe_views` acid 460×940、`probe_agent` acid（ルールベース経路。probe 内で `SETAGENT_LLM_BACKEND=api` に固定）。
 - gh CLI はログイン済み（`utsumi123456`）。**この Claude のシェルでは PATH に無い**ので
   `"C:\Program Files\GitHub CLI\gh.exe"` のフルパスで呼ぶ。git の資格情報は gh に設定済み（push はそのまま通る）。
 
 ### 次にやること（ユーザー決定、2026-09-16 22:17。上から順）
 1. ~~LLM 実キー疎通~~ **キー不要になった（2026-09-17）**。`python -m tools.probe_llm acid` が Claude Code 経由で通る。
    残りは rekordbox 新版での動作確認（手順案は 09-16 深夜の追記）。
-2. **AI エージェントの検証＋解析精度の向上** → その後に「マイルストーン起点のプレイリスト生成」を実装。
-   LLM が本物になったので、ここから着手できる。気になった点: 2 ターン目 36.5 秒（ツール 3 回）。
+2. ~~AI エージェントの検証~~ **第 1 段完了（2026-09-17 午後）。** `tools/eval_agent.py` が実 Claude で 6 シナリオ
+   （尺の質問／一番長い曲／フレーズ構成／存在しない曲の挿入依頼／60:00 に収める／1 曲外す）を流し、
+   「回答中の mm:ss が全部ツール結果に由来するか」「Change Set が目標に届くか」「不要な Change Set を作らないか」
+   「30 秒以内か」を自動判定する。直したこと（下の 14 時台の追記）: fit 計画をツール化（48 曲外して 58:46 に届く。
+   以前は手選びの 4 曲で 106:16 止まり）、ツール出力の圧縮と壊れない切り詰め、操作スキーマの厳密化と別名許容、
+   diff に増減を明記、プロンプト（summary の値を引用・引き算しない・確認を聞き返さず Change Set を出す）。
+   **次:** 解析精度の向上（フレーズ解析なし曲の扱い、removal のスコア、recommend の重み）→ その後に
+   「マイルストーン起点のプレイリスト生成」。eval に新シナリオを足してから直す、の順で。
 3. ~~TRACKS の「全体」密度にもトラック No.＋曲名~~ **済み（2026-09-17）**。`renderLanes` は幅 `LABEL_MIN_PX`（24px）以上の
    ブロック全部に `.trk-t` を出し、`text-overflow:ellipsis` で省略。acid 全体密度: 96/96 にラベル、幅不足 0、うち 92 が省略表示。
 4. ~~アートワークはホバーのウィンドウで表示~~ **済み（2026-09-17）**。`#artpop`（fixed、120px、pointer-events:none）。
@@ -43,6 +49,10 @@
 5. マイルストーン／ロックの UI 復帰は AI エージェント検証後に判断（今は UI から付けられない）。
 
 次の着手候補は 2（エージェント検証・解析精度）。
+
+**eval の地雷:** `tool_server()` は最初の ask で遅延生成されるので、ask の前に呼んでおかないと最初のシナリオの
+ツール記録が空になる（第 1 回の「ツール未使用」は誤判定だった）。master.db の読みは `api._pool` 経由で。
+モデルは同じプロンプトでも揺れる（fit で「提示してよいですか」と聞き返した回があった）。判定は 2 回回して見る。
 
 **Claude Code backend の地雷:** `--bare` を付けると OAuth を読まず「Not logged in」になる／stdin は閉じて渡す／
 この Claude セッションの中から子 `claude` を起こすと `CLAUDECODE` 等が継承されるので `_child_env()` で落としている／
