@@ -1,5 +1,71 @@
 # Set Agent — 引き継ぎメモ
 
+## ▶ 次のセッションはここから（2026-09-17 11:00 時点の引き継ぎ）
+
+前セッションは処理負荷のため終了。ここだけ読めば続きから拾える。詳細は下の日付付き追記に全部ある。
+
+### いま何ができているか（実機で全部確認済み）
+- **read-only の常駐パネル**（WebView2、460×940、常に手前）。rekordbox の master.db + -wal を復号して読み、
+  rekordbox で編集すると 5 秒以内に自動追従。書き出し・rekordbox 操作はしない。
+- **メイン画面**（上から）: 条件（Playlist / Target / Mix / Curve / ドロップ上限 / **Set BPM** / BPM 変化あり）
+  → **予測総尺 56px**＋超過・不足ピル＋BPM チップ → 次の一手カード → **候補リスト**
+  （超過: 外す候補、不足: 足す候補、目標内: 非表示）。
+- **詳細画面**: TRACKS（2 色交互、詳細密度で曲名、ダブルクリックでフレーズ構成シート）/ ENERGY（実測＋
+  目標カーブ、点の編集可）/ SECTIONS / 削り代カード（超過時のみ）/ 選択中（読み取りのみ）。
+- **エージェント**（右ドロワー、ルールベース。LLM キーは任意）: 提案は Change Set、チェックして適用、undo 可。
+- **設定シート**: rekordbox の手動再読込、LLM キー（DPAPI）。
+- フォントは rekordbox と同じ **Arial 系**（同梱なし）。磨き込み済み: AA コントラスト・11px 下限・全要素フォーカス可。
+
+### 最新の状態
+- GitHub `utsumi123456/my-project` `main` = `7c1b1f1`（作業ツリー clean、push 済み）。
+- 配布 exe: `C:\Users\7166700\source\my-project\set-agent\dist\SetAgent.exe`（2026-09-16 22:39 ビルド、`7c1b1f1` と同一ソース）。
+- テスト 157 件 OK。probe（下記）すべて PASS。
+- gh CLI はログイン済み（`utsumi123456`）。**この Claude のシェルでは PATH に無い**ので
+  `"C:\Program Files\GitHub CLI\gh.exe"` のフルパスで呼ぶ。git の資格情報は gh に設定済み（push はそのまま通る）。
+
+### 次にやること（ユーザー決定、2026-09-16 22:17。上から順）
+1. **検証は後日** — LLM 実キー疎通（`python -m tools.probe_llm acid`、キーは設定シートから入れる）、
+   rekordbox 新版での動作確認（手順案は 09-16 深夜の追記）。
+2. **AI エージェントの検証＋解析精度の向上** → その後に「マイルストーン起点のプレイリスト生成」を実装。
+3. **TRACKS の「全体」密度にもトラック No.＋曲名**を出す。長い名前は `Track name 123…` のように省略。
+   `renderLanes` の `mode === "detail"` 条件を外し、幅に応じて `text-overflow` で省略する形。
+4. **アートワークはホバーのウィンドウで表示**（レーンに常設しない）。`api.artwork()` は既にあるので、
+   `.trk` / `.row` の hover で小さなポップオーバーを出す。
+5. マイルストーン／ロックの UI 復帰は AI エージェント検証後に判断（今は UI から付けられない）。
+
+### 動かし方と判定
+```
+cd C:\Users\7166700\source\my-project\set-agent
+python -m unittest discover -s tests -q          # 157 tests
+python run_setagent.py                           # パネル
+python -m tools.probe_views acid 460 940         # 両ビューの実測（Set BPM 往復・候補リスト・フレーズシート込み）
+python -m tools.probe_polish acid 400 900        # 磨き込みの終了判定（文字サイズ・コントラスト・フォーカス）
+python -m tools.probe_refresh acid               # 自動追従 4 シナリオ
+python -m tools.probe_actions acid               # bridge 経由の操作・ドラッグ並べ替え
+python -m tools.probe_agent acid                 # ドロワー〜Change Set 適用
+python build.py                                  # テスト → exe → dist/
+```
+- **probe は 1 本ずつ。テストと並走させない**（復号キャッシュが固定パスで、同時実行すると
+  `database disk image is malformed` になる）。
+- **`build.py` の前に起動中の Set Agent を閉じる**（dist の exe がロックされる）。
+  ロックされたら `python build.py --skip` で build/exe から再配置できる。
+- 長い置換スクリプトはヒアドキュメントで渡さず、ファイルに書いて `python <path>` で実行する
+  （`ENAMETOOLONG`、`\s` のほつれ）。
+- 文言は です・ます。数値は `analysis.*` から取り、UI で計算しない（§7）。
+
+### 主要ファイル
+| 何 | どこ |
+|---|---|
+| UI 本体（素の HTML/CSS/JS、ビルド工程なし） | `setagent/webui/index.html` |
+| JS↔Python ブリッジ（単一ワーカー直列化、`_reco_block`、`set_set_bpm`） | `setagent/webui/api.py` |
+| 表示用 JSON 整形、Mix プリセットの日本語ラベル | `setagent/webui/state.py` |
+| Draft / Command / History（`SetSetBpm`, `SetBpmChange` を含む） | `setagent/domain/draft.py` |
+| 尺の計算（セット BPM の優先順はここ） | `setagent/analysis/timing.py` |
+| 外す候補 / 足す候補 | `setagent/analysis/removal.py`, `setagent/agent/recommend.py` |
+| 配布用説明書（画面の見かた） | `dist_readme/はじめに.md` |
+
+---
+
 ## 2026-09-16 追記（22 時台） — 公開（配布なし）に向けた磨き込みパス
 
 進捗報告のため現段階の Set Agent を見せる必要が出た。**情報・表記方法・位置は現行設計のまま**、
