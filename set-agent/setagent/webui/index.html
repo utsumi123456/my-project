@@ -268,6 +268,12 @@ select:focus-visible,input:focus-visible{outline-offset:0;border-color:var(--tar
 .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--raised);
   border:1px solid var(--line);border-left:3px solid var(--caution);border-radius:4px;
   padding:9px 15px;font-size:13px;z-index:30;max-width:70vw}
+/* Hover window for artwork (2026-09-17, user decision: not fixed in the lanes).
+   Fixed-position so it can leave the scrolled lane; pointer-events off so it
+   never steals the hover that opened it. */
+.artpop{position:fixed;z-index:28;padding:4px;background:var(--raised);border:1px solid var(--line);
+  border-radius:6px;box-shadow:0 6px 24px rgba(0,0,0,.45);pointer-events:none}
+.artpop img{display:block;width:120px;height:120px;border-radius:4px;object-fit:cover;background:var(--sunken)}
 /* ---- main view: the panel a DJ keeps beside rekordbox ----
    Only what they came to read: the set's predicted length, whether it fits, the
    way into recommendations, the conditions they set, and the running order.
@@ -506,6 +512,8 @@ select:focus-visible,input:focus-visible{outline-offset:0;border-color:var(--tar
 </div>
 
 <div class="toast" id="toast" hidden></div>
+<!-- artwork on hover: one image, no text (the native title carries the words) -->
+<div class="artpop" id="artpop" hidden aria-hidden="true"><img alt=""></div>
 
 <script>
 const $ = id => document.getElementById(id);
@@ -527,6 +535,8 @@ const fmt = s => {
   return (s < 0 ? "-" : "") + Math.floor(n/60) + ":" + String(n%60).padStart(2,"0");
 };
 const pps = () => DENSITY[mode] / 60;
+/* narrowest block that still shows a label: 5px + 4px padding, one 11px glyph, "…" */
+const LABEL_MIN_PX = 24;
 
 function toast(msg){
   const t = $("toast"); t.textContent = msg; t.hidden = false;
@@ -820,6 +830,67 @@ async function loadArtwork(){
 $("list").addEventListener("keydown", e=>{
   if((e.key === "Enter" || e.key === " ") && e.target.classList.contains("row")){ e.preventDefault(); e.target.click(); }
 });
+
+/* ---- artwork popover ----
+   Hovering a track block (.trk) or a candidate row (.row) for a moment opens a
+   120px window with that track's artwork, beside the pointer. Bigger thumbnails
+   are fetched once per track and kept for the session (ART_L). Nothing opens
+   when the track has no artwork. Focus (keyboard) anchors it to the element. */
+const ART_L = {}, ART_L_PX = 120, ART_POP_DELAY_MS = 260;
+let artPop = {timer: null, id: null};
+function artIdOf(node){
+  if(!ST) return null;
+  if(node.classList.contains("trk")){
+    const t = ST.tracks.find(x => x.i === +node.dataset.i);
+    return t ? t.track_id : null;
+  }
+  const a = node.querySelector(".art"); return a ? a.dataset.art : null;
+}
+function placeArtPop(x, y){
+  const p = $("artpop"), m = 14, W = ART_L_PX + 10, H = ART_L_PX + 10;
+  let left = x + m, top = y + m;
+  if(left + W > innerWidth - 4) left = x - m - W;
+  if(top + H > innerHeight - 4) top = y - m - H;
+  p.style.left = Math.max(4, left) + "px"; p.style.top = Math.max(4, top) + "px";
+}
+function hideArtPop(){
+  clearTimeout(artPop.timer); artPop.timer = null; artPop.id = null;
+  const p = $("artpop"); p.hidden = true; p.setAttribute("aria-hidden", "true");
+}
+async function showArtPop(id, x, y){
+  if(!(id in ART_L)){
+    try {
+      const got = await window.pywebview.api.artwork([id], ART_L_PX);
+      ART_L[id] = (got || {})[id] || "";
+    } catch(e){ ART_L[id] = ""; }
+  }
+  if(artPop.id !== id || !ART_L[id]) return;      /* pointer moved on, or no artwork */
+  const p = $("artpop"); p.querySelector("img").src = ART_L[id];
+  placeArtPop(x, y); p.hidden = false; p.setAttribute("aria-hidden", "false");
+}
+function armArtPop(node, x, y){
+  const id = artIdOf(node);
+  if(!id){ hideArtPop(); return; }
+  if(id === artPop.id){ if(!$("artpop").hidden) placeArtPop(x, y); return; }
+  hideArtPop(); artPop.id = id;
+  artPop.timer = setTimeout(()=> showArtPop(id, x, y), ART_POP_DELAY_MS);
+}
+for(const host of [$("tracks"), $("list")]){
+  host.addEventListener("pointermove", e=>{
+    if(drag){ hideArtPop(); return; }               /* never over a drag */
+    const n = e.target.closest(".trk, .row");
+    if(!n){ hideArtPop(); return; }
+    armArtPop(n, e.clientX, e.clientY);
+  });
+  host.addEventListener("pointerleave", hideArtPop);
+  host.addEventListener("pointerdown", hideArtPop);
+  host.addEventListener("focusin", e=>{
+    const n = e.target.closest(".trk, .row"); if(!n) return;
+    const r = n.getBoundingClientRect(); armArtPop(n, r.left + Math.min(r.width, 40), r.bottom);
+  });
+  host.addEventListener("focusout", hideArtPop);
+}
+addEventListener("scroll", hideArtPop, true);
 $("list").addEventListener("click", async e=>{
   const r = e.target.closest(".row"); if(!r) return;
   if(r.classList.contains("rm")){ selectTrack(+r.dataset.i); return; }
@@ -949,9 +1020,10 @@ function renderLanes(){
 ${fmt(t.start_s)} → ${fmt(t.end_s)}  再生 ${fmt(t.play_s)}
 ${t.bpm} BPM${t.set_tempo !== t.bpm ? " → " + t.set_tempo : ""} · ${esc(plabel(t.preset))}${t.locks.length ? " · ロック: " + esc(t.locks.join(",")) : ""}
 ${t.phrases.length ? "ダブルクリックでフレーズ構成" : "フレーズ解析なし"}">${inner}` +
-         /* labels only at the detail density, where every block has room for one;
-            at 36px/min some would fit and some would not, which read as inconsistent */
-         (mode === "detail" ? `<div class="trk-t">${t.i+1}. ${esc(t.title)}</div>` : "") +
+         /* "No. title" on every block at both densities (2026-09-17). The label
+            ellipsises to the block's width; a block too narrow for even one
+            glyph plus the ellipsis gets none, so a row of lone "…" never appears */
+         (w >= LABEL_MIN_PX ? `<div class="trk-t">${t.i+1}. ${esc(t.title)}</div>` : "") +
          `</div>`;
     if(t.milestone_s != null)
       h += `<div class="mile" style="left:${x.toFixed(1)}px" title="マイルストーン ${fmt(t.milestone_s)}"></div>`;

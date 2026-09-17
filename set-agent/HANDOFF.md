@@ -1,8 +1,8 @@
 # Set Agent — 引き継ぎメモ
 
-## ▶ 次のセッションはここから（2026-09-17 11:00 時点の引き継ぎ）
+## ▶ 次のセッションはここから（2026-09-17 11:40 時点の引き継ぎ）
 
-前セッションは処理負荷のため終了。ここだけ読めば続きから拾える。詳細は下の日付付き追記に全部ある。
+ここだけ読めば続きから拾える。詳細は下の日付付き追記に全部ある。
 
 ### いま何ができているか（実機で全部確認済み）
 - **read-only の常駐パネル**（WebView2、460×940、常に手前）。rekordbox の master.db + -wal を復号して読み、
@@ -10,16 +10,20 @@
 - **メイン画面**（上から）: 条件（Playlist / Target / Mix / Curve / ドロップ上限 / **Set BPM** / BPM 変化あり）
   → **予測総尺 56px**＋超過・不足ピル＋BPM チップ → 次の一手カード → **候補リスト**
   （超過: 外す候補、不足: 足す候補、目標内: 非表示）。
-- **詳細画面**: TRACKS（2 色交互、詳細密度で曲名、ダブルクリックでフレーズ構成シート）/ ENERGY（実測＋
+- **詳細画面**: TRACKS（2 色交互、**両密度で「No. 曲名」**、ダブルクリックでフレーズ構成シート）/ ENERGY（実測＋
   目標カーブ、点の編集可）/ SECTIONS / 削り代カード（超過時のみ）/ 選択中（読み取りのみ）。
+- **アートワークはホバーの小窓**（`#artpop`、120px）。TRACKS のブロックと候補リストの行に 260ms 乗せると出る。
+  キーボードフォーカスでも出る。ドラッグ開始・クリック・スクロール・離脱で消える。
 - **エージェント**（右ドロワー、ルールベース。LLM キーは任意）: 提案は Change Set、チェックして適用、undo 可。
 - **設定シート**: rekordbox の手動再読込、LLM キー（DPAPI）。
 - フォントは rekordbox と同じ **Arial 系**（同梱なし）。磨き込み済み: AA コントラスト・11px 下限・全要素フォーカス可。
 
 ### 最新の状態
-- GitHub `utsumi123456/my-project` `main` = `7c1b1f1`（作業ツリー clean、push 済み）。
-- 配布 exe: `C:\Users\7166700\source\my-project\set-agent\dist\SetAgent.exe`（2026-09-16 22:39 ビルド、`7c1b1f1` と同一ソース）。
-- テスト 157 件 OK。probe（下記）すべて PASS。
+- GitHub `utsumi123456/my-project` `main` = 2026-09-17 の「TRACKS labels at both densities; artwork in a hover popover」コミット
+  （作業ツリー clean、push 済み）。
+- 配布 exe: `C:\Users\7166700\source\my-project\set-agent\dist\SetAgent.exe`（2026-09-17 ビルド、同コミットと同一ソース）。
+- テスト 157 件 OK。`probe_views` acid 460×940（両密度 96/96 ラベル、ホバー小窓 trk/row とも表示→離脱・pointerdown で消灯）、
+  `probe_polish` acid 400×900 main/detail PASS。
 - gh CLI はログイン済み（`utsumi123456`）。**この Claude のシェルでは PATH に無い**ので
   `"C:\Program Files\GitHub CLI\gh.exe"` のフルパスで呼ぶ。git の資格情報は gh に設定済み（push はそのまま通る）。
 
@@ -27,11 +31,13 @@
 1. **検証は後日** — LLM 実キー疎通（`python -m tools.probe_llm acid`、キーは設定シートから入れる）、
    rekordbox 新版での動作確認（手順案は 09-16 深夜の追記）。
 2. **AI エージェントの検証＋解析精度の向上** → その後に「マイルストーン起点のプレイリスト生成」を実装。
-3. **TRACKS の「全体」密度にもトラック No.＋曲名**を出す。長い名前は `Track name 123…` のように省略。
-   `renderLanes` の `mode === "detail"` 条件を外し、幅に応じて `text-overflow` で省略する形。
-4. **アートワークはホバーのウィンドウで表示**（レーンに常設しない）。`api.artwork()` は既にあるので、
-   `.trk` / `.row` の hover で小さなポップオーバーを出す。
+3. ~~TRACKS の「全体」密度にもトラック No.＋曲名~~ **済み（2026-09-17）**。`renderLanes` は幅 `LABEL_MIN_PX`（24px）以上の
+   ブロック全部に `.trk-t` を出し、`text-overflow:ellipsis` で省略。acid 全体密度: 96/96 にラベル、幅不足 0、うち 92 が省略表示。
+4. ~~アートワークはホバーのウィンドウで表示~~ **済み（2026-09-17）**。`#artpop`（fixed、120px、pointer-events:none）。
+   `ART_L` に track_id ごとに 120px 版をキャッシュ（`api.artwork([id], 120)`）。行の 28px サムネは据え置き。
 5. マイルストーン／ロックの UI 復帰は AI エージェント検証後に判断（今は UI から付けられない）。
+
+次の着手候補は 2（エージェント検証・解析精度）。1 の LLM 実キーはユーザーがキーを入れたときに。
 
 ### 動かし方と判定
 ```

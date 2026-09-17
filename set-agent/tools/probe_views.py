@@ -155,18 +155,47 @@ def run(window):
         bad = [k for k, v in lanes.items() if not (v and v["onscreen"])]
         print("\nTier lanes off screen in detail:", bad or "none")
 
-        # at the detail density every block carries its number and name
+        # 2026-09-17: "No. title" on every block at both densities; only a block
+        # narrower than LABEL_MIN_PX goes without (nothing but "…" would fit)
+        LABELS = ("({blocks: document.querySelectorAll('.trk').length,"
+                  "  labelled: document.querySelectorAll('.trk .trk-t').length,"
+                  "  narrow: [...document.querySelectorAll('.trk')].filter(b => b.getBoundingClientRect().width < LABEL_MIN_PX).length,"
+                  "  clipped: [...document.querySelectorAll('.trk .trk-t')].filter(l => l.scrollWidth > l.clientWidth).length,"
+                  "  first: (document.querySelector('.trk .trk-t')||{}).textContent,"
+                  "  fontPx: parseFloat(getComputedStyle(document.querySelector('.trk .trk-t')||document.body).fontSize)})")
+        print("section zoom labels:", window.evaluate_js(LABELS))
         window.evaluate_js("document.querySelector('[data-zoom=detail]').click()")
         time.sleep(0.8)
-        print("detail zoom labels:", window.evaluate_js(
-            "({blocks: document.querySelectorAll('.trk').length, labelled: document.querySelectorAll('.trk .trk-t').length,"
-            "  first: (document.querySelector('.trk .trk-t')||{}).textContent})"))
+        print("detail zoom labels:", window.evaluate_js(LABELS))
         window.evaluate_js("document.querySelector('[data-zoom=section]').click()")
+
+        # artwork popover: hover a block for a moment, the 120px window opens by the pointer
+        POP = ("({hidden: document.getElementById('artpop').hidden,"
+               "  img: (document.querySelector('#artpop img').src||'').slice(0,22),"
+               "  box: (b => ({left: Math.round(b.left), top: Math.round(b.top), w: Math.round(b.width), h: Math.round(b.height),"
+               "    inView: b.left >= 0 && b.top >= 0 && b.right <= innerWidth && b.bottom <= innerHeight}))"
+               "    (document.getElementById('artpop').getBoundingClientRect())})")
+        window.evaluate_js("(() => { const n = document.querySelector('.trk'); const r = n.getBoundingClientRect();"
+                           "  n.dispatchEvent(new PointerEvent('pointermove', {bubbles: true, clientX: r.left + 8, clientY: r.top + 10})); })()")
+        time.sleep(1.2)
+        print("artwork popover (trk hover):", json.dumps(window.evaluate_js(POP)))
+        window.evaluate_js("document.getElementById('tracks').dispatchEvent(new PointerEvent('pointerleave'))")
+        time.sleep(0.2)
+        print("after leave hidden:", window.evaluate_js("document.getElementById('artpop').hidden"))
 
         window.evaluate_js("document.querySelector('[data-view=main]').click()")
         time.sleep(0.3)
         print("back to main, detail hidden:",
               window.evaluate_js("document.getElementById('detail').hidden"))
+
+        # the same popover over a candidate row; a pointerdown (click) closes it
+        window.evaluate_js("(() => { const n = document.querySelector('.row'); if(!n) return; const r = n.getBoundingClientRect();"
+                           "  n.dispatchEvent(new PointerEvent('pointermove', {bubbles: true, clientX: r.left + 60, clientY: r.top + 10})); })()")
+        time.sleep(1.2)
+        print("artwork popover (row hover):", json.dumps(window.evaluate_js(POP)))
+        window.evaluate_js("(document.querySelector('.row')||document.body).dispatchEvent(new PointerEvent('pointerdown', {bubbles: true}))")
+        time.sleep(0.2)
+        print("after pointerdown hidden:", window.evaluate_js("document.getElementById('artpop').hidden"))
 
         # set tempo: 160 for the whole set, then a change point from track 4 on
         hero0 = window.evaluate_js("document.getElementById('hero').textContent")
