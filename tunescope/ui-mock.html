@@ -1,0 +1,108 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>TuneScope UI Mock</title>
+<style>
+  body { background: #1a1a1a; color: #ccc; font-family: sans-serif; padding: 16px; }
+  .row { display: flex; gap: 24px; flex-wrap: wrap; }
+  .cell { text-align: center; }
+  canvas { border: 1px solid #333; image-rendering: pixelated; }
+  h3 { font-weight: normal; font-size: 13px; color: #999; }
+</style>
+</head>
+<body>
+<h2>TuneScope UI モック（mgraphics → Canvas シム、実UIコードを直接実行）</h2>
+<div class="row" id="cells"></div>
+<script>
+// ---- mgraphics シム ----
+const SCALE = 3;
+function makeMg(ctx) {
+  let color = [1, 1, 1, 1];
+  let fontSize = 10;
+  let px = 0, py = 0;
+  let pathText = null;
+  return {
+    init() {}, redraw() {},
+    relative_coords: 0, autofill: 0,
+    select_font_face(name, slant, weight) { ctx._weight = weight === 'bold' ? '700' : '500'; },
+    set_font_size(s) { fontSize = s; },
+    set_source_rgba(...a) { color = Array.isArray(a[0]) ? a[0] : a; },
+    move_to(x, y) { px = x; py = y; },
+    line_to(x, y) {
+      ctx.strokeStyle = css(color); ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(x, y); px = x; py = y; ctx._line = true;
+      ctx._pendingLine = { };
+    },
+    rectangle(x, y, w, h) { ctx._rect = [x, y, w, h]; pathText = null; },
+    text_path(t) { pathText = t; },
+    set_line_width(w) { ctx.lineWidth = w; },
+    fill() {
+      if (pathText !== null) {
+        ctx.fillStyle = css(color);
+        ctx.font = `${ctx._weight || '500'} ${fontSize}px 'Segoe UI', sans-serif`;
+        ctx.fillText(pathText, px, py);
+        pathText = null;
+      } else if (ctx._rect) {
+        ctx.fillStyle = css(color);
+        ctx.fillRect(...ctx._rect); ctx._rect = null;
+      }
+    },
+    stroke() {
+      if (ctx._rect) { ctx.strokeStyle = css(color); ctx.strokeRect(...ctx._rect); ctx._rect = null; }
+      else ctx.stroke();
+    },
+    text_measure(t) {
+      ctx.font = `${ctx._weight || '500'} ${fontSize}px 'Segoe UI', sans-serif`;
+      return [ctx.measureText(t).width, fontSize];
+    }
+  };
+  function css(c) { return `rgba(${Math.round(c[0]*255)},${Math.round(c[1]*255)},${Math.round(c[2]*255)},${c[3] ?? 1})`; }
+}
+
+// ---- Max グローバルのスタブ ----
+window.autowatch = 0;
+window.outlets = 1;
+window.outlet = (...a) => console.log('outlet:', ...a);
+window.arrayfromargs = (args) => Array.from(args);
+
+// UI ソース読み込み前に mgraphics を用意（先頭の mgraphics.init() 対策）
+window.mgraphics = makeMg(document.createElement('canvas').getContext('2d'));
+</script>
+<script src="TuneScope_UI.js"></script>
+<script>
+// ---- シナリオ描画 ----
+const scenarios = [
+  { title: 'A: 起動直後', apply() { status('reset'); st.ready = 0; } },
+  { title: 'B: 解析中（低信頼）', apply() {
+      st.ready = 1; bpm(124.3, 0.25, 62.2); key('F', 'minor', 0.3); live_tempo(120);
+      chroma(0.2,0,0.4,0.9,0,0.3,0,0.5,1,0,0.2,0);
+  } },
+  { title: 'C: 確定（高信頼+第2候補）', apply() {
+      st.ready = 1; bpm(128.0, 0.92, 64.0); key('A', 'minor', 0.93, 'C', 'major'); live_tempo(126);
+      chroma(1,0,0.3,0.75,0,0.4,0,0.9,0.2,0,0.35,0);
+  } },
+  { title: 'D: FREEZE + Open Key表記', apply() {
+      st.ready = 1; st.notation = 1; st.frozen = 1;
+      bpm(174.0, 0.8, 87.0); key('F#', 'minor', 0.85); live_tempo(174);
+      chroma(0.3,0,0.5,0,0.8,0,1,0.2,0,0.9,0,0.4);
+  } },
+];
+const cells = document.getElementById('cells');
+for (const sc of scenarios) {
+  const div = document.createElement('div'); div.className = 'cell';
+  const cv = document.createElement('canvas');
+  cv.width = 127 * SCALE; cv.height = 164 * SCALE;
+  const h = document.createElement('h3'); h.textContent = sc.title;
+  div.appendChild(cv); div.appendChild(h); cells.appendChild(div);
+  const ctx = cv.getContext('2d');
+  ctx.scale(SCALE, SCALE);
+  // 状態リセット → シナリオ適用 → paint
+  st.bpm = 0; st.bpmConf = 0; st.bpmAlt = 0; st.key = ''; st.scale = ''; st.keyConf = 0; st.keyAlt = '';
+  st.chroma = [0,0,0,0,0,0,0,0,0,0,0,0]; st.liveTempo = 0; st.frozen = 0; st.ready = 0; st.notation = 0; st.smoothing = 1;
+  sc.apply();
+  window.mgraphics = makeMg(ctx); // paint が参照する mgraphics を差し替え
+  paint.call({ box: { rect: [0, 0, 127, 164] } });
+}
+</script>
+</body>
+</html>

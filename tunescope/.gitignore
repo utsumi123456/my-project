@@ -1,0 +1,11 @@
+node_modules/
+*.amxd
+analysis-worker.bundle.js
+cache*/
+truth*.json
+eval-*.txt
+eval-*.log
+variant-*.json
+*.f32
+_*.js
+_*.json
