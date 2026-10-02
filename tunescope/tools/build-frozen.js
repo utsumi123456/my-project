@@ -7,7 +7,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const OUT = process.argv[2] || 'TuneScope_1.0.0_frozen.amxd';
+const OUT = process.argv[2] || 'TuneScope_1.0.0.amxd';
 const DEVNAME = path.basename(OUT);
 
 // 凍結に含める依存。node.script 用スクリプトは flag 0x8 必須（Producer Pal 解析で判明）。
@@ -20,6 +20,9 @@ const DEPS = [
   { name: 'TuneScope_UI.js', data: fs.readFileSync('TuneScope_UI.js'), flag: 0 },
   { name: 'analyzer.js', data: Buffer.from(analyzerFrozen, 'utf8'), flag: 0x8 },
   { name: 'tagger.js', data: fs.readFileSync('tagger.js'), flag: 0 },
+  // AGPL-3.0（essentia.js 同梱）の条件として、ライセンス文と第三者表記を配布物に含める
+  { name: 'LICENSE', data: fs.readFileSync('LICENSE'), flag: 0 },
+  { name: 'THIRD_PARTY_NOTICES.md', data: fs.readFileSync('THIRD_PARTY_NOTICES.md'), flag: 0 },
 ];
 
 const patch = JSON.parse(fs.readFileSync('TuneScope.maxpat', 'utf8'));

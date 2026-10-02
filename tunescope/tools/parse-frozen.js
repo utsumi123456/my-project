@@ -41,7 +41,14 @@ while (o < end) {
   const emb = ptch.subarray(e.offset, e.offset + e.size);
   let match = '';
   if (e.type === 'TEXT' && fs.existsSync(e.name)) {
-    match = Buffer.compare(emb, fs.readFileSync(e.name)) === 0 ? ' [内容一致✓]' : ' [内容不一致✗]';
+    const orig = fs.readFileSync(e.name);
+    if (e.flag === 0x8) {
+      // node.script 用は「ワーカー埋め込み + 元ソース」に合成されているので末尾一致で確認
+      const ok = emb.length >= orig.length && Buffer.compare(emb.subarray(emb.length - orig.length), orig) === 0;
+      match = ok ? ' [元ソース+埋め込みワーカー✓]' : ' [内容不一致✗]';
+    } else {
+      match = Buffer.compare(emb, orig) === 0 ? ' [内容一致✓]' : ' [内容不一致✗]';
+    }
   } else if (e.type === 'JSON') {
     try { JSON.parse(emb.toString('utf8').replace(/\0+$/, '')); match = ' [JSON解析✓]'; } catch (err) { match = ' [JSON破損✗]'; }
   }
