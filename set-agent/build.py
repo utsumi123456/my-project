@@ -35,7 +35,9 @@ def build_exe() -> None:
            "--name", "SetAgent", "--paths", ".",
            "--distpath", str(WORK), "--workpath", str(ROOT / "build" / "pyinstaller"),
            "--add-data", f"{ui}{os.pathsep}setagent/webui",
-           "--hidden-import", "tools.decrypt_masterdb"]
+           "--hidden-import", "tools.decrypt_masterdb",
+           # the phone view (webui.remote) and its QR code are imported on demand
+           "--hidden-import", "setagent.webui.remote", "--hidden-import", "segno"]
     if WIN:
         cmd += ["--hidden-import", "webview.platforms.winforms", "--hidden-import", "clr_loader"]
     elif MAC:

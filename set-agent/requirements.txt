@@ -4,6 +4,8 @@
 pywebview==6.2.1
 pillow==12.3.0
 cryptography==50.0.1
+# QR code for opening the panel on a phone (pure Python, no deps)
+segno==1.6.6
 pyinstaller==6.22.2
 # pywebview's Windows backend (WebView2 via WinForms)
 pythonnet==3.1.0; sys_platform == "win32"

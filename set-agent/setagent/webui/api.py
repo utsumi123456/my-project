@@ -13,10 +13,12 @@ import io
 
 import base64
 
+import contextvars
 import functools
 import re
 import threading
 import traceback
+from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -51,6 +53,11 @@ _SERIAL = ("boot", "load", "state", "select", "set_curve", "set_milestone",
            "agent_status", "set_level", "ask", "insert_candidate",
            "set_item_approved", "apply_pending", "reject_pending",
            "restart_rekordbox", "artwork")
+
+# Calls that cannot change what a view shows. Everything else in _SERIAL bumps
+# the revision, so a second view (the phone, see webui.remote) knows to refetch.
+_READ_ONLY = frozenset({"boot", "state", "artwork", "export_preview", "export_xml",
+                        "llm_status", "agent_status"})
 
 
 def median_bpm(bpms) -> float | None:
@@ -94,6 +101,14 @@ class Api:
         self.chat: list[dict] = []
         self._last_notice: str | None = None
 
+        # who is calling: "pc" for the WebView, a client id for a phone
+        self.origin: contextvars.ContextVar[str] = contextvars.ContextVar(
+            "setagent_origin", default="pc")
+        self._rev = 0
+        self._revlog: deque[tuple[int, str]] = deque(maxlen=64)
+        self._rev_lock = threading.Lock()
+        self._remote = None
+
         self._pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="setagent-api")
         self._worker = self._pool.submit(threading.current_thread).result()
         for name in _SERIAL:
@@ -101,18 +116,50 @@ class Api:
 
     def _serialized(self, fn):
         """Run fn on the one worker thread; pass straight through if already on it."""
+        bumps = fn.__name__ not in _READ_ONLY
+
         @functools.wraps(fn)
         def wrap(*a, **kw):
             if threading.current_thread() is self._worker:
                 return fn(*a, **kw)          # re-entrant call from another api method
-            return self._pool.submit(fn, *a, **kw).result()
+            who = self.origin.get()
+            try:
+                return self._pool.submit(fn, *a, **kw).result()
+            finally:
+                if bumps:
+                    self._bump(who)
         return wrap
 
+    def _bump(self, who: str) -> None:
+        with self._rev_lock:
+            self._rev += 1
+            self._revlog.append((self._rev, who))
+
+    def sync_rev(self, seen=None, me="pc") -> dict:
+        """Has anyone other than `me` changed the set since revision `seen`?
+        Cheap and off the worker thread, so a view can ask every couple of
+        seconds even while a long agent call is running."""
+        with self._rev_lock:
+            rev = self._rev
+            if seen is None:
+                return {"rev": rev, "other": False}
+            try:
+                seen = int(seen)
+            except (TypeError, ValueError):
+                return {"rev": rev, "other": True}
+            oldest = self._revlog[0][0] if self._revlog else rev + 1
+            other = (seen < oldest - 1) or any(r > seen and w != me for r, w in self._revlog)
+        return {"rev": rev, "other": bool(other)}
+
     # ------------------------------------------------------------------ boot
-    def boot(self) -> dict:
-        """Open the library. The one call that is allowed to fail loudly."""
+    def boot(self, reuse=False) -> dict:
+        """Open the library. The one call that is allowed to fail loudly.
+
+        reuse: a second view joining (the phone) -- keep the library and the
+        set the PC already has open, and report them as they are now."""
         try:
-            self.lib = Library.open()
+            if not (reuse and self.lib):
+                self.lib = Library.open()
         except LibraryNotFound as e:
             return {"error": str(e), "kind": "library_not_found", "fatal": True}
         except Exception as e:
@@ -120,6 +167,8 @@ class Api:
                     "fatal": True, "detail": traceback.format_exc()}
         names = [p.name for p in self.lib.playlists()]
         want = self.want_playlist or self.cfgfile.playlist
+        if reuse and self.draft:
+            want = self.draft.name
         return {
             "playlists": names,
             "playlist": want if want in names else (names[0] if names else None),
@@ -210,6 +259,7 @@ class Api:
         try:
             s = viewstate.build(self.draft, self.lib, self.anlz,
                                 curve=self.curve, cfg=self.cfg, selected=self.selected)
+            s["playlist"] = self.draft.name
             s["curve_key"] = self.curve_key
             s["curve_edited"] = bool(self.curve and self.curve.name == "custom"
                                      and self.curve_key)
@@ -623,6 +673,34 @@ class Api:
         return s
 
     # Not on the worker thread: it only starts a console for the DJ to sign in.
+    # ------------------------------------------------- phone on the same Wi-Fi
+    # PC only: webui.remote does not let a phone call these.
+    def remote_start(self, ip=None) -> dict:
+        """Start serving the panel to the LAN and hand back the QR code.
+        ip: one of the returned `ips`, when the first guess is not the Wi-Fi."""
+        from setagent.webui import remote
+        from setagent.webui.app import index_path
+        try:
+            if self._remote is None:
+                self._remote = remote.RemoteServer(self, Path(index_path()))
+            self._remote.start()
+            ips = remote.lan_ips()
+            ip = ip if ip in ips else ips[0]
+            url = self._remote.url(ip)
+            return {"ok": True, "url": url, "qr": remote.qr_svg(url), "ip": ip, "ips": ips,
+                    "loopback": ip.startswith("127.")}
+        except Exception as e:
+            return {"error": f"iPhone 用のサーバを起動できません: {type(e).__name__}: {e}"}
+
+    def remote_stop(self) -> dict:
+        if self._remote is not None:
+            self._remote.stop()
+        return {"ok": True}
+
+    def remote_status(self) -> dict:
+        r = self._remote
+        return {"running": bool(r and r.running), "url": r.url() if r and r.running else None}
+
     def claude_login(self) -> dict:
         cfg = self.llm_config()
         exe = find_claude(cfg.claude_exe)

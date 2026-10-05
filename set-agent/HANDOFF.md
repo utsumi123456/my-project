@@ -751,3 +751,17 @@ PowerShell の `Add-Type` は 60秒を超えることがあるので、同じこ
 
 タイポグラフィは最低4段階（hero 56px / display / body 14px / caption 11px、字体は rekordbox と同じ Arial 系）、
 テキスト色は3段階（`--ink` / `--ink-2` / `--ink-3`）。2段階に戻すな。
+
+## 2026-10-05 夕: iPhone で表示（同じ Wi-Fi + QR）
+- **使い方**: PC の「設定 → iPhone で表示 → QR を表示」。iPhone のカメラで読むと Safari で同じセットが開く。
+  どちらで操作しても 2 秒ごとの `sync_rev` で相手側に反映（PC→iPhone、iPhone→PC とも実機 WebView2 で確認）。
+- **仕組み**: `setagent/webui/remote.py`（stdlib の http.server）が同じ index.html を LAN に配信し、先頭に注入した
+  shim が `window.pywebview.api.<name>()` を `POST /api/<name>` に置き換える。Api は 1 つのまま共有。
+  iPhone の boot は `boot(reuse=True)` で PC の開いているセットに参加（load し直さない）。master.db の監視は PC だけ。
+- **安全**: サーバは QR を出した時だけ起動（既定では何も listen しない）。URL の `k`（起動ごとの乱数）を全リクエストで照合、
+  プライベート IP 以外は 403。iPhone から呼べるのは `remote.ALLOWED` のみ（API キー・Claude ログイン・rekordbox 再起動・
+  XML 書き出しは PC 専用）。Windows では SO_REUSEADDR だと同じポートを別プロセスが二重 bind できてしまうため
+  `SO_EXCLUSIVEADDRUSE` で排他 bind（実際にこれで古いプロセスへ誤配送した）。
+- QR は `segno`（純 Python）を requirements と build.py の hidden-import に追加。**exe は未再ビルド**。
+- 未確認: 実 iPhone での接続（初回は Windows ファイアウォールの許可が要る。社内 Wi-Fi は端末間通信が遮断されている
+  可能性あり）。iOS では長押しで右クリックメニュー（マイルストーン）が出ない、ホバーのアートワークは出ない。
