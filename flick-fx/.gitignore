@@ -1,0 +1,6 @@
+# dev (unfrozen) build; the deliverable is dist/FlickFX.amxd
+m4l/FlickFX.amxd
+__pycache__/
+*.pyc
+# local Live test project (contains a copy of Ableton's default set)
+ableton/
