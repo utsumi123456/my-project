@@ -150,6 +150,10 @@ select:focus-visible,input:focus-visible{outline-offset:0;border-color:var(--tar
   color:var(--ink-3);pointer-events:none}
 .trk[data-sel="1"]{outline:2px solid var(--ink);outline-offset:-2px;z-index:3}
 .energy{position:relative;flex:1 1 auto;min-height:92px}
+/* the SVG is sized from the lane's height, so it must not also size the lane:
+   in flow it fed its own height back, and once the window had been tall the lane
+   never shrank -- the floor of the plot ended up below the scroll viewport */
+.energy>svg{position:absolute;left:0;top:0}
 .sections{position:relative;height:58px}
 .sec{position:absolute;top:0;bottom:0;border-left:1px solid var(--line);padding:3px 8px;
   overflow:hidden}
@@ -1246,6 +1250,7 @@ function curveAt(clientX, clientY){
   const svg = $("energy").querySelector("svg");
   if(!svg) return null;
   const r = svg.getBoundingClientRect();
+  if(!r.width || !r.height) return null;   /* lane not laid out (detail view hidden) */
   const {top, base} = ENERGY_GEOM;
   const pos = (clientX - r.left) / Math.max(r.width, 1);
   const energy = (base - (clientY - r.top)) / Math.max(base - top, 1);

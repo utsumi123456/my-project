@@ -11,7 +11,7 @@ from __future__ import annotations
 import unittest
 from dataclasses import dataclass
 
-from setagent.webui.state import PHRASE_GROUP, beat_ms, phrase_spans
+from setagent.webui.state import PHRASE_GROUP, beat_ms, energy_plot, phrase_spans
 
 
 @dataclass(frozen=True)
@@ -124,6 +124,41 @@ class Grouping(unittest.TestCase):
         spans = phrase_spans(a, 0, None, 0.0, 120.0, 120.0)
         self.assertEqual(spans[0]["group"], "verse")
 
+
+
+class EnergyPlot(unittest.TestCase):
+    """The lane's measured line: phrase steps, never backwards, never over a gap."""
+
+    @staticmethod
+    def _t(start, end, phrases):
+        return {"start_s": start, "end_s": end,
+                "phrases": [{"label": l, "start_s": a, "end_s": b} for l, a, b in phrases]}
+
+    def test_steps_follow_every_phrase_of_a_long_track(self):
+        pts = energy_plot([self._t(0, 900, [("verse1", 0, 400), ("drop", 400, 403),
+                                            ("verse1", 403, 900)])])
+        self.assertIn({"t": 400, "e": 0.92, "known": True}, pts)
+        self.assertIn({"t": 403, "e": 0.92, "known": True}, pts)
+
+    def test_overlapping_tracks_never_run_backwards(self):
+        pts = energy_plot([self._t(0, 100, [("verse1", 0, 100)]),
+                           self._t(90, 200, [("intro", 90, 200)])])
+        ts = [p["t"] for p in pts]
+        self.assertEqual(ts, sorted(ts))
+        self.assertEqual(max(p["t"] for p in pts if p["e"] == 0.45), 90)
+
+    def test_track_without_phrases_is_unknown(self):
+        pts = energy_plot([self._t(0, 60, [])])
+        self.assertEqual([p["known"] for p in pts], [False, False])
+
+    def test_deviation_band_sits_on_the_drawn_step(self):
+        from setagent.analysis.curve import TargetCurve, deviation
+        from setagent.analysis.energy import EnergyPoint
+        pts = energy_plot([self._t(0, 900, [("verse1", 0, 400), ("drop", 400, 600),
+                                            ("verse1", 600, 900)])])
+        flat = TargetCurve([(0.0, 0.45), (1.0, 0.45)])
+        dev = deviation([EnergyPoint(p["t"], p["e"], p["known"]) for p in pts], flat, 900)
+        self.assertEqual([(d.start_s, d.end_s, d.kind) for d in dev], [(400, 600, "over")])
 
 if __name__ == "__main__":
     unittest.main()

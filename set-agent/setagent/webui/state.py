@@ -13,7 +13,7 @@ up with the second it is actually heard.
 from __future__ import annotations
 
 from setagent.analysis.curve import deviation, flat_segments
-from setagent.analysis.energy import set_energy_curve
+from setagent.analysis.energy import ENERGY, UNKNOWN, EnergyPoint, set_energy_curve
 from setagent.analysis.phrases import blocks
 from setagent.analysis.sections import describe as describe_section
 from setagent.analysis.sections import sections as compute_sections
@@ -83,6 +83,36 @@ def phrase_spans(anlz, play_in_ms: int, play_out_ms: int | None,
     return out
 
 
+def energy_plot(tracks: list[dict]) -> list[dict]:
+    """The measured curve as the lane draws it: one step per phrase block.
+
+    `set_energy_curve` samples 12 points per track whatever its length, which is
+    fine for the agent's coarse judgements but, drawn as a line, jumps straight
+    over every valley a long track has; and overlapping placements made the line
+    run backwards in time. Here each track holds the line from its own start to
+    the next track's start (the incoming track owns the mix), using the phrase
+    spans already clipped to the play range, so time only moves forward.
+    """
+    out: list[dict] = []
+    for i, t in enumerate(tracks):
+        lo = t["start_s"]
+        hi = t["end_s"] if i + 1 == len(tracks) else max(lo, min(t["end_s"], tracks[i + 1]["start_s"]))
+        if hi <= lo:
+            continue
+        if not t["phrases"]:
+            out += [{"t": round(lo, 2), "e": UNKNOWN, "known": False},
+                    {"t": round(hi, 2), "e": UNKNOWN, "known": False}]
+            continue
+        for ph in t["phrases"]:
+            a, b = max(ph["start_s"], lo), min(ph["end_s"], hi)
+            if b <= a:
+                continue
+            e = round(ENERGY.get(ph["label"], UNKNOWN), 3)
+            out += [{"t": round(a, 2), "e": e, "known": True},
+                    {"t": round(b, 2), "e": e, "known": True}]
+    return out
+
+
 def _bpm_changes(draft, tl) -> list[dict]:
     out = []
     running = draft.constraints.set_bpm
@@ -101,7 +131,6 @@ def build(draft, lib, anlz_by_id: dict, curve=None, cfg=None,
     tl = compute(draft, lib)
     total = max(tl.total_s, 1.0)
     pts = set_energy_curve(tl, anlz_by_id)
-    dev = deviation(pts, curve, total) if curve else []
     flats = flat_segments(pts)
     secs = compute_sections(draft, tl)
 
@@ -138,6 +167,11 @@ def build(draft, lib, anlz_by_id: dict, curve=None, cfg=None,
             "warnings": list(p.warnings),
         })
 
+    # the bands sit on the line the lane draws, so they come from the same series
+    plot = energy_plot(tracks)
+    dev = deviation([EnergyPoint(q["t"], q["e"], q["known"]) for q in plot],
+                    curve, total) if curve else []
+
     warnings = []
     delta = tl.delta_s
     if delta is not None and abs(delta) > tl.tolerance_s:
@@ -162,7 +196,7 @@ def build(draft, lib, anlz_by_id: dict, curve=None, cfg=None,
         "delta_s": None if delta is None else round(delta, 2),
         "tolerance_s": tl.tolerance_s,
         "tracks": tracks,
-        "energy": [{"t": round(p.time_s, 2), "e": round(p.energy, 3), "known": p.known} for p in pts],
+        "energy": plot,
         "curve": [[round(pos, 4), round(en, 4)] for pos, en in (curve.points if curve else [])],
         "deviation": [{"start_s": round(d.start_s, 2), "end_s": round(d.end_s, 2),
                        "kind": d.kind, "value": round(d.value, 3)} for d in dev],
