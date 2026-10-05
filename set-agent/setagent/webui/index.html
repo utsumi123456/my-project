@@ -2,132 +2,138 @@
 <html lang="ja"><head><meta charset="utf-8">
 <title>Set Agent</title>
 <style>
-/* avoid-ai-design-ignore-file: SD2 -- the greys follow rekordbox's own dark browser; green/red/amber are
-   state colours (fits / over / under) and the orange is rekordbox 7's intro phrase hue, not a brand accent.
+/* avoid-ai-design-ignore-file: SD2 -- teenage engineering catalogue palette (five neutrals); red/amber are
+   state colours (over / under), blue is only the text-link colour, and the phrase hues are rekordbox 7's.
    ui-polish-ignore-file: UX6 -- the nowrap labels are ruler marks and short fixed-width readouts. */
+/* Visual language (2026-10-05): teenage engineering's catalogue -- a near-white
+   canvas, white islands for the things you touch, 1px hairline rules instead of
+   fills, one Carbon band (the predicted length) as the display case. Zero radius,
+   zero shadows, thin type. Colour is rationed to state: amber = under,
+   red = over. Measured data and markers are black, like a technical drawing. */
 :root{
-  color-scheme:dark;
-  /* Neutral greys, as in rekordbox 7's browser: no blue cast, so the panel
-     reads as part of the same desk. ink-3 is 4.9:1 on raised. */
-  --page:#141414; --surface:#1b1b1b; --raised:#252525; --sunken:#0f0f0f;
-  --line:#363636; --line-soft:#2b2b2b;
-  --ink:#f2f2f2; --ink-2:#bfbfbf; --ink-3:#919191;
-  --r:2px;   /* one radius; rekordbox's chrome is square-cornered */
+  color-scheme:light;
+  --page:#f6f8f7; --surface:#f6f8f7; --raised:#ffffff; --sunken:#e5e5e5;
+  --line:#b2b2b2; --line-soft:#e5e5e5; --rule:#000000;
+  /* ink-3 is darker than TE's graphite so 11px helper text stays AA (4.8:1) */
+  --ink:#000000; --ink-2:#3c3c3c; --ink-3:#6e6e6e;
+  --carbon:#0f0e12; --on-carbon:#f6f8f7; --on-carbon-2:#b2b2b2; --carbon-2:#26252b;
+  --r:0;
+  /* track blocks: two greys alternating so blocks can be counted without a key */
+  --trk-a:#e5e5e5; --trk-b:#d2d2d2;
 
-  /* phrase palette — rekordbox 7 hues, re-stepped for this surface.
-     validated: lightness band / chroma floor / CVD / normal-vision / contrast */
+  /* phrase palette — rekordbox 7 hues (phrase sheet only) */
   --ph-intro:#c83201; --ph-up:#8c32ff; --ph-chorus:#1fb013;
   --ph-down:#955b00; --ph-outro:#2f84cf; --ph-verse:#5a6270;
 
-  /* Colour has a job: blue = measured data, red = over, amber = under.
-     Markers (target line, milestone, selection) are white, like a playhead;
-     the eye finds them against the blue without a second hue. */
-  --target:#ffffff; --critical:#d03b3b; --caution:#fab219; --measure:#4a9be8;
-  /* fills keep the deep red; text uses a lighter step so 12px labels read (5.5:1) */
-  --critical-ink:#ec6059; --ok:#1fb013;
-  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px;
-  /* Same face as rekordbox (2026-09-16): its browser and menus draw in the
-     Windows system Arial (Preferences > View, default "Arial"), with the OS
-     supplying Japanese glyphs. No font is bundled with rekordbox, so none is
-     bundled here either -- the two panels share the machine's fonts. Numbers
-     stay column-aligned through font-variant-numeric, not a monospace face. */
-  --sans:"Arial","Yu Gothic UI","Meiryo UI",system-ui,sans-serif;
-  --mono:"Arial","Yu Gothic UI","Meiryo UI",system-ui,sans-serif;
+  --target:#000000; --measure:#000000;
+  --critical:#d0341a; --critical-ink:#b52d12;   /* over: fill / text on canvas */
+  --caution:#f5a800;  --caution-ink:#8a5a00;    /* under: the amber triangle */
+  --ok:#000000; --link:#0071bb;
+  --s1:4px; --s2:8px; --s3:11px; --s4:15px; --s5:22px; --s6:33px;
+  /* te-20 substitute: Segoe UI Variable (Windows 11) + Yu Gothic UI Light for
+     kana/kanji, both shipped with the OS, so nothing is bundled. */
+  --sans:"Segoe UI Variable Text","Segoe UI","Yu Gothic UI","Hiragino Sans","Helvetica Neue",Arial,sans-serif;
+  --display:"Segoe UI Variable Display","Segoe UI Light","Segoe UI","Yu Gothic UI","Helvetica Neue",Arial,sans-serif;
+  --mono:var(--sans);
 }
 *{box-sizing:border-box}
-::-webkit-scrollbar{width:10px;height:10px}
-::-webkit-scrollbar-thumb{background:var(--line);border-radius:0;border:2px solid var(--surface)}
-::-webkit-scrollbar-thumb:hover{background:#4a4a4a}
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-thumb{background:var(--line);border-radius:0;border:2px solid var(--page)}
+::-webkit-scrollbar-thumb:hover{background:var(--ink-3)}
 ::-webkit-scrollbar-track{background:transparent}
 html,body{height:100%}
 body{margin:0;background:var(--page);color:var(--ink);font-family:var(--sans);
-  font-size:14px;line-height:1.5;overflow:hidden;font-variant-numeric:tabular-nums}
-button,select,input{font-family:inherit;font-size:13px}
+  font-size:13px;font-weight:300;line-height:1.5;overflow:hidden;font-variant-numeric:tabular-nums;
+  -webkit-font-smoothing:antialiased}
+button,select,input{font-family:inherit;font-size:13px;font-weight:300}
+b,strong{font-weight:400}
 
 .app{display:flex;flex-direction:column;height:100vh}
 
 /* ---- control bar ---- */
 /* one row at the panel's 380px floor: tabs + four buttons, undo/redo as glyphs */
 .bar{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s2);flex:none;
-  padding:var(--s3) var(--s4);border-bottom:1px solid var(--line);background:var(--surface)}
+  padding:var(--s3) var(--s4);border-bottom:1px solid var(--rule);background:var(--page)}
 .bar label{display:flex;align-items:center;gap:6px;color:var(--ink-3);font-size:12px}
 .bar select,.bar input[type=text]{background:var(--raised);color:var(--ink);
-  border:1px solid var(--line);border-radius:var(--r);padding:5px 7px}
-.bar input[type=text]{width:74px;font-family:var(--mono);text-align:center}
-.btn{appearance:none;background:var(--raised);color:var(--ink-2);border:1px solid var(--line);
-  border-radius:var(--r);padding:6px 11px;cursor:pointer}
-.btn:hover{border-color:#4a4a4a;color:var(--ink)}
+  border:1px solid var(--line);border-radius:0;padding:5px 7px}
+.bar input[type=text]{width:74px;text-align:center}
+.btn{appearance:none;background:transparent;color:var(--ink);border:1px solid var(--rule);
+  border-radius:0;padding:5px 11px;cursor:pointer}
+.btn:hover{background:var(--ink);color:var(--page)}
 .btn:focus-visible,.seg button:focus-visible,select:focus-visible,input:focus-visible,
 .row:focus-visible,.trk:focus-visible,.reco:focus-visible,.cand:focus-visible,.hintq:focus-visible,
-.knob:focus-visible{outline:2px solid var(--target);outline-offset:1px}
+.knob:focus-visible{outline:2px solid var(--target);outline-offset:2px}
 select:focus,input:focus{outline:none}
-select:focus-visible,input:focus-visible{outline-offset:0;border-color:var(--target)}
-.btn.primary{color:#06121f;background:var(--measure);border-color:var(--measure);font-weight:600}
-.btn.danger{color:#fff;background:var(--critical);border-color:var(--critical);font-weight:600}
-.btn.danger:hover{filter:brightness(1.08)}
-.btn.hasnew{position:relative;border-color:var(--target);color:var(--ink)}
+select:focus-visible,input:focus-visible{outline:1px solid var(--target);outline-offset:0;border-color:var(--target)}
+.btn.primary{color:var(--page);background:var(--ink);border-color:var(--ink)}
+.btn.primary:hover{background:var(--carbon-2)}
+.btn.danger{color:#fff;background:var(--critical);border-color:var(--critical)}
+.btn.danger:hover{background:var(--critical-ink)}
+.btn:disabled{color:var(--line);border-color:var(--line);background:transparent;cursor:default}
+.btn.hasnew{position:relative}
 /* ui-polish-ignore: UX2 -- unread indicator on a 30px button, not a target */
-.btn.hasnew::after{content:"";position:absolute;top:-3px;right:-3px;width:8px;height:8px;
-  border-radius:50%;background:var(--target)}
+.btn.hasnew::after{content:"";position:absolute;top:-4px;right:-4px;width:7px;height:7px;
+  background:var(--caution)}
 .spacer{margin-left:auto}
 
 /* ---- hero (main view) ---- */
 .eyebrow{font-size:12px;font-weight:400;color:var(--ink-3);margin:0 0 var(--s2)}
 .gap-row{display:flex;align-items:baseline;gap:var(--s4);flex-wrap:wrap}
-.hero{font-family:var(--mono);font-size:38px;font-weight:700;line-height:1;
+.hero{font-family:var(--display);font-size:40px;font-weight:300;line-height:1.11;
   font-variant-numeric:tabular-nums}
-/* the readout stays white like a deck clock; the pill below says over/under */
-.gap-sub{font-size:14px;color:var(--ink-2)}
-.gap-sub b{color:var(--ink);font-family:var(--mono);font-weight:600}
-.bullet-track{position:relative;height:22px;background:var(--sunken);margin-top:var(--s2);
-  border:1px solid var(--line-soft);border-radius:var(--r);overflow:hidden}
-.bullet-fill{position:absolute;left:0;top:0;bottom:0;background:#35679c}
-.bullet-over{position:absolute;top:0;bottom:0;background:var(--critical);opacity:.85}
-.bullet-tick{position:absolute;top:-4px;bottom:-4px;width:3px;background:var(--target)}
-.bullet-scale{display:flex;justify-content:space-between;margin-top:3px;
-  font-family:var(--mono);font-size:11px;color:var(--ink-3)}
+.gap-sub{font-size:13px;color:var(--ink-2)}
+.gap-sub b{color:var(--ink);font-weight:400}
+.bullet-track{position:relative;height:16px;background:var(--sunken);margin-top:var(--s3);
+  overflow:visible}
+.bullet-fill{position:absolute;left:0;top:0;bottom:0;background:var(--line)}
+.bullet-over{position:absolute;top:0;bottom:0;background:var(--critical)}
+.bullet-tick{position:absolute;top:-5px;bottom:-5px;width:2px;background:var(--target)}
+.bullet-scale{display:flex;justify-content:space-between;margin-top:6px;
+  font-size:11px;font-weight:400;color:var(--ink-3)}
 
-.reality{background:var(--raised);border:1px solid var(--line);border-radius:var(--r);
+.reality{background:var(--raised);border:1px solid var(--line-soft);border-radius:0;
   padding:var(--s3) var(--s4);overflow:auto;max-height:116px}
 .reality.crit h3{color:var(--critical-ink)}
-.reality h3{margin:0 0 6px;font-size:13px;font-weight:600}
+.reality h3{margin:0 0 6px;font-size:13px;font-weight:400}
 .reality p{margin:0;font-size:12px;color:var(--ink-2)}
 .wf{margin-top:var(--s2);display:flex;flex-direction:column;gap:3px}
 .wf-row{display:grid;grid-template-columns:120px 1fr 54px;gap:var(--s2);align-items:center;
-  font-family:var(--mono);font-size:11px;color:var(--ink-2)}
+  font-size:11px;font-weight:400;color:var(--ink-2)}
 .wf-name{color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.wf-bar{height:8px;border-radius:0;min-width:2px;background:var(--caution)}
+.wf-bar{height:6px;border-radius:0;min-width:2px;background:var(--caution)}
 .wf-bar.gap{background:var(--critical)}
-.wf-sum{border-top:1px solid var(--line);margin-top:5px;padding-top:5px}
+.wf-sum{border-top:1px solid var(--rule);margin-top:5px;padding-top:5px}
 
 /* ---- transport ---- */
 .transport{display:flex;align-items:center;gap:var(--s3);padding:var(--s2) var(--s4);flex:none;
-  border-bottom:1px solid var(--line);background:var(--surface)}
-.seg{display:flex;border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
-.seg button{background:var(--raised);color:var(--ink-2);border:0;border-right:1px solid var(--line);
-  padding:6px 12px;cursor:pointer}
+  border-bottom:1px solid var(--line-soft);background:var(--page)}
+.seg{display:flex;border:1px solid var(--rule);border-radius:0;overflow:hidden}
+.seg button{background:transparent;color:var(--ink);border:0;border-right:1px solid var(--rule);
+  padding:5px 12px;cursor:pointer}
 .seg button:last-child{border-right:0}
-.seg button[aria-pressed=true]{background:var(--measure);color:#06121f;font-weight:600}
-.meta{font-family:var(--mono);font-size:11px;color:var(--ink-3)}
-.minimap{position:relative;height:40px;flex:1;background:var(--sunken);
-  border:1px solid var(--line-soft);border-radius:var(--r);overflow:hidden;cursor:pointer}
-.mm-view{position:absolute;top:-1px;bottom:-1px;border:2px solid var(--ink);
-  background:rgba(240,243,246,.09);border-radius:2px;pointer-events:none}
+.seg button:hover{background:var(--raised)}
+.seg button[aria-pressed=true]{background:var(--ink);color:var(--page)}
+.meta{font-size:11px;font-weight:400;color:var(--ink-3)}
+.minimap{position:relative;height:40px;flex:1;background:var(--raised);
+  border:1px solid var(--line-soft);border-radius:0;overflow:hidden;cursor:pointer}
+.mm-view{position:absolute;top:-1px;bottom:-1px;border:1px solid var(--ink);
+  background:rgba(0,0,0,.05);border-radius:0;pointer-events:none}
 
 /* ---- lanes ---- */
 /* min-height:0 is what lets a flex child scroll instead of pushing the rest of
    the column off-screen; the floor keeps ENERGY and SECTIONS -- both Tier 1 --
    on screen at the shortest window we support. */
-.scroll{flex:1 1 auto;min-height:400px;overflow:auto;background:var(--surface)}
+.scroll{flex:1 1 auto;min-height:400px;overflow:auto;background:var(--page)}
 /* the lanes share the column: TRACKS and SECTIONS keep their size, ENERGY takes
    whatever height is left, so all three stay visible at any window height */
 .canvas{position:relative;padding-bottom:var(--s2);display:flex;flex-direction:column;
   min-height:100%}
-.lane-h{position:sticky;left:0;padding:var(--s2) var(--s4) 2px;font-size:12px;
+.lane-h{position:sticky;left:0;padding:var(--s3) var(--s4) 3px;font-size:12px;font-weight:400;
   color:var(--ink-3);width:max-content}
-.ruler{position:relative;height:20px;border-bottom:1px solid var(--line-soft)}
-.rmark{position:absolute;top:0;bottom:0;border-left:1px solid var(--line-soft);padding-left:5px;
-  font-family:var(--mono);font-size:11px;color:var(--ink-3);line-height:20px;white-space:nowrap}
+.ruler{position:relative;height:20px;border-bottom:1px solid var(--rule)}
+.rmark{position:absolute;top:0;bottom:0;border-left:1px solid var(--line);padding-left:5px;
+  font-size:11px;font-weight:400;color:var(--ink-3);line-height:20px;white-space:nowrap}
 .ruler,.tracks,.sections,.lane-h{flex:none}
 /* TRACKS is a ruler for the ENERGY lane below: which track is playing where,
    and how long each one runs. Two greys, alternating per track, so the eye can
@@ -135,18 +141,20 @@ select:focus-visible,input:focus-visible{outline-offset:0;border-color:var(--tar
    double-click sheet (2026-09-16 review). */
 .tracks{position:relative;height:44px}
 .trk{position:absolute;top:0;bottom:0;overflow:hidden;cursor:pointer;
-  border-right:1px solid var(--sunken);background:#303030}
-.trk.alt{background:#3e3e3e}
+  border-right:1px solid var(--page);background:var(--trk-a)}
+.trk.alt{background:var(--trk-b)}
+.trk:hover{background:var(--raised)}
 .ph{position:absolute;top:0;bottom:0}
+/* missing analysis: a hairline hatch, as on a technical drawing */
 .trk .none,.phrase-strip .none{position:absolute;inset:0;
-  background:repeating-linear-gradient(45deg,#2b2b2b 0 6px,#1e1e1e 6px 12px)}
-.phrase-strip{position:relative;height:30px;border-radius:var(--r);overflow:hidden;
-  background:var(--sunken);border:1px solid var(--line-soft);margin:var(--s2) 0 var(--s3)}
+  background:repeating-linear-gradient(45deg,var(--line) 0 1px,transparent 1px 6px)}
+.phrase-strip{position:relative;height:30px;border-radius:0;overflow:hidden;
+  background:var(--sunken);margin:var(--s2) 0 var(--s3)}
 .ph-list{display:flex;flex-wrap:wrap;gap:5px var(--s4);font-size:12px;color:var(--ink-2)}
-.ph-list b{font-family:var(--mono);font-weight:500;color:var(--ink-3);margin-left:4px}
-.trk-t{position:absolute;left:5px;right:4px;top:3px;font-size:11px;font-weight:600;color:var(--ink);
+.ph-list b{font-weight:400;color:var(--ink-3);margin-left:4px}
+.trk-t{position:absolute;left:5px;right:4px;top:3px;font-size:11px;font-weight:400;color:var(--ink);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
-.trk-m{position:absolute;left:5px;bottom:3px;font-family:var(--mono);font-size:11px;
+.trk-m{position:absolute;left:5px;bottom:3px;font-size:11px;font-weight:400;
   color:var(--ink-3);pointer-events:none}
 .trk[data-sel="1"]{outline:2px solid var(--ink);outline-offset:-2px;z-index:3}
 .energy{position:relative;flex:1 1 auto;min-height:92px}
@@ -154,114 +162,118 @@ select:focus-visible,input:focus-visible{outline-offset:0;border-color:var(--tar
    in flow it fed its own height back, and once the window had been tall the lane
    never shrank -- the floor of the plot ended up below the scroll viewport */
 .energy>svg{position:absolute;left:0;top:0}
-.sections{position:relative;height:58px}
-.sec{position:absolute;top:0;bottom:0;border-left:1px solid var(--line);padding:3px 8px;
+.sections{position:relative;height:58px;border-top:1px solid var(--line-soft)}
+.sec{position:absolute;top:0;bottom:0;border-left:1px solid var(--line);padding:4px 8px;
   overflow:hidden}
-.sec-n{font-size:11px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.sec-b{position:relative;height:10px;background:var(--sunken);border-radius:2px;margin-top:4px}
-.sec-f{position:absolute;left:0;top:0;bottom:0;background:#35679c}
+.sec-n{font-size:11px;font-weight:400;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sec-b{position:relative;height:8px;background:var(--sunken);border-radius:0;margin-top:5px}
+.sec-f{position:absolute;left:0;top:0;bottom:0;background:var(--line)}
 .sec-t{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--target)}
-.sec-v{font-family:var(--mono);font-size:11px;margin-top:2px;color:var(--ink-2)}
-.sec-v .o{color:var(--critical-ink)} .sec-v .u{color:var(--caution)}
-.mile{position:absolute;top:0;bottom:0;width:2px;background:var(--ink-2);z-index:4}
-.mile::before{content:"";position:absolute;top:0;left:-5px;border:6px solid transparent;
-  border-top-color:var(--ink-2);border-bottom:0}
-.tline{position:absolute;top:0;bottom:0;border-left:2px dashed var(--target);z-index:4}
+.sec-v{font-size:11px;font-weight:400;margin-top:3px;color:var(--ink-2)}
+.sec-v .o{color:var(--critical-ink)} .sec-v .u{color:var(--caution-ink)}
+.mile{position:absolute;top:0;bottom:0;width:1px;background:var(--ink);z-index:4}
+.mile::before{content:"";position:absolute;top:0;left:-5px;border:5.5px solid transparent;
+  border-top-color:var(--ink);border-bottom:0}
+.tline{position:absolute;top:0;bottom:0;border-left:1px dashed var(--target);z-index:4}
 .knob{cursor:grab}
 .knob:active{cursor:grabbing}
 
 /* ---- footer ---- */
-.foot{padding:var(--s3) var(--s4);border-top:1px solid var(--line);background:var(--surface);
+.foot{padding:var(--s3) var(--s4);border-top:1px solid var(--rule);background:var(--page);
   flex:none}
 .kv{display:grid;grid-template-columns:auto 1fr;gap:3px var(--s3);margin-top:var(--s2);font-size:12px}
-.kv dt{color:var(--ink-3)} .kv dd{margin:0;font-family:var(--mono);font-variant-numeric:tabular-nums}
-.legend{display:flex;flex-wrap:wrap;gap:6px var(--s4);padding:6px var(--s4);flex:none;
-  border-top:1px solid var(--line);background:var(--surface);font-size:11px;color:var(--ink-2)}
+.kv dt{color:var(--ink-3)} .kv dd{margin:0;font-variant-numeric:tabular-nums}
+.legend{display:flex;flex-wrap:wrap;gap:6px var(--s4);padding:7px var(--s4);flex:none;
+  border-top:1px solid var(--line-soft);background:var(--page);font-size:11px;font-weight:400;color:var(--ink-2)}
 .lg{display:flex;align-items:center;gap:5px}
-.sw{width:20px;height:10px;border-radius:2px}
-.sw.hatch{background:repeating-linear-gradient(45deg,#2b2b2b 0 4px,#1e1e1e 4px 8px)}
+.sw{width:16px;height:9px;border-radius:0}
+.sw.hatch{background:repeating-linear-gradient(45deg,var(--ink-3) 0 1px,transparent 1px 4px);
+  outline:1px solid var(--line-soft)}
 
 /* ---- inspector controls ---- */
 .edit{display:flex;flex-direction:column;gap:6px;margin-top:var(--s3);padding-top:var(--s3);
   border-top:1px solid var(--line-soft)}
 .edit label{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-3)}
-.edit select,.edit input[type=text]{background:var(--surface);color:var(--ink);
-  border:1px solid var(--line);border-radius:var(--r);padding:4px 6px;font-size:12px}
-.edit input[type=text]{width:78px;font-family:var(--mono);text-align:center}
+.edit select,.edit input[type=text]{background:var(--raised);color:var(--ink);
+  border:1px solid var(--line);border-radius:0;padding:4px 6px;font-size:12px}
+.edit input[type=text]{width:78px;text-align:center}
 .locks{display:flex;gap:var(--s3)}
 .locks label{color:var(--ink-2)}
 
 /* ---- drag ---- */
-.trk.dragging{opacity:.45}
-.dropline{position:absolute;top:-4px;bottom:-4px;width:3px;background:var(--target);
-  z-index:6;pointer-events:none;border-radius:2px}
+.trk.dragging{opacity:.4}
+.dropline{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--target);
+  z-index:6;pointer-events:none;border-radius:0}
 
 /* ---- agent drawer (Tier 2: it appears when asked for, over the timeline) ---- */
+/* no shadow: the black edge rule is the only thing that lifts it */
 .drawer{position:fixed;top:0;right:0;bottom:0;width:430px;max-width:92vw;z-index:22;
-  background:var(--raised);border-left:1px solid var(--line);
-  box-shadow:-8px 0 24px rgba(0,0,0,.4);
+  background:var(--page);border-left:1px solid var(--rule);
   display:flex;flex-direction:column;gap:var(--s2);padding:var(--s3) var(--s4) var(--s4)}
-.dw-head{display:flex;align-items:center;gap:var(--s3);flex:none}
-.dw-head h2{margin:0;font-size:14px;font-weight:600;color:var(--ink)}
+.dw-head{display:flex;align-items:center;gap:var(--s3);flex:none;
+  padding-bottom:var(--s3);border-bottom:1px solid var(--rule)}
+.dw-head h2{margin:0;font-family:var(--display);font-size:19px;font-weight:300;line-height:1.15;color:var(--ink)}
 .dw-head label{display:flex;align-items:center;gap:5px;margin-left:auto;font-size:12px;
   color:var(--ink-3)}
-.dw-head select{background:var(--surface);color:var(--ink);border:1px solid var(--line);
-  border-radius:var(--r);padding:3px 6px;font-size:12px}
+.dw-head select{background:var(--raised);color:var(--ink);border:1px solid var(--line);
+  border-radius:0;padding:3px 6px;font-size:12px}
 .dw-status{margin:0;font-size:12px;color:var(--ink-3);flex:none;
   border-bottom:1px solid var(--line-soft);padding-bottom:var(--s2)}
-.chat{flex:1 1 auto;min-height:80px;overflow:auto;display:flex;flex-direction:column;gap:7px;
+.chat{flex:1 1 auto;min-height:80px;overflow:auto;display:flex;flex-direction:column;gap:9px;
   padding-right:2px}
-.msg{font-size:13px;line-height:1.55;white-space:pre-wrap;word-break:break-word}
-.msg.you{color:var(--ink);background:var(--surface);padding:5px 9px;border-radius:var(--r)}
+.msg{font-size:13px;line-height:1.6;white-space:pre-wrap;word-break:break-word}
+.msg.you{color:var(--ink);background:var(--raised);border:1px solid var(--line-soft);
+  padding:6px 10px;border-radius:0}
 .msg.agent{color:var(--ink-2)}
-.msg.meta{color:var(--ink-3);font-size:11px;font-family:var(--mono)}
+.msg.meta{color:var(--ink-3);font-size:11px;font-weight:400}
 .dw-ask{display:flex;gap:var(--s2);flex:none}
-.dw-ask input{flex:1;background:var(--surface);color:var(--ink);border:1px solid var(--line);
-  border-radius:var(--r);padding:7px 9px;font-size:13px}
+.dw-ask input{flex:1;background:var(--raised);color:var(--ink);border:1px solid var(--line);
+  border-radius:0;padding:7px 9px;font-size:13px}
 .cand{width:100%;display:grid;grid-template-columns:1fr 54px 44px 56px;gap:var(--s2);
-  align-items:center;background:var(--surface);border:1px solid var(--line-soft);
-  border-radius:var(--r);padding:5px 8px;font-family:var(--mono);font-size:11px;color:var(--ink-2);
+  align-items:center;background:var(--raised);border:1px solid var(--line-soft);
+  border-radius:0;padding:5px 8px;font-size:11px;font-weight:400;color:var(--ink-2);
   cursor:pointer;text-align:left}
-.cand:hover{border-color:var(--measure);color:var(--ink)}
-.cand span:first-child{font-family:var(--sans);white-space:nowrap;overflow:hidden;
-  text-overflow:ellipsis}
+.cand:hover{border-color:var(--ink);color:var(--ink)}
+.cand span:first-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cand-list{display:flex;flex-direction:column;gap:3px;margin-top:5px;max-height:130px;
   overflow:auto}
-.card{background:var(--surface);border:1px solid var(--line);
-  border-radius:var(--r);padding:var(--s3);margin-top:var(--s2)}
-.card h3{margin:0 0 5px;font-size:13px;font-weight:600;color:var(--ink)}
+.card{background:var(--raised);border:1px solid var(--rule);
+  border-radius:0;padding:var(--s3) var(--s4);margin-top:var(--s2)}
+.card h3{margin:0 0 5px;font-size:13px;font-weight:400;color:var(--ink)}
 .card .why{font-size:12px;color:var(--ink-2);margin:0 0 var(--s2)}
 .card label{display:grid;grid-template-columns:16px 1fr;gap:7px;align-items:start;
   font-size:12px;color:var(--ink-2);margin-bottom:4px;cursor:pointer}
-.card .diff{font-family:var(--mono);font-size:11px;color:var(--ink-3);
+.card .diff{font-size:11px;font-weight:400;color:var(--ink-3);
   border-top:1px solid var(--line-soft);margin-top:var(--s2);padding-top:var(--s2);
   display:flex;flex-direction:column;gap:2px}
 .card .acts{display:flex;gap:var(--s2);margin-top:var(--s3)}
-.sec-title{font-size:12px;color:var(--ink-3);margin:var(--s2) 0 0}
-.plog{margin:0;font-size:11px;color:var(--ink-3);font-family:var(--mono);flex:none}
+.sec-title{font-size:12px;font-weight:400;color:var(--ink-3);margin:var(--s2) 0 0}
+.plog{margin:0;font-size:11px;font-weight:400;color:var(--ink-3);flex:none}
 /* the proposal drawn over the set before anything is applied (S4-3) */
 .ghost{position:absolute;top:0;bottom:0;border:1px dashed var(--target);
-  background:rgba(255,255,255,.10);pointer-events:none;z-index:2}
+  background:rgba(0,0,0,.06);pointer-events:none;z-index:2}
 
 /* ---- modal ---- */
-.modal{position:fixed;inset:0;background:rgba(6,9,12,.72);display:grid;place-items:center;
+.modal{position:fixed;inset:0;background:rgba(15,14,18,.55);display:grid;place-items:center;
   z-index:25;padding:var(--s4)}
-.sheet{background:var(--raised);border:1px solid var(--line);border-radius:var(--r);
+.sheet{background:var(--page);border:1px solid var(--rule);border-radius:0;
   padding:var(--s5);max-width:720px;width:100%;max-height:82vh;overflow:auto}
-.sheet h2{margin:0 0 var(--s3);font-size:16px;font-weight:600;color:var(--ink)}
-.sheet pre{background:var(--sunken);border:1px solid var(--line-soft);border-radius:var(--r);
+.sheet h2{margin:0 0 var(--s4);font-family:var(--display);font-size:24px;font-weight:300;
+  line-height:1.15;color:var(--ink)}
+.sheet pre{background:var(--raised);border:1px solid var(--line-soft);border-radius:0;
   padding:var(--s3);font-family:var(--mono);font-size:12px;color:var(--ink-2);
   white-space:pre-wrap;margin:0}
 .sheet p{color:var(--ink-2);font-size:13px;margin:0 0 var(--s3)}
 .sheet .field{display:flex;flex-direction:column;gap:5px;margin-bottom:var(--s3)}
 .sheet .field span{font-size:12px;color:var(--ink-3)}
-.sheet .field input{background:var(--surface);color:var(--ink);border:1px solid var(--line);
-  border-radius:var(--r);padding:7px 9px;font-family:var(--mono);font-size:13px}
-.mActions{display:flex;gap:var(--s2);justify-content:flex-end;margin-top:var(--s4)}
+.sheet .field input{background:var(--raised);color:var(--ink);border:1px solid var(--line);
+  border-radius:0;padding:7px 9px;font-size:13px}
+.mActions{display:flex;gap:var(--s2);justify-content:flex-end;margin-top:var(--s5);
+  padding-top:var(--s4);border-top:1px solid var(--line-soft)}
 .hint{font-size:12px;color:var(--ink-3);margin-top:var(--s2)}
-.hintq{color:var(--measure);text-decoration:none}
+.hintq{color:var(--link);text-decoration:none}
 .hintq:hover,.hintq:focus-visible{text-decoration:underline}
-.hint.warn{color:var(--caution)}
+.hint.warn{color:var(--caution-ink)}
 .steps{margin:0;padding-left:1.3em;font-size:13px;color:var(--ink-2)}
 .steps li{margin-bottom:5px}
 .steps b{color:var(--ink)}
@@ -269,113 +281,133 @@ select:focus-visible,input:focus-visible{outline-offset:0;border-color:var(--tar
 /* ---- boot / error ---- */
 .curtain{position:fixed;inset:0;display:grid;place-items:center;background:var(--page);z-index:20}
 .curtain .box{max-width:620px;padding:var(--s6);text-align:left}
-.curtain h1{font-size:18px;margin:0 0 var(--s3)}
+.curtain h1{font-family:var(--display);font-size:26px;font-weight:300;line-height:1.11;margin:0 0 var(--s4)}
 .curtain p{color:var(--ink-2);margin:0 0 var(--s3)}
-.curtain pre{background:var(--raised);border:1px solid var(--line);border-radius:var(--r);
+.curtain pre{background:var(--raised);border:1px solid var(--line-soft);border-radius:0;
   padding:var(--s3);font-family:var(--mono);font-size:11px;color:var(--ink-2);
   white-space:pre-wrap;max-height:240px;overflow:auto}
-.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--raised);
-  border:1px solid var(--line);border-radius:var(--r);
-  padding:9px 15px;font-size:13px;z-index:30;max-width:70vw}
+/* toast: a strip of the Carbon band */
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--carbon);
+  color:var(--on-carbon);border:0;border-radius:0;
+  padding:10px 16px;font-size:13px;z-index:30;max-width:70vw}
 /* Hover window for artwork (2026-09-17, user decision: not fixed in the lanes).
    Fixed-position so it can leave the scrolled lane; pointer-events off so it
-   never steals the hover that opened it. */
-.artpop{position:fixed;z-index:28;padding:4px;background:var(--raised);border:1px solid var(--line);
-  border-radius:var(--r);box-shadow:0 4px 16px rgba(0,0,0,.5);pointer-events:none}
-.artpop img{display:block;width:120px;height:120px;border-radius:var(--r);object-fit:cover;background:var(--sunken)}
+   never steals the hover that opened it. The image runs to the edge -- the
+   artwork is the card. */
+.artpop{position:fixed;z-index:28;padding:0;background:var(--raised);border:1px solid var(--rule);
+  border-radius:0;pointer-events:none}
+.artpop img{display:block;width:120px;height:120px;border-radius:0;object-fit:cover;background:var(--sunken)}
 /* Context menu (2026-09-17): the way to mark milestones and locks since the
    inspector's edit block left. Same surface as the popover. */
-.ctx{position:fixed;z-index:29;min-width:200px;padding:4px;background:var(--raised);border:1px solid var(--line);
-  border-radius:var(--r);box-shadow:0 4px 16px rgba(0,0,0,.5);display:flex;flex-direction:column}
-.ctx .h{font-size:11px;color:var(--ink-3);padding:4px 8px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:260px}
-.ctx button{background:none;border:0;color:var(--ink);font:inherit;font-size:12px;text-align:left;padding:6px 8px;border-radius:var(--r);cursor:pointer}
-.ctx button:hover,.ctx button:focus-visible{background:var(--surface);outline:none}
-.ctx button.on::before{content:"✓ ";color:var(--ok)}
+.ctx{position:fixed;z-index:29;min-width:200px;padding:0;background:var(--raised);border:1px solid var(--rule);
+  border-radius:0;display:flex;flex-direction:column}
+.ctx .h{font-size:11px;font-weight:400;color:var(--ink-3);padding:7px 10px;border-bottom:1px solid var(--line-soft);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:260px}
+.ctx button{background:none;border:0;color:var(--ink);font:inherit;font-size:12px;text-align:left;padding:7px 10px;border-radius:0;cursor:pointer}
+.ctx button:hover,.ctx button:focus-visible{background:var(--ink);color:var(--page);outline:none}
+.ctx button.on::before{content:"■ ";font-size:9px;vertical-align:1px}
 /* ---- main view: the panel a DJ keeps beside rekordbox ----
    Only what they came to read: the set's predicted length, whether it fits, the
    way into recommendations, the conditions they set, and the running order.
    Everything analytical lives in the detail view. Must hold at ~380px wide. */
 .main{flex:1 1 auto;min-height:0;overflow:auto;display:flex;flex-direction:column;
-  gap:var(--s4);padding:var(--s4);background:var(--surface)}
-.hero-block .hero{font-size:56px;color:var(--ink)}
-.hero-block .gap-sub{margin-top:var(--s2);display:flex;align-items:center;gap:var(--s2);flex-wrap:wrap}
-.pill{display:inline-block;padding:1px 9px;border-radius:var(--r);font-family:var(--mono);font-size:12px;
-  font-weight:600;background:var(--raised);color:var(--ink-2);border:1px solid var(--line)}
+  gap:var(--s5);padding:var(--s4);background:var(--page)}
+/* the predicted length is the one object on display: a Carbon band, full bleed,
+   like the dark vitrine TE puts a product in */
+.hero-block{margin:0 calc(-1 * var(--s4));padding:var(--s5) var(--s4) var(--s4);
+  background:var(--carbon);color:var(--on-carbon)}
+.hero-block .eyebrow{color:var(--on-carbon-2)}
+.hero-block .hero{font-size:64px;line-height:1;letter-spacing:-.01em;color:var(--on-carbon)}
+.hero-block .gap-sub{margin-top:var(--s3);display:flex;align-items:center;gap:var(--s2);flex-wrap:wrap;
+  color:var(--on-carbon-2)}
+.hero-block .cnt{font-size:12px;font-weight:400;color:var(--on-carbon-2)}
+.hero-block .bullet-track{background:var(--carbon-2);margin-top:var(--s4)}
+.hero-block .bullet-fill{background:var(--on-carbon-2)}
+.hero-block .bullet-tick{background:var(--on-carbon)}
+.hero-block .bullet-scale{color:var(--on-carbon-2)}
+.pill{display:inline-block;padding:1px 8px;border-radius:0;font-size:12px;
+  font-weight:400;background:transparent;color:var(--ink-2);border:1px solid var(--line)}
 .pill.over{color:#fff;background:var(--critical);border-color:var(--critical)}
-.pill.under{color:#06121f;background:var(--caution);border-color:var(--caution)}
-.pill.ok{color:#06121f;background:var(--ok);border-color:var(--ok)}
+.pill.under{color:#000;background:var(--caution);border-color:var(--caution)}
+.pill.ok{color:var(--ink);background:transparent;border-color:var(--ink)}
+.hero-block .pill.ok{color:var(--on-carbon);border-color:var(--on-carbon)}
+.hero-block .pill.bpm{color:var(--on-carbon);background:transparent;border-color:var(--ink-3)}
 .reco{display:grid;grid-template-columns:1fr auto;align-items:center;gap:var(--s3);text-align:left;
-  background:var(--raised);border:1px solid var(--line);
-  border-radius:var(--r);padding:var(--s3) var(--s4);color:var(--ink);cursor:pointer;font:inherit}
-.reco:hover{border-color:#4a4a4a}
-.reco.over h3{color:var(--critical-ink)} .reco.under h3{color:var(--caution)}
-.reco h3{margin:0;font-size:14px;font-weight:600;line-height:1.35}
+  background:var(--raised);border:1px solid var(--rule);
+  border-radius:0;padding:var(--s3) var(--s4);color:var(--ink);cursor:pointer;font:inherit}
+.reco:hover{background:var(--page)}
+.reco.over h3{color:var(--critical-ink)} .reco.under h3{color:var(--caution-ink)}
+.reco h3{margin:0;font-size:15px;font-weight:400;line-height:1.35}
 .reco p{margin:3px 0 0;font-size:12px;line-height:1.5;color:var(--ink-2);max-width:60ch}
-.reco .go{font-size:12px;color:var(--measure);white-space:nowrap}
-.cond-row{display:flex;flex-wrap:wrap;gap:var(--s2) var(--s3)}
+.reco .go{font-size:12px;color:var(--link);white-space:nowrap}
+.reco:hover .go{text-decoration:underline}
+.cond-row{display:flex;flex-wrap:wrap;gap:var(--s2) var(--s4)}
 .cond-row label{display:flex;align-items:center;gap:6px;color:var(--ink-3);font-size:12px}
 .cond-row select,.cond-row input[type=text]{background:var(--raised);color:var(--ink);
-  border:1px solid var(--line);border-radius:var(--r);padding:4px 7px}
-.cond-row input[type=text]{width:70px;font-family:var(--mono);text-align:center}
+  border:1px solid var(--line);border-radius:0;padding:4px 7px}
+.cond-row input[type=text]{width:70px;text-align:center}
 .cond-row #setBpm{width:96px}
 .cond-row select,.cond-row input[type=text]{height:28px}
-.list-note{margin:0 0 var(--s2);font-size:12px;line-height:1.5;color:var(--ink-2);max-width:60ch}
+input[type=checkbox]{accent-color:var(--ink);border-radius:0}
+.list-note{margin:0 0 var(--s3);font-size:12px;line-height:1.5;color:var(--ink-2);max-width:60ch}
 /* BPM change points: "from track N on, the set runs at X" */
-.bpmv{margin-top:var(--s2);border:1px solid var(--line-soft);border-radius:var(--r);padding:var(--s2) var(--s3);
-  display:flex;flex-direction:column;gap:6px;background:var(--sunken)}
+.bpmv{margin-top:var(--s3);border:1px solid var(--line-soft);border-radius:0;padding:var(--s2) var(--s3);
+  display:flex;flex-direction:column;gap:6px;background:var(--raised)}
 .bpmv .cp{display:grid;grid-template-columns:minmax(0,1fr) 64px auto;gap:var(--s2);align-items:center;font-size:12px}
 .bpmv .cp .t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink-2)}
-.bpmv .cp b{font-family:var(--mono);font-weight:600;text-align:right}
+.bpmv .cp b{font-weight:400;text-align:right}
 .bpmv .cp .btn{padding:2px 8px;font-size:11px}
 .bpmv .addcp{display:grid;grid-template-columns:minmax(0,1fr) auto 64px auto;gap:var(--s2);align-items:center}
-.bpmv .addcp #cpFrom{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
-#setBpm.auto{color:var(--ink-2)}
+.bpmv .addcp #cpFrom{font-variant-numeric:tabular-nums;white-space:nowrap}
+#setBpm.auto{color:var(--ink-3)}
 #setBpmAuto{margin-left:4px;font-size:11px}
 .minimap[hidden]{display:none}
 .bpmv select,.bpmv input[type=text]{background:var(--raised);color:var(--ink);border:1px solid var(--line);
-  border-radius:var(--r);padding:3px 6px;font-size:12px;min-width:0}
-.bpmv input[type=text]{font-family:var(--mono);text-align:center}
+  border-radius:0;padding:3px 6px;font-size:12px;min-width:0}
+.bpmv input[type=text]{text-align:center}
 .bpmv .none-yet{font-size:11px;color:var(--ink-3);margin:0}
-.field select{background:var(--raised);color:var(--ink);border:1px solid var(--line);border-radius:var(--r);
+.field select{background:var(--raised);color:var(--ink);border:1px solid var(--line);border-radius:0;
   padding:4px 6px;font-size:12px;height:28px}
+/* status marks are squares: filled = on, amber = needs attention, hollow = off */
 .conn{display:flex;align-items:center;gap:var(--s2);flex-wrap:wrap;margin:0 0 var(--s2);font-size:12px;line-height:1.5}
-.conn .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--ink-3);flex:none}
-.conn .dot.on{background:var(--ok)}
-.conn .dot.warn{background:var(--caution)}
+.conn .dot{display:inline-block;width:7px;height:7px;border-radius:0;background:transparent;
+  border:1px solid var(--ink-3);flex:none}
+.conn .dot.on{background:var(--ink);border-color:var(--ink)}
+.conn .dot.warn{background:var(--caution);border-color:var(--caution)}
 .conn .btn{padding:2px 8px;font-size:11px}
-.pill.bpm{color:var(--ink);background:var(--raised)}
-.list{display:flex;flex-direction:column;border:1px solid var(--line-soft);border-radius:var(--r);overflow:hidden}
-.row,.list-h{display:grid;grid-template-columns:28px minmax(0,1fr) 56px 56px;gap:var(--s2);
-  align-items:center;padding:6px var(--s3)}
-.row .art{width:28px;height:28px;border-radius:var(--r);background:var(--raised);overflow:hidden;display:block}
+.pill.bpm{color:var(--ink);background:transparent}
+.list{display:flex;flex-direction:column;border-top:1px solid var(--rule);border-radius:0;overflow:hidden}
+.row,.list-h{display:grid;grid-template-columns:28px minmax(0,1fr) 56px 56px;gap:var(--s3);
+  align-items:center;padding:6px 0}
+.row .art{width:28px;height:28px;border-radius:0;background:var(--sunken);overflow:hidden;display:block}
 .row .art img{width:100%;height:100%;object-fit:cover;display:block}
-.list-h{padding:4px var(--s3);font-size:11px;color:var(--ink-3);background:var(--sunken)}
+.list-h{padding:5px 0;font-size:11px;font-weight:400;color:var(--ink-3);background:transparent}
 .list-h span:nth-child(n+3){text-align:right}
-.row{border-top:1px solid var(--line-soft);font-size:12px;cursor:pointer;background:var(--surface)}
+.row{border-top:1px solid var(--line-soft);font-size:13px;cursor:pointer;background:transparent}
 .row:hover{background:var(--raised)}
-.row[data-sel="1"]{background:#303030}
-.row .n{font-family:var(--mono);font-size:11px;color:var(--ink-3)}
+.row[data-sel="1"]{background:var(--sunken)}
+.row .n{font-size:11px;font-weight:400;color:var(--ink-3)}
 .row .t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink)}
-.row .t small{color:var(--ink-3);font-family:var(--mono);margin-left:6px;font-size:11px}
-.row .t .why{display:block;font-size:11px;line-height:1.35;margin-top:1px;color:var(--ink-3);
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:var(--sans)}
-.row .d,.row .at{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right;color:var(--ink-2)}
+.row .t small{color:var(--ink-3);margin-left:6px;font-size:11px;font-weight:400}
+.row .t .why{display:block;font-size:11px;font-weight:400;line-height:1.35;margin-top:1px;color:var(--ink-3);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .d,.row .at{font-variant-numeric:tabular-nums;text-align:right;color:var(--ink-2)}
 .row .at{color:var(--ink-3)}
-/* removal rows: the clock after taking that track out turns green once it is
+/* removal rows: the clock after taking that track out turns black once it is
    inside the target, so the eye finds "from here down is enough" */
-.row.fits .at{color:var(--ok)}
-.row .d.minus{color:var(--caution)}
+.row.fits .at{color:var(--ink);font-weight:400}
+.row .d.minus{color:var(--caution-ink)}
 .fresh{display:flex;align-items:center;gap:var(--s3);flex-wrap:wrap;margin-bottom:var(--s3)}
-.fresh .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--ok);margin-right:6px}
+.fresh .dot{display:inline-block;width:7px;height:7px;border-radius:0;background:var(--ink);margin-right:6px}
 .fresh .dot.rb{background:var(--caution)}
-.views button{padding:5px 10px}
-.bar .btn{padding:5px 9px;white-space:nowrap}
+.views button{padding:5px 12px}
+.bar .btn{padding:5px 10px;white-space:nowrap}
 .bar .btn.glyph{font-size:15px;line-height:1;padding:3px 8px;min-width:30px}
 
 /* ---- detail view: the analysis, one scrolling column ---- */
 /* one scrolling column: the lanes keep their floor, the rest follows below */
 .detail{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;overflow:auto}
-.reality-row{padding:var(--s2) var(--s4);border-top:1px solid var(--line);background:var(--surface);flex:none}
+.reality-row{padding:var(--s3) var(--s4);border-top:1px solid var(--line-soft);background:var(--page);flex:none}
 .reality-row .reality{max-height:140px}
 
 [hidden]{display:none!important}
@@ -409,18 +441,18 @@ select:focus-visible,input:focus-visible{outline-offset:0;border-color:var(--tar
       <p class="eyebrow">条件</p>
       <div class="cond-row">
         <label title="尺を予測する rekordbox のプレイリスト。rekordbox 側で編集すると自動で追従します">
-          Playlist <select id="pl"></select></label>
+          playlist <select id="pl"></select></label>
         <label title="目標のセット時間（mm:ss）。予測時間との差を超過・不足で表示します">
-          Target Time <input type="text" id="target" value="60:00"></label>
+          target time <input type="text" id="target" value="60:00"></label>
         <label title="Mix: 1 曲をどこからどこまでかける前提で尺を予測するか（フレーズ解析から再生範囲を決めます）">
-          Mix <select id="preset"></select></label>
+          mix <select id="preset"></select></label>
         <label title="Curve: セット全体で目指す展開（盛り上がりの形）。詳細画面の ENERGY に点線で重なり、実測とのズレを出します">
-          Curve <select id="curve"></select><span class="meta" id="curveEdited"></span></label>
+          curve <select id="curve"></select><span class="meta" id="curveEdited"></span></label>
         <label id="cap32Lbl"
           title="1ドロップ/2ドロップ のとき、32 小節を超える長いドロップを 32 小節で切り上げます（コーラス 1 つが曲の大半を占める曲向け）">
           <input type="checkbox" id="cap32"> ドロップ上限 32 小節</label>
         <label title="セットをかける BPM。プレイリストの曲をすべてこの BPM でかける前提で尺を予測します（原曲と違う曲は伸び縮みします）。何も入れていないときはプレイリストの BPM 中央値です。空欄に戻すと中央値に戻ります">
-          Target BPM <input type="text" id="setBpm" placeholder="BPM"><span class="meta" id="setBpmAuto"></span></label>
+          target bpm <input type="text" id="setBpm" placeholder="BPM"><span class="meta" id="setBpmAuto"></span></label>
         <label id="bpmVarLbl" title="セットの途中で BPM を変えるとき。どの曲から何 BPM にするかを指定します">
           <input type="checkbox" id="bpmVar"> BPM 変化あり</label>
       </div>
@@ -483,7 +515,7 @@ select:focus-visible,input:focus-visible{outline-offset:0;border-color:var(--tar
   <div class="legend">
     <span class="lg"><i class="sw hatch"></i>フレーズ解析なし</span>
     <span class="lg"><i class="sw" style="background:var(--target)"></i>目標</span>
-    <span class="lg"><i class="sw" style="border:1px dashed var(--target);background:rgba(255,255,255,.10)"></i>提案後</span>
+    <span class="lg"><i class="sw" style="border:1px dashed var(--target);background:rgba(0,0,0,.06)"></i>提案後</span>
     <span class="lg" style="color:var(--ink-3)">曲をダブルクリックでフレーズ構成</span>
     <span class="lg" id="analysisMeta" style="margin-left:auto;font-family:var(--mono)"></span>
   </div>
@@ -745,7 +777,7 @@ function renderHero(){
           ? "プレイリストの BPM 中央値でかける前提の予測です。Target BPM に数字を入れると置き換わります"
           : "この BPM でかける前提の予測です"}">${chain.join(" → ")} BPM${ST.set_bpm_auto ? "（自動）" : ""}</span>`
     : `<span class="pill bpm" title="BPM が分からないため、各曲を原曲の BPM でかける前提の予測です">原曲 BPM</span>`;
-  $("heroSub").innerHTML = pill + bpm + `<span style="color:var(--ink-3)">${ST.tracks.length}曲</span>`;
+  $("heroSub").innerHTML = pill + bpm + `<span class="cnt">${ST.tracks.length}曲</span>`;
   renderBpmVar();
 
   const span = Math.max(tot, tgt) || 1;
@@ -1095,7 +1127,7 @@ function renderReality(){
         <span>−${fmt(t.gain_s)}</span></div>`).join("") +
     `<div class="wf-row wf-sum"><span class="wf-name" style="color:var(--ink-2)">削り代の合計</span>
        <span class="wf-bar" style="width:${scale(sum)}%"></span>
-       <span style="color:var(--caution)">−${fmt(sum)}</span></div>
+       <span style="color:var(--caution-ink)">−${fmt(sum)}</span></div>
      <div class="wf-row"><span class="wf-name" style="color:var(--ink-2)">超過</span>
        <span class="wf-bar gap" style="width:100%"></span>
        <span style="color:var(--critical-ink)">${fmt(over)}</span></div></div>`;
@@ -1167,8 +1199,8 @@ function renderEnergy(W, k){
   const flush = () => {
     if(run.length > 1){
       paths += `<path d="M${run[0][0]},${base}L` + run.map(p=>p[0]+","+p[1]).join("L") +
-               `L${run[run.length-1][0]},${base}Z" fill="var(--measure)" fill-opacity=".30"
-                 stroke="var(--measure)" stroke-width="1.5" stroke-linejoin="round"></path>`;
+               `L${run[run.length-1][0]},${base}Z" fill="var(--measure)" fill-opacity=".08"
+                 stroke="var(--measure)" stroke-width="1.25" stroke-linejoin="round"></path>`;
     }
     run = [];
   };
@@ -1191,7 +1223,7 @@ function renderEnergy(W, k){
   for(const d of (ST.deviation || [])){
     const col = d.kind === "over" ? "var(--critical)" : "var(--caution)";
     bands += `<rect x="${ex(d.start_s)}" y="${top}" width="${((d.end_s-d.start_s)*k).toFixed(1)}"
-               height="${base-top}" fill="${col}" fill-opacity=".13"></rect>`;
+               height="${base-top}" fill="${col}" fill-opacity="${d.kind === "over" ? ".07" : ".12"}"></rect>`;
   }
 
   /* target curve, over set length */
@@ -1199,10 +1231,11 @@ function renderEnergy(W, k){
   if(ST.curve && ST.curve.length){
     curve = `<path d="` + ST.curve.map(([pos,v],i)=>
       `${i?"L":"M"}${ex(pos*ST.total_s)},${ey(v)}`).join("") +
-      `" fill="none" stroke="var(--target)" stroke-width="2" stroke-dasharray="5 4"></path>`;
+      `" fill="none" stroke="var(--target)" stroke-width="1.25" stroke-dasharray="4 3"></path>`;
     knobs = ST.curve.map(([pos,v],i)=>
-      `<circle class="knob" data-ci="${i}" cx="${ex(pos*ST.total_s)}" cy="${ey(v)}" r="5.5"
-        fill="var(--target)" stroke="var(--surface)" stroke-width="2"></circle>`).join("");
+      `<rect class="knob" data-ci="${i}" x="${(ex(pos*ST.total_s) - KNOB/2).toFixed(1)}"
+        y="${(ey(v) - KNOB/2).toFixed(1)}" width="${KNOB}" height="${KNOB}"
+        fill="var(--target)" stroke="var(--surface)" stroke-width="2"></rect>`).join("");
   }
 
   $("energy").innerHTML =
@@ -1210,8 +1243,7 @@ function renderEnergy(W, k){
        aria-label="実測エネルギーとターゲットカーブ">
       <defs><pattern id="hatch" width="8" height="8" patternUnits="userSpaceOnUse"
         patternTransform="rotate(45)">
-        <rect width="8" height="8" fill="#1e1e1e"></rect>
-        <rect width="4" height="8" fill="#2b2b2b"></rect></pattern></defs>
+        <rect width="1" height="8" fill="var(--line)"></rect></pattern></defs>
       ${bands}${holes}
       <line x1="0" y1="${base}" x2="${W}" y2="${base}" stroke="var(--line)" stroke-width="1"></line>
       ${paths}${curve}${knobs}
@@ -1245,6 +1277,7 @@ function energyPoints(k){
 /* ---- target curve: drag a control point, double-click to add, right-click to remove ---- */
 let ENERGY_GEOM = {top: 8, base: 144, W: 1};
 let knobDrag = null;
+const KNOB = 10;   /* side of a square curve knob, px */
 
 function curveAt(clientX, clientY){
   const svg = $("energy").querySelector("svg");
@@ -1266,8 +1299,8 @@ window.addEventListener("pointermove", e=>{
   const c = curveAt(e.clientX, e.clientY); if(!c) return;
   const {top, base, W} = ENERGY_GEOM;
   knobDrag.at = c;
-  knobDrag.node.setAttribute("cx", (c.pos * W).toFixed(1));
-  knobDrag.node.setAttribute("cy", (base - c.energy * (base - top)).toFixed(1));
+  knobDrag.node.setAttribute("x", (c.pos * W - KNOB/2).toFixed(1));
+  knobDrag.node.setAttribute("y", (base - c.energy * (base - top) - KNOB/2).toFixed(1));
 });
 window.addEventListener("pointerup", async ()=>{
   if(!knobDrag) return;
@@ -1312,7 +1345,7 @@ function renderMinimap(){
   for(const t of ST.tracks){
     lane += `<div style="position:absolute;top:0;height:14px;left:${(t.start_s*k).toFixed(1)}px;
               width:${Math.max((t.end_s-t.start_s)*k,.5).toFixed(1)}px;
-              background:${t.phrases.length ? (t.i % 2 ? "#3e3e3e" : "#303030") : "#1e1e1e"}"></div>`;
+              background:${t.phrases.length ? (t.i % 2 ? "var(--trk-b)" : "var(--trk-a)") : "var(--line-soft)"}"></div>`;
   }
   const H = 26, top = 14;
   let d = `M0,${top+H}`;
@@ -1320,7 +1353,7 @@ function renderMinimap(){
   d += `L${w},${top+H}Z`;
   mm.innerHTML = lane +
     `<svg width="${w}" height="${top+H}" style="position:absolute;left:0;top:0">
-       <path d="${d}" fill="var(--measure)" fill-opacity=".3" stroke="var(--measure)"
+       <path d="${d}" fill="var(--measure)" fill-opacity=".08" stroke="var(--measure)"
          stroke-width="1"></path></svg>` +
     (ST.target_s ? `<div style="position:absolute;top:0;bottom:0;width:2px;background:var(--target);
        left:${(ST.target_s*k).toFixed(1)}px"></div>` : "") + h;
