@@ -47,10 +47,11 @@
   に統一（Mac では `~/.config/SetAgent/cache`）。
 
 ### 最新の状態
-- GitHub `utsumi123456/my-project` `main` = 2026-09-17 の「TRACKS labels at both densities; artwork in a hover popover」コミット
+- GitHub `utsumi123456/my-project` `main` = 2026-10-05 の `ea36648`「set-agent remote: read the request body before refusing it」
   （作業ツリー clean、push 済み）。
-- 配布 exe: `C:\Users\7166700\source\my-project\set-agent\dist\SetAgent.exe`（2026-09-17 ビルド、同コミットと同一ソース）。
-- テスト 199 件 OK。**`python -m tools.eval_agent acid` 6/6 PASS（平均 11.5 秒、最大 23.9 秒）、`15min_mix` 5/5 PASS、
+- 配布 exe: `C:\Users\7166700\source\my-project\set-agent\dist\SetAgent.exe`（2026-10-05 23:03 ビルド、28.6 MB、`ea36648` と同一ソース。
+  TE restyle・展開グラフ修正・iPhone で表示を含む）。
+- テスト 216 件 OK。**`python -m tools.eval_agent acid` 6/6 PASS（平均 11.5 秒、最大 23.9 秒）、`15min_mix` 5/5 PASS、
   `15min_mix build fill` 2/2 PASS（build 18.9 秒、fill 25.6 秒）。**
   `probe_views` acid 460×940、`probe_agent` acid（ルールベース経路。probe 内で `SETAGENT_LLM_BACKEND=api` に固定）。
 - gh CLI はログイン済み（`utsumi123456`）。**この Claude のシェルでは PATH に無い**ので
@@ -762,6 +763,6 @@ PowerShell の `Add-Type` は 60秒を超えることがあるので、同じこ
   プライベート IP 以外は 403。iPhone から呼べるのは `remote.ALLOWED` のみ（API キー・Claude ログイン・rekordbox 再起動・
   XML 書き出しは PC 専用）。Windows では SO_REUSEADDR だと同じポートを別プロセスが二重 bind できてしまうため
   `SO_EXCLUSIVEADDRUSE` で排他 bind（実際にこれで古いプロセスへ誤配送した）。
-- QR は `segno`（純 Python）を requirements と build.py の hidden-import に追加。**exe は未再ビルド**。
+- QR は `segno`（純 Python）を requirements と build.py の hidden-import に追加。exe は 2026-10-05 23:03 に再ビルド済み（segno / remote の同梱を確認）。
 - 未確認: 実 iPhone での接続（初回は Windows ファイアウォールの許可が要る。社内 Wi-Fi は端末間通信が遮断されている
   可能性あり）。iOS では長押しで右クリックメニュー（マイルストーン）が出ない、ホバーのアートワークは出ない。
