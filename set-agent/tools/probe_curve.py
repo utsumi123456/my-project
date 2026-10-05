@@ -47,6 +47,8 @@ def run(window):
                 break
         time.sleep(1)
 
+        js("setView('detail')")            # the lanes live in the detail view now
+        time.sleep(0.5)
         print("no curve yet:", json.dumps(js(READ), ensure_ascii=False))
 
         js("const s=document.getElementById('curve'); s.value='peak_late';"
@@ -60,7 +62,9 @@ def run(window):
         time.sleep(3.5)
         moved = js(READ)
         print("\nafter dragging knob #1 up:", json.dumps(moved, ensure_ascii=False))
-        up = (base["curve"][1][1] < moved["curve"][1][1]) if len(base["curve"]) > 1 else False
+        # a drag must move the point, never merge it into a neighbour
+        up = (len(moved["curve"]) == len(base["curve"])
+              and base["curve"][1][1] < moved["curve"][1][1])
         print("energy of that point went up:", up, " label:", moved["label"])
 
         js("""(() => {
