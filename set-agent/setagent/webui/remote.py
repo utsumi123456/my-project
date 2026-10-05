@@ -25,6 +25,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 PORTS = range(8760, 8780)
+MAX_BODY = 1 << 20      # the largest call (ask / artwork ids) is a few KB
 
 # What a phone may call. Everything else -- the API key, the Claude login
 # console, restarting rekordbox, the native save dialog -- acts on the PC itself
@@ -295,12 +296,23 @@ class RemoteServer:
                 if not self.path.startswith("/api/"):
                     self._send(404, b"not found", "text/plain")
                     return
+                # read the body before any refusal: closing a socket with unread
+                # data makes Windows reset it, and the phone then sees a network
+                # error instead of the 403 that tells it to rescan the QR code
+                try:
+                    n = int(self.headers.get("Content-Length") or 0)
+                except ValueError:
+                    n = -1
+                if not 0 <= n <= MAX_BODY:
+                    self.close_connection = True
+                    self._json(400, {"error": "bad request"})
+                    return
+                body = self.rfile.read(n) if n else b""
                 if not server._ok_key(self.headers.get("X-SetAgent-Key")):
                     self._json(403, {"error": "forbidden"})
                     return
                 try:
-                    n = int(self.headers.get("Content-Length") or 0)
-                    args = json.loads(self.rfile.read(n) or b"[]") if n else []
+                    args = json.loads(body or b"[]")
                 except (ValueError, json.JSONDecodeError):
                     self._json(400, {"error": "bad request"})
                     return
