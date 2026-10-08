@@ -88,7 +88,7 @@ class ImproveTests(unittest.TestCase):
         self.assertEqual(rough_count(["a", "b", "e"], info), 2)
 
     def test_empty(self):
-        self.assertEqual(improve(make([]), "light").note, "曲がありません")
+        self.assertEqual(improve(make([]), "light").note, "empty playlist")
 
 
 if __name__ == "__main__":

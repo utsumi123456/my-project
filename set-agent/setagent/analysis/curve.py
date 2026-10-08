@@ -116,10 +116,10 @@ TEMPLATES: dict[str, list[Point]] = {
 }
 
 TEMPLATE_LABELS = {
-    "build":     "build (右肩上がり)",
-    "peak_mid":  "peak_mid (中盤ピーク)",
-    "peak_late": "peak_late (後半ピーク)",
-    "wave":      "wave (山谷を繰り返す)",
+    "build":     "build",
+    "peak_mid":  "peak mid",
+    "peak_late": "peak late",
+    "wave":      "wave",
 }
 
 

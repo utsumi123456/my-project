@@ -23,10 +23,10 @@ from setagent.rekordbox.library import PhraseStatus
 # Mix presets (analysis.phrases.PRESET_CONFIG) as the DJ reads them. The keys
 # stay English in code and settings; only the panel shows these.
 PRESET_LABELS = {
-    "full": "フル尺",
-    "one_drop": "1ドロップ",
-    "two_drop": "2ドロップ",
-    "short": "イントロ/アウトロ短縮",
+    "full": "full",
+    "one_drop": "one drop",
+    "two_drop": "two drops",
+    "short": "short intro/outro",
 }
 PRESET_HELP = {
     "full": "各曲を頭から最後まで再生する前提で尺を予測します。",

@@ -176,5 +176,6 @@ class PresetLabels(unittest.TestCase):
         self.assertEqual(set(PRESET_LABELS), engine)
         self.assertEqual(set(PRESET_HELP), engine)
         for k, v in PRESET_LABELS.items():
-            self.assertNotEqual(v, k, f"{k} still shows its internal name")
+            # labels are English words (2026-10-09), but never the snake_case key
+            self.assertNotIn("_", v, f"{k} still shows its internal name")
             self.assertTrue(PRESET_HELP[k].endswith("。"), f"{k}: help should be a sentence")

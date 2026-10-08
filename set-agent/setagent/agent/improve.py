@@ -31,7 +31,7 @@ from setagent.domain.draft import SetDraft, TrackEntry
 from setagent.rekordbox.library import PhraseStatus
 
 LEVELS = ("light", "standard", "bold")
-LEVEL_LABEL = {"light": "控えめ", "standard": "標準", "bold": "大胆"}
+LEVEL_LABEL = {"light": "light", "standard": "standard", "bold": "bold"}
 LEVEL_HELP = {"light": "曲はそのまま。つなぎだけ整える",
               "standard": "目標の尺に合わせて足し引きする",
               "bold": "展開に合わせて組み直す"}
@@ -237,7 +237,7 @@ def improve(tools, level: str, preset: str = "full") -> Improved:
     out = Improved(level, base.name, list(ids0))
     out.before = _metrics(base, lib, anlz, curve, info)
     if not ids0:
-        out.note = "曲がありません"
+        out.note = "empty playlist"
         return out
 
     if level == "bold":
@@ -256,7 +256,7 @@ def improve(tools, level: str, preset: str = "full") -> Improved:
     out.after = _metrics(d_after, lib, anlz, curve, info)
     out.changes = _diff(ids0, ids, tools, info)
     if out.unchanged:
-        out.note = "直すところは見つかりませんでした"
+        out.note = "nothing to fix"
     return out
 
 
@@ -302,14 +302,14 @@ def _diff(old: list[str], new: list[str], tools, info: dict) -> list[Change]:
             if prev is not None:
                 kd = key_distance(info[prev][1], info[tid][1])
                 if kd is not None and kd <= 1:
-                    why.append("キーが繋がる")
+                    why.append("key match")
                 bp, bt = info[prev][0], info[tid][0]
                 if bp and bt and abs(bp - bt) / bp <= 0.03:
-                    why.append("BPM が近い")
+                    why.append("bpm close")
                 times = tools.followers(prev).get(tid, 0) if hasattr(tools, "followers") else 0
                 if times:
-                    why.append(f"前の曲の後に {times} 回かけている")
-            out.append(Change("add", tid, title(tid), f"{i + 1} 曲目 · " + "・".join(why) if why else f"{i + 1} 曲目"))
+                    why.append(f"played after prev ×{times}")
+            out.append(Change("add", tid, title(tid), f"#{i + 1} · " + " · ".join(why) if why else f"#{i + 1}"))
     for tid in old:
         if tid not in sn:
             out.append(Change("remove", tid, title(tid), ""))
@@ -322,7 +322,7 @@ def _diff(old: list[str], new: list[str], tools, info: dict) -> list[Change]:
         stay = _lis([pos_old[t] for t in kept_new])
         for i, t in enumerate(kept_new):
             if i not in stay:
-                out.append(Change("move", t, title(t), f"{old.index(t) + 1} → {new.index(t) + 1} 曲目"))
+                out.append(Change("move", t, title(t), f"#{old.index(t) + 1} → #{new.index(t) + 1}"))
     return out
 
 
