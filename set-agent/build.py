@@ -31,7 +31,7 @@ def build_exe() -> None:
     ui = ROOT / "setagent" / "webui" / "index.html"
     if not ui.exists():
         raise SystemExit(f"{ui} がありません。UI を同梱できません")
-    cmd = [sys.executable, "-m", "PyInstaller", "--onefile", "--windowed", "--clean",
+    cmd = [sys.executable, "-m", "PyInstaller", "--onefile", "--windowed", "--clean", "--noconfirm",
            "--name", "SetAgent", "--paths", ".",
            "--distpath", str(WORK), "--workpath", str(ROOT / "build" / "pyinstaller"),
            "--add-data", f"{ui}{os.pathsep}setagent/webui",

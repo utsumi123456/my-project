@@ -7,19 +7,15 @@ DJ what a playlist adds up to: **predicted set length** against a target, energy
 development, milestones and section budgets, and an advisory agent that proposes range
 trims and removal candidates. It follows edits made in rekordbox automatically.
 
-Read-only by default. The one write (2026-10-08) is **「rekordbox へ書き込む」**: on the
-DJ's button it puts the set's track order into rekordbox as a playlist inside a root
-folder named **Set Agent** — never anything else (tracks, cues, analysis and every
-other playlist stay untouched), only while rekordbox is closed (or "write when it
-quits" / "quit → write → relaunch"), always after a backup and followed by a read-back
-that restores the backup on any mismatch. The agent can only propose that write.
-
-The panel **docks to rekordbox's window** (beside it, inside its right edge, or
-side by side with rekordbox resized), stays above rekordbox only while rekordbox is
-the active app, and can collapse to a strip showing the predicted length. The agent
-also reads the DJ's **history** (sessions, what was played after what) — the
-rekordbox-mcp tool surface, reimplemented read-only. Design:
-`docs/rekordbox_integration_2026-10-08.md`.
+It follows the playlist selected in rekordbox (read through the OS accessibility
+API, `setagent/rekordbox/selection.py`) and never edits it. On request it builds an
+**improved version** at an intervention level the DJ picks (light / standard / bold,
+`setagent/agent/improve.py`) and writes it into rekordbox's **Set Agent** folder as a
+new playlist -- only while rekordbox is closed, after a backup, verified by read-back.
+The panel docks to rekordbox's window. The agent chat (model picker; Opus 5.5 by
+default) is the deeper layer: taste analysis from history/imports, concept-matched
+playlists, tag edits (proposed, written only on approval). Design:
+`docs/redesign_2026-10-09.md`, `docs/rekordbox_integration_2026-10-08.md`.
 
 ## Run
 

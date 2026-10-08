@@ -1,9 +1,9 @@
 """The agent's tool surface (spec E-6).
 
-Every tool returns plain JSON-able data. All are read-only except two that only
-*propose*: `set.propose_changes` builds a Change Set, `rekordbox.propose_publish`
-offers to write the set into rekordbox. Both hand the decision to the DJ and
-apply nothing. An LLM that can only call these tools cannot make up a number,
+Every tool returns plain JSON-able data. All are read-only except those that
+only *propose*: `set.propose_changes` (a Change Set), `set.propose_improvement`
+(an improved version at an intervention level) and `rekordbox.propose_metadata`
+(tag edits). Each hands the decision to the DJ and applies nothing. An LLM that can only call these tools cannot make up a number,
 cannot edit the set behind the DJ's back, and cannot write to rekordbox.
 
 The library / history tools (lib.*, history.*, rekordbox.get_playlists) follow
@@ -39,7 +39,8 @@ class AgentTools:
     # write-back (A): the planner previews, the callback shows a proposal card.
     # Neither writes; the DJ's button does (webui.api.publish).
     publish_planner: Callable[[str], Any] | None = None
-    on_publish_proposal: Callable[[dict], None] | None = None
+    improver: Callable[[str], Any] | None = None            # level -> agent.improve.Improved (shown to the DJ)
+    on_metadata_proposal: Callable[[dict], None] | None = None
     _history: Any = field(default=None, init=False, repr=False)
     _history_db: Any = field(default=None, init=False, repr=False)
 
@@ -325,20 +326,47 @@ class AgentTools:
         return {"available": True, "summary": plan.describe(), **plan.to_json(),
                 "note": "曲順だけが rekordbox に入ります。再生範囲・テンポ・マイルストーンは Set Agent の中だけです"}
 
-    def propose_publish(self, reason: str = "", name: str = "") -> dict:
-        """rekordbox.propose_publish — offer to write the set; the DJ decides."""
-        prev = self.publish_preview(name)
-        if not prev.get("available"):
-            return {"accepted": False, "reason": prev.get("note", "書き込みは使えません")}
-        if not prev.get("track_ids"):
-            return {"accepted": False, "reason": "書き込める曲がありません"}
-        card = {"name": prev["name"], "summary": prev["summary"], "reason": reason,
-                "tracks": len(prev["track_ids"]), "replaces": prev["replaces"],
-                "skipped": prev["skipped"]}
-        if self.on_publish_proposal:
-            self.on_publish_proposal(card)
-        return {"accepted": True, "summary": prev["summary"],
-                "note": "ユーザーに書き込みの確認を出しました。書き込むかはユーザーが決めます"}
+    def propose_improvement(self, level: str = "light", reason: str = "") -> dict:
+        """set.propose_improvement — an improved version for the DJ to look at."""
+        from setagent.agent.improve import LEVELS
+        if self.improver is None:
+            return {"accepted": False, "reason": "この画面では改善版を作れません"}
+        if level not in LEVELS:
+            return {"accepted": False, "reason": f"level は {', '.join(LEVELS)} のどれかです"}
+        imp = self.improver(level)
+        j = imp.to_json()
+        return {"accepted": True, "level": j["label"], "counts": j["counts"],
+                "before": j["before"], "after": j["after"],
+                "changes": j["changes"][:12], "note": j["note"] or
+                "ユーザーに改善版を示しました。rekordbox に書き出すかはユーザーが決めます"}
+
+    def taste_profile(self) -> dict:
+        """lib.taste_profile — what this DJ plays, collects and rates."""
+        from setagent.rekordbox.insights import taste_profile
+        con = self._con()
+        if con is None:
+            return {"error": "ライブラリを読めません"}
+        return taste_profile(con, self.history())
+
+    def playlist_profiles(self, limit: int = 80) -> list[dict]:
+        """rekordbox.playlist_profiles — one line per playlist, for matching a concept."""
+        from setagent.rekordbox.insights import playlist_profiles
+        con = self._con()
+        return playlist_profiles(con, int(limit)) if con is not None else []
+
+    def propose_metadata(self, edits: list[dict], reason: str = "", name: str = "") -> dict:
+        """rekordbox.propose_metadata — tag edits shown to the DJ; written only on approval."""
+        from setagent.rekordbox.writeback import clean_edits
+        cleaned = clean_edits(edits)
+        if not cleaned:
+            return {"accepted": False, "reason": "書き込める内容がありません（comment / rating 0-5 / color）"}
+        for e in cleaned:
+            e["title"] = self.title_of(e["track_id"])
+        card = {"name": name or f"タグ（{len(cleaned)} 曲）", "reason": reason, "edits": cleaned}
+        if self.on_metadata_proposal:
+            self.on_metadata_proposal(card)
+        return {"accepted": True, "tracks": len(cleaned),
+                "note": "ユーザーに確認を出しました。書き込むかはユーザーが決めます"}
 
     def recommend_candidates(self, duration: str, target_energy: float | None = None,
                              after_index: int | None = None, playlist: str = "",
@@ -441,7 +469,10 @@ TOOL_DISPATCH: dict[str, Callable] = {
     "history.get_session_tracks": AgentTools.get_session_tracks,
     "rekordbox.get_playlists": AgentTools.get_playlists,
     "rekordbox.publish_preview": AgentTools.publish_preview,
-    "rekordbox.propose_publish": AgentTools.propose_publish,
+    "rekordbox.playlist_profiles": AgentTools.playlist_profiles,
+    "rekordbox.propose_metadata": AgentTools.propose_metadata,
+    "lib.taste_profile": AgentTools.taste_profile,
+    "set.propose_improvement": AgentTools.propose_improvement,
     "recommend.candidates": AgentTools.recommend_candidates,
     "analysis.plan_fit_to_target": AgentTools.plan_fit_to_target,
     "analysis.removal_candidates": AgentTools.removal_candidates,
@@ -506,16 +537,34 @@ TOOL_SCHEMA: list[dict] = [
     {"name": "rekordbox.get_playlists", "description": "rekordbox のプレイリスト一覧（フォルダのパス・曲数・種類）",
      "input_schema": {"type": "object", "properties": {}}},
     {"name": "rekordbox.publish_preview",
-     "description": ("今のセットを rekordbox の「Set Agent」フォルダにプレイリストとして書き込むと何が起きるか"
-                     "（新規か上書きか・入らない曲）。書き込みはしない"),
+     "description": "今の改善版を rekordbox の「Set Agent」フォルダに書き出すと何が起きるか（新規か上書きか・入らない曲）。書き込みはしない",
+     "input_schema": {"type": "object", "properties": {"name": {"type": "string"}}}},
+    {"name": "set.propose_improvement",
+     "description": ("DJ のプレイリストの改善版を作って見せる。level: light=曲はそのまま、つなぎの荒い所だけ近くの曲と入れ替える / "
+                     "standard=さらに目標尺に合わせて足し引き / bold=展開とつなぎに合わせて組み直す。固定とマイルストーンの曲は動かさない。"
+                     "「改善して」「整えて」「良くして」の依頼で使う。指定がなければ light（控えめ）。書き出すかは DJ が決める"),
      "input_schema": {"type": "object", "properties": {
-         "name": {"type": "string", "description": "プレイリスト名（省略時は既定）"}}}},
-    {"name": "rekordbox.propose_publish",
-     "description": ("「rekordbox に入れて」「書き出して」「プレイリストにして保存」の依頼で使う。書き込みの確認カードを"
-                     "ユーザーに出すだけで、書き込むかはユーザーが決める。rekordbox が起動中なら、終了後の予約か"
-                     "終了→書き込み→再起動をユーザーが選ぶ"),
+         "level": {"type": "string", "enum": ["light", "standard", "bold"]},
+         "reason": {"type": "string"}}}},
+    {"name": "lib.taste_profile",
+     "description": ("DJ の好み: 演奏履歴でよくかけるアーティスト・ジャンル・BPM 帯・キー、よくかける曲、最近のインポート（月別）、"
+                     "高評価のジャンル。「私の好みは？」「最近何を集めてる？」の分析に使う"),
+     "input_schema": {"type": "object", "properties": {}}},
+    {"name": "rekordbox.playlist_profiles",
+     "description": "全プレイリストの要約（パス・曲数・尺・BPM・ジャンル・キー・平均レーティング・再生回数）。コンセプトに合うプレイリストを選ぶときに使う",
+     "input_schema": {"type": "object", "properties": {"limit": {"type": "integer"}}}},
+    {"name": "rekordbox.propose_metadata",
+     "description": ("曲のタグ（コメント・レーティング 0-5・カラー）の書き込みを DJ に提案する。書き込むのは DJ が承認したときだけ。"
+                     "コメントは rekordbox で検索できるので、ムードやコンセプトの目印に向く。comment_mode は append（既存に追記）か replace"),
      "input_schema": {"type": "object", "properties": {
-         "reason": {"type": "string"}, "name": {"type": "string"}}}},
+         "reason": {"type": "string"}, "name": {"type": "string"},
+         "edits": {"type": "array", "items": {"type": "object", "properties": {
+             "track_id": {"type": "string"}, "comment": {"type": "string"},
+             "comment_mode": {"type": "string", "enum": ["append", "replace"]},
+             "rating": {"type": "integer"},
+             "color": {"type": "string", "enum": ["pink", "red", "orange", "yellow", "green", "aqua", "blue", "purple", "none"]}},
+             "required": ["track_id"]}}},
+         "required": ["edits"]}},
     {"name": "recommend.candidates", "description": "区間に合う実在曲の候補。曲名を作らないこと",
      "input_schema": {"type": "object", "properties": {
          "duration": {"type": "string", "description": "mm:ss"},

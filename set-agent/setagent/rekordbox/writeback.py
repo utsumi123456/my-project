@@ -279,6 +279,56 @@ def _folder_row(con) -> str | None:
     return r[0] if r else None
 
 
+# ------------------------------------------------------------------ metadata
+
+# rekordbox's eight track colours (djmdColor.ID)
+COLORS = {"pink": "1", "red": "2", "orange": "3", "yellow": "4", "green": "5",
+          "aqua": "6", "blue": "7", "purple": "8", "none": ""}
+COMMENT_MAX = 255
+
+
+@dataclass
+class MetadataPlan:
+    """Tag edits the DJ approved: comment, rating (0-5) and/or colour per track.
+    Same rules as a playlist write: rekordbox closed, backup, read-back."""
+    name: str
+    edits: list[dict]                          # {track_id, title?, comment?, rating?, color?}
+
+    @property
+    def track_ids(self) -> list[str]:
+        return [str(e["track_id"]) for e in self.edits]
+
+    def to_json(self) -> dict:
+        return {"name": self.name, "edits": self.edits}
+
+
+def clean_edits(edits: Iterable[dict]) -> list[dict]:
+    """Validate what the agent proposed; drop what rekordbox would not accept."""
+    out = []
+    for e in edits or []:
+        tid = str(e.get("track_id") or e.get("track_ref") or "").strip()
+        if not tid:
+            continue
+        x: dict = {"track_id": tid}
+        if "title" in e:
+            x["title"] = str(e["title"])
+        if e.get("comment") is not None:
+            x["comment"] = " ".join(str(e["comment"]).split())[:COMMENT_MAX]
+            x["comment_mode"] = "append" if e.get("comment_mode") == "append" else "replace"
+        if e.get("rating") is not None:
+            try:
+                x["rating"] = max(0, min(5, int(e["rating"])))
+            except (TypeError, ValueError):
+                pass
+        if e.get("color") is not None:
+            c = str(e["color"]).lower()
+            if c in COLORS:
+                x["color"] = c
+        if len(x) > 1 + ("title" in x):
+            out.append(x)
+    return out
+
+
 # ------------------------------------------------------------------ write
 
 @dataclass
@@ -345,6 +395,26 @@ def read_playlist(master_db: Path, playlist_id: str) -> list[str]:
             con.close()
 
 
+def read_metadata(master_db: Path, ids: list[str]) -> dict:
+    from tools.decrypt_masterdb import decrypt
+    master_db = Path(master_db)
+    wal = master_db.with_name(master_db.name + "-wal")
+    with tempfile.TemporaryDirectory(prefix="setagent-verify-") as d:
+        plain = Path(d) / "verify.db"
+        decrypt(master_db, plain, wal=wal if wal.exists() else None)
+        con = sqlite3.connect(f"file:{plain}?mode=ro", uri=True)
+        try:
+            out = {}
+            for tid in ids:
+                r = con.execute("select coalesce(Commnt,''), coalesce(Rating,0), coalesce(ColorID,'') "
+                                "from djmdContent where ID=?", (tid,)).fetchone()
+                if r:
+                    out[tid] = (r[0], int(r[1]), str(r[2]))
+            return out
+        finally:
+            con.close()
+
+
 class Writer:
     """Creates or rewrites one playlist inside the Set Agent folder.
 
@@ -367,7 +437,9 @@ class Writer:
             raise RekordboxRunning("rekordbox が起動しています。終了してから書き込みます")
         return not live
 
-    def publish(self, master_db: Path, plan: PublishPlan) -> PublishResult:
+    def publish(self, master_db: Path, plan) -> PublishResult:
+        if isinstance(plan, MetadataPlan):
+            return self.write_metadata(master_db, plan)
         t0 = time.monotonic()
         master_db = Path(master_db)
         res = PublishResult(False, plan.name, at=datetime.now().isoformat(timespec="seconds"))
@@ -426,6 +498,59 @@ class Writer:
                 db.add_to_playlist(target, tid)
             db.commit()
             return str(folder.ID), str(target.ID), replaced
+
+    def write_metadata(self, master_db: Path, plan: MetadataPlan) -> PublishResult:
+        t0 = time.monotonic()
+        master_db = Path(master_db)
+        res = PublishResult(False, plan.name, at=datetime.now().isoformat(timespec="seconds"))
+        edits = clean_edits(plan.edits)
+        if not edits:
+            res.error = "書き込む内容がありません"
+            return res
+        try:
+            waived = self.guard(master_db)
+            b = self.backups.take(master_db, f"タグの書き込み前: {plan.name}")
+            res.backup_id = b.id
+            want = self._write_meta(master_db, edits, waived)
+            got = read_metadata(master_db, list(want))
+            if got != want:
+                self.backups.restore_into(b, master_db)
+                res.restored = True
+                raise WriteError("書き込み後の確認で内容が一致しませんでした。バックアップに戻しました")
+            res.ok, res.tracks = True, len(want)
+        except WriteError as ex:
+            res.error = str(ex)
+        except Exception as ex:
+            res.error = f"書き込みに失敗しました: {type(ex).__name__}: {ex}"
+            if res.backup_id and not res.restored:
+                try:
+                    self.backups.restore_into(self.backups.get(res.backup_id), master_db)
+                    res.restored = True
+                    res.error += "。バックアップに戻しました"
+                except Exception as ex2:
+                    res.error += f"。バックアップへの復元にも失敗しました（{ex2}）"
+        res.elapsed_s = round(time.monotonic() - t0, 2)
+        return res
+
+    def _write_meta(self, master_db: Path, edits: list[dict], waived: bool) -> dict:
+        """Returns {track_id: (comment, rating, color_id)} as it should read back."""
+        want: dict = {}
+        with _rekordbox_db(master_db, allow_running=waived) as db:
+            for e in edits:
+                c = db.get_content(ID=e["track_id"])
+                if c is None:
+                    continue
+                if "comment" in e:
+                    old = c.Commnt or ""
+                    new = e["comment"] if e["comment_mode"] == "replace" or not old else f"{old} {e['comment']}"
+                    c.Commnt = new[:COMMENT_MAX]
+                if "rating" in e:
+                    c.Rating = e["rating"]
+                if "color" in e:
+                    c.ColorID = COLORS[e["color"]] or None
+                want[str(c.ID)] = (c.Commnt or "", int(c.Rating or 0), str(c.ColorID or ""))
+            db.commit()
+        return want
 
     def restore(self, master_db: Path, backup_id: str) -> dict:
         """Put a backup back. Takes a backup of the current state first, so a

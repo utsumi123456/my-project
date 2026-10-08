@@ -144,8 +144,6 @@ class Publisher:
         self.last = res
         job.state = "done"
         if res.ok:
-            verb = "上書きしました" if res.replaced else "作成しました"
-            self.notices.append(f"rekordbox の「Set Agent」フォルダに「{res.name}」（{res.tracks} 曲）を{verb}。"
-                                f"書き込み前のバックアップ: {res.backup_id}")
+            self.notices.append(f"「{res.name}」を書き出しました（{res.tracks} 曲）")
         else:
-            self.notices.append(f"rekordbox への書き込みはできませんでした: {res.error}")
+            self.notices.append(f"書き出せませんでした: {res.error}")

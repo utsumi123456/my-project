@@ -119,6 +119,29 @@ class WritebackTests(unittest.TestCase):
         self.assertIn(out["safety_backup"], [b.id for b in self.backups.list()])
         self.assertTrue(r1.ok)
 
+    def test_metadata_edits_are_written_and_read_back(self):
+        plan = wb.MetadataPlan("tags", [
+            {"track_id": "1", "comment": "opener", "comment_mode": "append"},
+            {"track_id": "2", "rating": 9, "color": "aqua"},
+            {"track_id": "3", "color": "beige"},                      # not a rekordbox colour: dropped
+        ])
+        r = self.writer.publish(self.master, plan)
+        self.assertTrue(r.ok, r.error)
+        self.assertEqual(r.tracks, 2)
+        self.assertTrue(r.backup_id)
+        con = plain(self.master, self.d)
+        got = dict((i, (c, rt, col)) for i, c, rt, col in con.execute(
+            "select ID, coalesce(Commnt,''), Rating, coalesce(ColorID,'') from djmdContent where ID in ('1','2','3')"))
+        self.assertEqual(got["1"][0], "opener")
+        self.assertEqual(got["2"][1:], (5, "6"))                       # rating clamped to 5, aqua = 6
+        self.assertEqual(got["3"][2], "")
+
+    def test_metadata_refused_while_rekordbox_runs(self):
+        w = wb.Writer(self.backups, running=lambda: True, live=[self.master])
+        r = w.publish(self.master, wb.MetadataPlan("t", [{"track_id": "1", "rating": 3}]))
+        self.assertFalse(r.ok)
+        self.assertEqual(r.backup_id, "")
+
     def test_clean_name(self):
         self.assertEqual(wb.clean_name("  a\tb\nc "), "a b c")
         self.assertEqual(wb.clean_name(""), "Set Agent")

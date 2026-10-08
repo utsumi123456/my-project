@@ -26,6 +26,12 @@ def _camelot_str(key: str) -> str:
     return f"{c[0]}{c[1]}" if c else ""
 
 
+def _tag(s: str | None) -> str:
+    """A genre/artist as shown: printable, trimmed; junk bytes from bad tags dropped."""
+    t = "".join(ch for ch in (s or "") if ch.isprintable()).strip()
+    return t if any(ch.isalnum() for ch in t) else ""
+
+
 def _date(s: str | None) -> str:
     return (s or "")[:10]
 
@@ -261,7 +267,7 @@ def library_stats(con: sqlite3.Connection, ids: list[str] | None = None, top: in
     bpms = [b / 100.0 for b, *_ in rows if b > 0]
     total = sum(ln for _, ln, *_ in rows)
     hist = Counter(int(b // 10 * 10) for b in bpms)
-    genres = Counter(g for _, _, g, *_ in rows if g)
+    genres = Counter(_tag(r[2]) for r in rows if _tag(r[2]))
     keys = Counter(_camelot_str(r[3]) or r[3] for r in rows if r[3])
     ratings = Counter(int(r[4]) for r in rows)
     from setagent.analysis.timing import fmt
@@ -301,3 +307,109 @@ def playlist_tree(con: sqlite3.Connection) -> list[dict]:
     out = [{"playlist_id": r[0], "name": r[1] or "", "path": path(r[0]),
             "kind": kinds.get(r[3], str(r[3])), "tracks": counts.get(r[0], 0)} for r in rows]
     return sorted(out, key=lambda x: x["path"].lower())
+
+
+# ------------------------------------------------------------------ taste
+
+def taste_profile(con: sqlite3.Connection, idx: "HistoryIndex | None" = None, top: int = 8) -> dict:
+    """What this DJ actually plays and collects: from the history (what made it
+    into sets), the collection's import dates (what is arriving lately) and the
+    ratings. Facts only; the agent turns them into words."""
+    played = con.execute(
+        """select c.ID, coalesce(a.Name,''), coalesce(g.Name,''), coalesce(c.BPM,0),
+                  coalesce(k.ScaleName,''), count(*) as n
+           from djmdSongHistory s
+           join djmdContent c on c.ID = s.ContentID
+           left join djmdArtist a on a.ID = c.ArtistID
+           left join djmdGenre g on g.ID = c.GenreID
+           left join djmdKey k on k.ID = c.KeyID
+           where s.rb_local_deleted = 0
+           group by c.ID""").fetchall()
+    artists, genres, keys = Counter(), Counter(), Counter()
+    bpms: list[float] = []
+    for _, artist, genre, bpm, key, n in played:
+        artist, genre = _tag(artist), _tag(genre)
+        if artist:
+            artists[artist] += n
+        if genre:
+            genres[genre] += n
+        if key:
+            keys[_camelot_str(key) or key] += n
+        if bpm:
+            bpms += [bpm / 100.0] * int(n)
+    bpms.sort()
+
+    def q(p):
+        return round(bpms[min(len(bpms) - 1, int(p * len(bpms)))], 1) if bpms else None
+
+    recent = con.execute(
+        """select substr(coalesce(c.StockDate,''),1,7) m, count(*), group_concat(coalesce(g.Name,''), '|')
+           from djmdContent c left join djmdGenre g on g.ID = c.GenreID
+           where c.rb_local_deleted = 0 and coalesce(c.StockDate,'') != ''
+           group by m order by m desc limit 6""").fetchall()
+    imports = []
+    for month, n, gs in recent:
+        g = Counter(_tag(x) for x in (gs or "").split("|") if _tag(x))
+        imports.append({"month": month, "tracks": n, "genres": [x for x, _ in g.most_common(3)]})
+    rated = con.execute(
+        """select coalesce(g.Name,''), count(*) from djmdContent c left join djmdGenre g on g.ID = c.GenreID
+           where c.rb_local_deleted = 0 and coalesce(c.Rating,0) >= 4 and coalesce(g.Name,'') != ''
+           group by 1 order by 2 desc limit ?""", (top,)).fetchall()
+    top_tracks = con.execute(
+        """select c.ID, coalesce(c.Title,''), coalesce(a.Name,''), coalesce(c.DJPlayCount,0)
+           from djmdContent c left join djmdArtist a on a.ID = c.ArtistID
+           where c.rb_local_deleted = 0 and coalesce(c.DJPlayCount,0) > 0
+           order by c.DJPlayCount desc limit ?""", (top,)).fetchall()
+    sessions = con.execute("select count(*) from djmdHistory where rb_local_deleted = 0 and coalesce(Attribute,0) = 0"
+                           ).fetchone()[0]
+    rated = [(_tag(g), n) for g, n in rated if _tag(g)]
+    return {
+        "sessions": sessions,
+        "played_tracks": len(played),
+        "bpm_played": {"p10": q(0.1), "median": q(0.5), "p90": q(0.9)},
+        "artists_played": [{"artist": a, "plays": n} for a, n in artists.most_common(top)],
+        "genres_played": [{"genre": g, "plays": n} for g, n in genres.most_common(top)],
+        "keys_played": [{"key": k, "plays": n} for k, n in keys.most_common(5)],
+        "most_played": [{"track_id": i, "title": t, "artist": a, "plays": n} for i, t, a, n in top_tracks],
+        "recent_imports": imports,
+        "high_rated_genres": [{"genre": g, "tracks": n} for g, n in rated],
+    }
+
+
+def playlist_profiles(con: sqlite3.Connection, limit: int = 80) -> list[dict]:
+    """One compact line per playlist, for "which of my playlists fits this concept?"."""
+    tree = {p["playlist_id"]: p for p in playlist_tree(con)}
+    rows = con.execute(
+        """select s.PlaylistID, c.BPM, coalesce(g.Name,''), coalesce(k.ScaleName,''), coalesce(c.Length,0),
+                  coalesce(c.Rating,0), coalesce(c.DJPlayCount,0)
+           from djmdSongPlaylist s join djmdContent c on c.ID = s.ContentID
+           left join djmdGenre g on g.ID = c.GenreID
+           left join djmdKey k on k.ID = c.KeyID
+           where s.rb_local_deleted = 0""").fetchall()
+    agg: dict[str, dict] = {}
+    for pid, bpm, genre, key, ln, rating, plays in rows:
+        a = agg.setdefault(pid, {"bpm": [], "g": Counter(), "k": Counter(), "len": 0, "r": [], "plays": 0})
+        if bpm:
+            a["bpm"].append(bpm / 100.0)
+        if _tag(genre):
+            a["g"][_tag(genre)] += 1
+        if key:
+            a["k"][_camelot_str(key) or key] += 1
+        a["len"] += ln
+        a["r"].append(rating)
+        a["plays"] += plays
+    from setagent.analysis.timing import fmt
+    out = []
+    for pid, a in agg.items():
+        p = tree.get(pid)
+        if not p or p["kind"] != "playlist":
+            continue
+        b = sorted(a["bpm"])
+        out.append({"playlist_id": pid, "path": p["path"], "tracks": p["tracks"], "length": fmt(a["len"]),
+                    "bpm": {"median": round(statistics.median(b), 1), "min": round(b[0], 1), "max": round(b[-1], 1)} if b else None,
+                    "genres": [g for g, _ in a["g"].most_common(3)],
+                    "keys": [k for k, _ in a["k"].most_common(3)],
+                    "avg_rating": round(sum(a["r"]) / len(a["r"]), 1) if a["r"] else 0,
+                    "plays": a["plays"]})
+    out.sort(key=lambda x: x["path"].lower())
+    return out[:limit]

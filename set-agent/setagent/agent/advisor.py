@@ -47,6 +47,8 @@ FIT_WORDS = ("収めて", "収める", "縮めて", "短く", "削って", "fit"
 FILL_WORDS = ("足したい", "埋めたい", "追加", "候補", "add", "fill", "suggest", "recommend")
 BUILD_WORDS = ("埋めて", "生成", "組んで", "組み立て", "作って", "build", "generate")
 PUBLISH_WORDS = ("rekordboxに", "rekordbox に", "書き込", "書き出", "保存して", "publish", "export")
+IMPROVE_WORDS = ("改善", "整えて", "良くして", "improve")
+TASTE_WORDS = ("好み", "傾向", "taste")
 HISTORY_WORDS = ("履歴", "前回", "前にかけ", "よくかけ", "再生回数", "history", "played")
 FULL_WORDS = ("フル", "full", "丸ごと")
 
@@ -78,7 +80,9 @@ class Advisor:
         def has(words):
             return any(w in t or w in low for w in words)
 
-        if has(PUBLISH_WORDS):
+        if has(TASTE_WORDS):
+            return self.taste()
+        if has(IMPROVE_WORDS) or has(PUBLISH_WORDS):
             return self.publish()
         if has(HISTORY_WORDS):
             return self.history_report(selected_index)
@@ -179,11 +183,25 @@ class Advisor:
             used_tools=["history.get_sessions"])
 
     def publish(self) -> Reply:
-        r = self.tools.propose_publish(reason="依頼により、今のセットを rekordbox に書き込む確認を出します")
+        """The set itself is never edited; the offer is an improved version
+        (light by default), which the DJ may write into rekordbox."""
+        r = self.tools.propose_improvement("light", reason="依頼により控えめな改善版を作りました")
         if not r.get("accepted"):
-            return Reply(f"rekordbox には書き込めません。{r.get('reason', '')}")
-        return Reply(f"{r['summary']}\n入るのは曲順だけで、再生範囲・テンポは Set Agent の中に残ります。"
-                     "下のカードから書き込んでください。", used_tools=["rekordbox.propose_publish"])
+            return Reply(f"改善版を作れません。{r.get('reason', '')}")
+        c = r["counts"]
+        return Reply(f"控えめな改善版を作りました（足す {c['add']} / 外す {c['remove']} / 動かす {c['move']}）。"
+                     "メイン画面で確認して、rekordbox に書き出せます。", used_tools=["set.propose_improvement"])
+
+    def taste(self) -> Reply:
+        t = self.tools.taste_profile()
+        if "error" in t:
+            return Reply(t["error"])
+        g = "、".join(x["genre"] for x in t["genres_played"][:3]) or "—"
+        a = "、".join(x["artist"] for x in t["artists_played"][:3]) or "—"
+        b = t["bpm_played"]
+        return Reply(f"・よくかけるジャンル: {g}\n・よくかけるアーティスト: {a}\n"
+                     f"・かける BPM: {b['p10']}〜{b['p90']}（中央 {b['median']}）\n・セッション {t['sessions']} 回",
+                     used_tools=["lib.taste_profile"])
 
     # ------------------------------------------------------------ proposals
     def _propose(self, reason: str, ops: list[dict], title: str = "") -> Reply:

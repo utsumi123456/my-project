@@ -41,7 +41,7 @@ class PublisherTests(unittest.TestCase):
         st = p.status()
         self.assertFalse(st["active"])
         self.assertTrue(st["last"]["ok"])
-        self.assertIn("作成しました", p.notices[-1])
+        self.assertIn("書き出しました", p.notices[-1])
 
     def test_when_closed_waits_for_rekordbox_to_quit(self):
         state = {"running": True}
@@ -87,7 +87,7 @@ class PublisherTests(unittest.TestCase):
         self.assertTrue(p.wait(5))
         self.assertEqual(self.launched, ["/rb"])
         self.assertFalse(p.status()["last"]["ok"])
-        self.assertIn("できませんでした", p.notices[-1])
+        self.assertIn("書き出せませんでした", p.notices[-1])
 
     def test_new_submission_replaces_a_queued_one(self):
         p, w = self.make(running=lambda: True)

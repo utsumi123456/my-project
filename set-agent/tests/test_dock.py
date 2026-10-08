@@ -144,14 +144,14 @@ class DockerTests(unittest.TestCase):
         d.tick()
         d.set_collapsed(True)
         d.tick()
-        self.assertEqual(self.os.panel, Rect(1700, 50, 64, 1000))   # hugging rekordbox's right edge
+        self.assertEqual(self.os.panel, Rect(1700, 50, 148, 1000))   # hugging rekordbox's right edge
 
     def test_collapse_inside_keeps_rekordboxs_right_edge(self):
         d = self.make(rb=Rect(0, 33, 2560, 1000))
         d.tick()
         d.set_collapsed(True)
         d.tick()
-        self.assertEqual(self.os.panel, Rect(2496, 33, 64, 1000))
+        self.assertEqual(self.os.panel, Rect(2412, 33, 148, 1000))
 
     def test_resizing_the_docked_panel_keeps_the_new_width(self):
         d = self.make()

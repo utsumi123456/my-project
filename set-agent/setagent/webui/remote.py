@@ -36,7 +36,7 @@ ALLOWED = frozenset({
     "rescan", "set_set_bpm", "set_bpm_change", "move_curve_point", "add_curve_point",
     "remove_curve_point", "export_preview", "llm_status", "agent_status", "set_level",
     "ask", "insert_candidate", "set_item_approved", "apply_pending", "reject_pending",
-    "artwork", "library_changed", "sync_rev",
+    "artwork", "library_changed", "sync_rev", "make_improved", "discard_improved",
 })
 PC_ONLY = "この操作は PC の Set Agent で行ってください"
 

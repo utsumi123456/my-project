@@ -370,7 +370,7 @@ class Docker:
         self.on_undock = on_undock
         self.tick_s = tick_s
         self.collapsed = False
-        self.collapsed_w = 64
+        self.collapsed_w = 148
         self.effective = "off"           # what the last placement actually did
         self.note = ""
         self._target: Rect | None = None     # what we last asked for

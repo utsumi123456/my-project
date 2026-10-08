@@ -35,6 +35,21 @@
   --sans:"Segoe UI Variable Text","Segoe UI","Yu Gothic UI","Hiragino Sans","Helvetica Neue",Arial,sans-serif;
   --display:"Segoe UI Variable Display","Segoe UI Light","Segoe UI","Yu Gothic UI","Helvetica Neue",Arial,sans-serif;
   --mono:var(--sans);
+  --ghost-fill:rgba(0,0,0,.06); --veil:rgba(0,0,0,.05);
+}
+/* Dark (2026-10-09). The original TE design stays the default; dark keeps the
+   same structure -- rules, one Carbon band, colour only for state -- with the
+   values turned over. */
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --page:#121216; --surface:#121216; --raised:#1b1b21; --sunken:#26252b;
+  --line:#4b4b53; --line-soft:#2b2b31; --rule:#d9d9dc;
+  --ink:#f2f2f2; --ink-2:#c9c9cc; --ink-3:#9c9ca3;
+  --carbon:#000000; --on-carbon:#f6f8f7; --on-carbon-2:#a7a7ad; --carbon-2:#26252b;
+  --trk-a:#2b2b31; --trk-b:#37373e;
+  --target:#f2f2f2; --measure:#f2f2f2; --ok:#f2f2f2; --link:#5cb0ef;
+  --critical-ink:#ff7a62; --caution-ink:#f5b52e;
+  --ghost-fill:rgba(255,255,255,.08); --veil:rgba(255,255,255,.06);
 }
 *{box-sizing:border-box}
 ::-webkit-scrollbar{width:8px;height:8px}
@@ -118,7 +133,7 @@ select:focus-visible,input:focus-visible{outline:1px solid var(--target);outline
 .minimap{position:relative;height:40px;flex:1;background:var(--raised);
   border:1px solid var(--line-soft);border-radius:0;overflow:hidden;cursor:pointer}
 .mm-view{position:absolute;top:-1px;bottom:-1px;border:1px solid var(--ink);
-  background:rgba(0,0,0,.05);border-radius:0;pointer-events:none}
+  background:var(--veil);border-radius:0;pointer-events:none}
 
 /* ---- lanes ---- */
 /* min-height:0 is what lets a flex child scroll instead of pushing the rest of
@@ -256,7 +271,7 @@ select:focus-visible,input:focus-visible{outline:1px solid var(--target);outline
 .plog{margin:0;font-size:11px;font-weight:400;color:var(--ink-3);flex:none}
 /* the proposal drawn over the set before anything is applied (S4-3) */
 .ghost{position:absolute;top:0;bottom:0;border:1px dashed var(--target);
-  background:rgba(0,0,0,.06);pointer-events:none;z-index:2}
+  background:var(--ghost-fill);pointer-events:none;z-index:2}
 
 /* ---- modal ---- */
 .modal{position:fixed;inset:0;background:rgba(15,14,18,.55);display:grid;place-items:center;
@@ -436,18 +451,54 @@ input[type=checkbox]{accent-color:var(--ink);border-radius:0}
 .mini{display:none}
 @media (max-width:299px){
   .app,.drawer,.curtain{display:none!important}
-  .mini{display:flex;flex-direction:column;align-items:center;gap:var(--s3);height:100vh;
-    padding:var(--s3) 0;background:var(--carbon);color:var(--on-carbon);border-left:1px solid var(--rule)}
-  .mini .btn{color:var(--on-carbon);border-color:var(--on-carbon-2);padding:3px 6px;min-width:0}
+  .mini{display:flex;flex-direction:column;gap:var(--s3);height:100vh;overflow:hidden;
+    padding:var(--s3) var(--s3) var(--s4);background:var(--carbon);color:var(--on-carbon);
+    border-left:1px solid var(--rule)}
+  .mini .btn{align-self:flex-start;color:var(--on-carbon);border-color:var(--on-carbon-2);padding:2px 8px;min-width:0}
   .mini .btn:hover{background:var(--on-carbon);color:var(--carbon)}
-  .mini .t{writing-mode:vertical-rl;font-family:var(--display);font-size:28px;font-weight:300;
-    letter-spacing:.02em;line-height:1}
-  .mini .d{writing-mode:vertical-rl;font-size:12px;font-weight:400;padding:6px 2px}
+  .mini .lbl{font-size:12px;color:var(--on-carbon-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mini .t{font-family:var(--display);font-size:30px;font-weight:300;line-height:1;letter-spacing:-.01em}
+  .mini .d{align-self:flex-start;font-size:12px;font-weight:400;padding:1px 6px}
   .mini .d.over{background:var(--critical);color:#fff}
   .mini .d.under{background:var(--caution);color:#000}
-  .mini .d.ok{color:var(--on-carbon-2)}
-  .mini .lbl{writing-mode:vertical-rl;font-size:11px;color:var(--on-carbon-2);margin-top:auto}
+  .mini .d.ok{border:1px solid var(--on-carbon-2);color:var(--on-carbon)}
+  .mini dl{margin:var(--s2) 0 0;display:grid;grid-template-columns:auto 1fr;gap:4px var(--s2);font-size:12px}
+  .mini dt{color:var(--on-carbon-2)} .mini dd{margin:0;text-align:right}
+  .mini .imp{margin-top:auto;border-top:1px solid var(--carbon-2);padding-top:var(--s2);font-size:12px;color:var(--on-carbon-2)}
+  .mini .imp b{display:block;font-family:var(--display);font-size:20px;font-weight:300;color:var(--on-carbon)}
 }
+/* ---- what rekordbox is showing, and the few numbers beside the length ---- */
+.pl-head{display:flex;align-items:center;gap:var(--s2);min-width:0}
+.pl-head .dot{flex:none;width:7px;height:7px;background:var(--ink)}
+.pl-head .dot.off{background:transparent;border:1px solid var(--ink-3)}
+.pl-head h1{margin:0;font-family:var(--display);font-size:19px;font-weight:300;line-height:1.2;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pl-head .path{font-size:12px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pl-head select{max-width:100%}
+.insight{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--s2);margin:0}
+.insight div{border:1px solid var(--line-soft);background:var(--raised);padding:var(--s2) var(--s3)}
+.insight dt{font-size:11px;color:var(--ink-3)} .insight dd{margin:2px 0 0;font-size:15px}
+.insight dd.warn{color:var(--caution-ink)}
+/* ---- improved version ---- */
+.imp-head{display:flex;align-items:center;gap:var(--s2);flex-wrap:wrap}
+.imp-head .seg button{padding:5px 12px}
+.imp-help{font-size:12px;color:var(--ink-3);margin:var(--s2) 0 0}
+.imp-res{border:1px solid var(--rule);background:var(--raised);padding:var(--s3) var(--s4);margin-top:var(--s3)}
+.imp-res .top{display:flex;align-items:baseline;gap:var(--s3);flex-wrap:wrap}
+.imp-res .t{font-family:var(--display);font-size:32px;font-weight:300;line-height:1}
+.imp-res .cnts{display:flex;gap:var(--s3);font-size:12px;color:var(--ink-2);margin-top:var(--s2)}
+.imp-res .cnts b{font-weight:400;color:var(--ink)}
+.chg{list-style:none;margin:var(--s3) 0 0;padding:0;max-height:240px;overflow:auto;border-top:1px solid var(--line-soft)}
+.chg li{display:grid;grid-template-columns:18px 1fr auto;gap:var(--s2);align-items:baseline;
+  font-size:12px;padding:4px 0;border-bottom:1px solid var(--line-soft)}
+.chg .k{font-weight:400;text-align:center}
+.chg .k.add{color:var(--ink)} .chg .k.remove{color:var(--critical-ink)} .chg .k.move{color:var(--ink-3)}
+.chg .n{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chg .x{color:var(--ink-3);white-space:nowrap}
+.imp-res .acts{display:flex;flex-wrap:wrap;gap:var(--s2);margin-top:var(--s3);align-items:center}
+.imp-res .acts .btn{white-space:nowrap}
+.imp-res .acts .meta{margin-left:auto;font-size:12px;color:var(--ink-3)}
+.dw-head select{max-width:130px}
 [hidden]{display:none!important}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 /* "iPhone で表示": the QR stays black on white whatever the panel theme, so cameras read it */
@@ -466,15 +517,9 @@ input[type=checkbox]{accent-color:var(--ink);border-radius:0}
         title="詳細画面: 曲ごとの尺と展開（エネルギー）の対応、区間の予算">詳細</button>
     </div>
     <span class="spacer"></span>
-    <button class="btn glyph" id="undo" aria-label="元に戻す"
-      title="元に戻す: Set Agent 内での試行を 1 つ戻します（rekordbox には影響しません）">↶</button>
-    <button class="btn glyph" id="redo" aria-label="やり直す" title="やり直す: 戻した試行をもう一度行います">↷</button>
-    <button class="btn glyph" id="collapseBtn" hidden aria-label="細く畳む"
-      title="細く畳む: rekordbox の横に予測時間だけを残します。もう一度押すと戻ります">⇥</button>
-    <button class="btn" id="agentBtn"
-      title="エージェント: 分析の数値をもとに質問に答え、提案（チェックして適用）を出します">エージェント</button>
-    <button class="btn" id="settings"
-      title="設定: rekordbox ライブラリの手動再読込、エージェントの LLM キー">設定</button>
+    <button class="btn glyph" id="collapseBtn" hidden aria-label="畳む" title="畳む">⇥</button>
+    <button class="btn" id="agentBtn" title="チャット">エージェント</button>
+    <button class="btn" id="settings" title="設定">設定</button>
   </div>
 
   <!-- ===== main view (Tier 1 only) ===== -->
@@ -482,23 +527,19 @@ input[type=checkbox]{accent-color:var(--ink);border-radius:0}
        to (predicted length) -> what to do about the gap (card + candidates) -->
   <section class="main" id="main">
     <div>
-      <p class="eyebrow">条件</p>
+      <div class="pl-head">
+        <span class="dot" id="followDot" title="rekordbox で選んでいるプレイリスト"></span>
+        <h1 id="plTitle">—</h1>
+        <select id="pl" hidden aria-label="プレイリスト"></select>
+      </div>
+      <p class="pl-head path" id="plPath"></p>
       <div class="cond-row">
-        <label title="尺を予測する rekordbox のプレイリスト。rekordbox 側で編集すると自動で追従します">
-          playlist <select id="pl"></select></label>
-        <label title="目標のセット時間（mm:ss）。予測時間との差を超過・不足で表示します">
-          target time <input type="text" id="target" value="60:00"></label>
-        <label title="Mix: 1 曲をどこからどこまでかける前提で尺を予測するか（フレーズ解析から再生範囲を決めます）">
-          mix <select id="preset"></select></label>
-        <label title="Curve: セット全体で目指す展開（盛り上がりの形）。詳細画面の ENERGY に点線で重なり、実測とのズレを出します">
-          curve <select id="curve"></select><span class="meta" id="curveEdited"></span></label>
-        <label id="cap32Lbl"
-          title="1ドロップ/2ドロップ のとき、32 小節を超える長いドロップを 32 小節で切り上げます（コーラス 1 つが曲の大半を占める曲向け）">
-          <input type="checkbox" id="cap32"> ドロップ上限 32 小節</label>
-        <label title="セットをかける BPM。プレイリストの曲をすべてこの BPM でかける前提で尺を予測します（原曲と違う曲は伸び縮みします）。何も入れていないときはプレイリストの BPM 中央値です。空欄に戻すと中央値に戻ります">
-          target bpm <input type="text" id="setBpm" placeholder="BPM"><span class="meta" id="setBpmAuto"></span></label>
-        <label id="bpmVarLbl" title="セットの途中で BPM を変えるとき。どの曲から何 BPM にするかを指定します">
-          <input type="checkbox" id="bpmVar"> BPM 変化あり</label>
+        <label>target <input type="text" id="target" value="60:00" aria-label="目標時間"></label>
+        <label>mix <select id="preset"></select></label>
+        <label>curve <select id="curve"></select><span class="meta" id="curveEdited"></span></label>
+        <label>bpm <input type="text" id="setBpm" placeholder="BPM"><span class="meta" id="setBpmAuto"></span></label>
+        <label id="cap32Lbl"><input type="checkbox" id="cap32"> 32 小節</label>
+        <label id="bpmVarLbl"><input type="checkbox" id="bpmVar"> BPM 変化</label>
       </div>
       <div class="bpmv" id="bpmv" hidden>
         <div id="cpList"></div>
@@ -511,8 +552,8 @@ input[type=checkbox]{accent-color:var(--ink);border-radius:0}
       </div>
     </div>
 
-    <div class="hero-block" title="今のプレイリストを Mix の前提でかけたときの合計時間（曲間のオーバーラップ込み）">
-      <p class="eyebrow">セット全体の予測時間</p>
+    <div class="hero-block">
+      <p class="eyebrow">予測時間</p>
       <div class="hero" id="hero">—</div>
       <div class="gap-sub" id="heroSub"></div>
       <div class="bullet-track" title="予測時間（塗り）と目標（縦線）。目標を越えた分は赤">
@@ -521,20 +562,18 @@ input[type=checkbox]{accent-color:var(--ink);border-radius:0}
         <div class="bullet-tick" id="bTick"></div>
       </div>
       <div class="bullet-scale"><span>0:00</span><span id="bTargetLbl"></span><span id="bTotalLbl"></span></div>
-      <div class="hero-acts">
-        <span class="meta" id="pubState"></span>
-        <button class="btn" id="publishBtn" type="button"
-          title="このセットの曲順を rekordbox の「Set Agent」フォルダにプレイリストとして書き込みます。書き込む前に内容を確認できます">rekordbox へ書き込む</button>
-      </div>
     </div>
 
-    <button class="reco" id="reco" type="button" hidden
-      title="今の状態に応じた次の一手。押すとエージェントにその指示を送ります"></button>
+    <dl class="insight" id="insight"></dl>
 
-    <div id="listBlock" hidden>
-      <p class="eyebrow" id="listHead"></p>
-      <p class="list-note" id="listNote"></p>
-      <div class="list" id="list"></div>
+    <div>
+      <div class="imp-head">
+        <p class="eyebrow" style="margin:0">改善版</p>
+        <div class="seg" role="group" aria-label="介入度" id="levelSeg"></div>
+        <button class="btn primary" id="impMake" type="button">作る</button>
+      </div>
+      <p class="imp-help" id="impHelp"></p>
+      <div id="impRes"></div>
     </div>
   </section>
 
@@ -564,8 +603,7 @@ input[type=checkbox]{accent-color:var(--ink);border-radius:0}
   <div class="legend">
     <span class="lg"><i class="sw hatch"></i>フレーズ解析なし</span>
     <span class="lg"><i class="sw" style="background:var(--target)"></i>目標</span>
-    <span class="lg"><i class="sw" style="border:1px dashed var(--target);background:rgba(0,0,0,.06)"></i>提案後</span>
-    <span class="lg" style="color:var(--ink-3)">曲をダブルクリックでフレーズ構成</span>
+    <span class="lg"><i class="sw" style="border:1px dashed var(--target);background:var(--ghost-fill)"></i>改善版</span>
     <span class="lg" id="analysisMeta" style="margin-left:auto;font-family:var(--mono)"></span>
   </div>
 
@@ -581,11 +619,13 @@ input[type=checkbox]{accent-color:var(--ink);border-radius:0}
   </section>
 </div>
 
-<div class="mini" id="mini" aria-label="Set Agent（畳んだ表示）">
-  <button class="btn" id="expandBtn" title="広げる: パネルを元の幅に戻します" aria-label="広げる">⇤</button>
+<div class="mini" id="mini" aria-label="Set Agent">
+  <button class="btn" id="expandBtn" title="広げる" aria-label="広げる">⇤</button>
+  <div class="lbl" id="miniL">—</div>
   <div class="t" id="miniT">—</div>
   <div class="d" id="miniD"></div>
-  <div class="lbl" id="miniL">set agent</div>
+  <dl id="miniKv"></dl>
+  <div class="imp" id="miniImp" hidden></div>
 </div>
 
 <div class="curtain" id="curtain">
@@ -600,10 +640,10 @@ input[type=checkbox]{accent-color:var(--ink);border-radius:0}
 <aside class="drawer" id="drawer" hidden aria-label="エージェント">
   <div class="dw-head">
     <h2>エージェント</h2>
-    <label>介入度 <select id="level"></select></label>
+    <label><select id="model" aria-label="モデル"></select></label>
     <button class="btn" id="dwClose">閉じる</button>
   </div>
-  <p class="dw-status" id="agentStatus"></p>
+  <p class="dw-status" id="agentStatus" hidden></p>
   <div class="chat" id="chat"></div>
   <div class="dw-ask">
     <input type="text" id="askText" placeholder="質問や指示を書く">
@@ -612,7 +652,6 @@ input[type=checkbox]{accent-color:var(--ink);border-radius:0}
   <p class="hint" id="askHints"></p>
   <div id="cands"></div>
   <div id="pending"></div>
-  <p class="plog" id="plog"></p>
 </aside>
 
 <div class="modal" id="modal" hidden>
@@ -679,10 +718,18 @@ async function boot(){
     return;
   }
   BOOT = b;
+  setTheme(b.theme);
   PRESET_LABEL = b.preset_labels || {}; PRESET_HELP = b.preset_help || {};
   $("setBpm").value = b.set_bpm ? String(b.set_bpm) : "";
-  $("pl").innerHTML = b.playlists.map(n=>`<option>${esc(n)}</option>`).join("");
-  if(b.playlist) $("pl").value = b.playlist;
+  $("pl").innerHTML = (b.playlist_items || []).map(p =>
+    `<option value="${esc(p.id)}">${esc(p.path)}</option>`).join("");
+  if(b.playlist_id) $("pl").value = b.playlist_id;
+  FOLLOW = (b.follow || {}).why || "";
+  LEVEL = b.level || "light";
+  $("levelSeg").innerHTML = (b.levels || []).map(l =>
+    `<button type="button" data-level="${esc(l.key)}" title="${esc(l.help)}">${esc(l.label)}</button>`).join("");
+  LEVEL_HELP = Object.fromEntries((b.levels || []).map(l => [l.key, l.help]));
+  $("model").innerHTML = (b.models || []).map(m => `<option value="${esc(m.id)}">${esc(m.label)}</option>`).join("");
   $("preset").innerHTML = b.presets.map(popt).join("");
   $("preset").value = b.preset;
   $("cap32").checked = !!b.cap32;
@@ -720,7 +767,7 @@ async function pollSync(){
 }
 /* the condition fields are only written at boot; follow the other view's edits */
 function syncForm(s){
-  if(s.playlist && [...$("pl").options].some(o => o.value === s.playlist)) $("pl").value = s.playlist;
+  if(s.playlist_id && [...$("pl").options].some(o => o.value === s.playlist_id)) $("pl").value = s.playlist_id;
   if(s.preset) $("preset").value = s.preset;
   $("cap32").checked = !!s.cap32;
   $("cap32Lbl").hidden = !capApplies();
@@ -739,7 +786,7 @@ async function reload(){
   $("cMsg").textContent = "フレーズ解析を読んで再生範囲を決めています。";
   $("curtain").hidden = false;
   const s = await window.pywebview.api.load({
-    playlist: $("pl").value, preset: $("preset").value,
+    playlist_id: $("pl").value, preset: $("preset").value,
     cap32: $("cap32").checked, target_s: targetSeconds(),
   });
   LOADED_AT = new Date();
@@ -765,9 +812,10 @@ const esc = t => String(t).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":
 function render(){
   renderPublish(ST.publish);
   renderDock(ST.dock);
+  renderHead();
   renderHero();
-  renderReco();
-  renderList();
+  renderInsight();
+  renderImproved();
   renderFresh();
   renderReality();
   renderLanes();
@@ -794,32 +842,29 @@ document.querySelectorAll("[data-view]").forEach(b =>
 /* ---------------- agent drawer ---------------- */
 /* these are worded to hit the advisor's own vocabulary, so a DJ who clicks one
    always gets a real answer instead of "その言い方はまだ解釈できない" */
-const HINTS = ["今のセット何分？", "バランスどう？", "ピークはどこ？",
-               "候補を出して", "区間の余白は？", "60:00 に収めて"];
+const HINTS = ["私の好みは？", "このプレイリストを整えて", "夜っぽいプレイリストはどれ？",
+               "最近インポートした曲で合うものは？", "この曲の後に何をかけてきた？"];
 
 function renderAgent(){
   const a = ST.agent || {};
-  if(!a.ready){ $("agentStatus").textContent = "セットを読み込むと使えます"; return; }
-
-  $("agentStatus").textContent = a.status;
-  if($("level").options.length !== (a.levels || []).length){
-    $("level").innerHTML = (a.levels || []).map(l =>
-      `<option value="${esc(l)}">${esc(l)}</option>`).join("");
-  }
-  $("level").value = a.level;
+  if(!a.ready) return;
+  if(a.model && $("model").value !== a.model) $("model").value = a.model;
+  /* only a problem is worth a line: the connection itself is not news */
+  $("agentStatus").hidden = !!a.connected;
+  $("agentStatus").textContent = a.connected ? "" : "Claude に接続していません（簡易モードで答えます）";
 
   const c = $("chat");
   const atBottom = c.scrollHeight - c.scrollTop - c.clientHeight < 40;
   c.innerHTML = (a.chat || []).map(m =>
     `<div class="msg ${esc(m.who)}">${esc(m.text)}</div>`).join("") ||
-    `<div class="msg meta">まだ会話はありません。下の例をそのまま送ることもできます。</div>`;
+    "";
   if(atBottom) c.scrollTop = c.scrollHeight;
 
-  $("askHints").innerHTML = "例: " + HINTS.map(h =>
+  $("askHints").innerHTML = HINTS.map(h =>
     `<a href="#" class="hintq" data-q="${esc(h)}">${esc(h)}</a>`).join(" · ");
 
   $("cands").innerHTML = !(a.candidates || []).length ? "" :
-    `<p class="sec-title">候補（クリックで挿入案）</p><div class="cand-list">` +
+    `<p class="sec-title">候補</p><div class="cand-list">` +
     a.candidates.map(x => `<button class="cand" data-id="${esc(x.track_id)}">
         <span title="${esc(x.title)}">${esc(x.title)}</span>
         <span>${(+x.bpm).toFixed(1)}</span><span>${esc(x.key || "")}</span>
@@ -834,26 +879,26 @@ function renderAgent(){
            ${it.approved ? "checked" : ""}><span>${esc(it.text)}</span></label>`).join("")}
        <div class="diff">${p.diff.map(l => `<span>${esc(l)}</span>`).join("")}</div>
        <div class="acts">
-         <button class="btn primary" id="applyPending">チェックした操作を適用</button>
+         <button class="btn primary" id="applyPending">改善版にする</button>
          <button class="btn" id="rejectPending">却下</button>
        </div>
      </div>`;
 
-  const pc = a.publish_card;
-  if(pc && !REMOTE){
+  const mc = a.meta_card;
+  if(mc && !REMOTE){
     $("pending").insertAdjacentHTML("beforeend",
       `<div class="card">
-         <h3>rekordbox に書き込む</h3>
-         ${pc.reason ? `<p class="why">${esc(pc.reason)}</p>` : ""}
-         <p class="why">${esc(pc.summary)}</p>
+         <h3>${esc(mc.name)}</h3>
+         ${mc.reason ? `<p class="why">${esc(mc.reason)}</p>` : ""}
+         <ul class="chg">${mc.edits.map(e => `<li><span class="k add">✎</span><span class="n">${esc(e.title || e.track_id)}</span>
+           <span class="x">${esc([e.comment != null ? "「" + e.comment + "」" : "", e.rating != null ? "★" + e.rating : "",
+                                  e.color ? e.color : ""].filter(Boolean).join(" "))}</span></li>`).join("")}</ul>
          <div class="acts">
-           <button class="btn primary" id="pubCardGo" data-name="${esc(pc.name)}">確認して書き込む…</button>
-           <button class="btn" id="pubCardNo">閉じる</button>
+           <button class="btn primary" id="metaGo">rekordbox に書き込む</button>
+           <button class="btn" id="metaNo">やめる</button>
          </div>
        </div>`);
   }
-
-  $("plog").textContent = a.log || "";
 
   /* a proactive notice is worthless if the drawer is shut and nothing says so */
   const n = (a.chat || []).length;
@@ -899,98 +944,86 @@ function renderHero(){
   renderMini();
 }
 
-/* the collapsed strip (dock): the predicted length and the verdict, vertical */
-function renderMini(){
+/* the collapsed strip (dock): the playlist rekordbox shows, its length, the verdict */function renderMini(){
   if(!ST) return;
   const d = ST.delta_s, cls = fitClass(d);
   $("miniT").textContent = fmt(ST.total_s);
   const m = $("miniD");
   m.className = "d " + cls;
   m.textContent = cls === "over" ? `+${fmt(d)}` : cls === "under" ? `−${fmt(-d)}` : cls === "ok" ? "目標内" : "";
-  $("miniL").textContent = ST.playlist || "set agent";
+  $("miniL").textContent = ST.playlist || "—";
+  const i = ST.insight || {};
+  $("miniKv").innerHTML = [["目標", fmt(ST.target_s || 0)], ["曲", ST.tracks.length],
+    ["BPM", ST.set_bpm || "—"], ["ピーク", i.peak || "—"], ["荒いつなぎ", i.rough != null ? i.rough : "—"]]
+    .map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join("");
+  const im = ST.improved;
+  $("miniImp").hidden = !im;
+  if(im) $("miniImp").innerHTML = `${esc(im.label)}<b>${esc(im.after.total)}</b>`;
 }
 
-/* One card, worded by state. It is the doorway to recommendations: over -> ask
-   the agent to fit the set, under -> ask it for candidates, ok -> go check the
-   flow. Nothing here edits the set; the DJ applies changes in rekordbox. */
-function renderReco(){
-  const d = ST.delta_s, tgt = ST.target_s || 0, tot = ST.total_s, n = ST.tracks.length;
-  const r = $("reco"), cls = fitClass(d);
-  if(!cls){ r.hidden = true; return; }
-  r.hidden = false;
-  r.className = "reco " + cls;
-  const per = n ? tot / n : 0;
-  const k = per ? Math.max(1, Math.round(Math.abs(d) / per)) : 0;
-  if(cls === "over"){
-    r.dataset.q = `${fmt(tgt)} に収めて`;
-    r.innerHTML = `<div><h3>${fmt(d)} 分の短縮が必要です</h3>
-      <p>1曲平均 ${fmt(per)} なので、およそ ${k} 曲分です。まず削り代で稼げる分を確認します</p></div>
-      <span class="go">削り代と候補を見る</span>`;
-  } else if(cls === "under"){
-    r.dataset.q = "候補を出して";
-    r.innerHTML = `<div><h3>${fmt(-d)} 足りません</h3>
-      <p>およそ ${k} 曲分です。プレイリストに合う曲をコレクションから探します</p></div>
-      <span class="go">足す候補を見る</span>`;
-  } else {
-    r.dataset.q = "";
-    r.innerHTML = `<div><h3>目標の範囲に収まっています</h3>
-      <p>展開の山谷を詳細で確認してから、rekordbox で USB に書き出してください</p></div>
-      <span class="go">詳細を見る</span>`;
-  }
+/* ---- the playlist rekordbox is showing ---- */
+let FOLLOW = "", LEVEL = "light", LEVEL_HELP = {};
+function renderHead(){
+  $("plTitle").textContent = ST.playlist || "—";
+  const path = ST.playlist_path || "";
+  $("plPath").textContent = path && path !== ST.playlist ? path : "";
+  const on = FOLLOW === "ok" || FOLLOW === "no_match";
+  $("followDot").className = "dot" + (on ? "" : " off");
+  $("followDot").title = on ? "rekordbox の選択に追従中" : "rekordbox の選択を読めません（設定）";
+  /* without the live selection, the DJ picks the playlist here */
+  $("pl").hidden = on || REMOTE ? true : false;
+  $("plTitle").hidden = !$("pl").hidden;
 }
-$("reco").addEventListener("click", ()=>{
-  const q = $("reco").dataset.q;
-  if(!q){ setView("detail"); return; }
-  openDrawer(true);
-  $("askText").value = q;
-  send();
+
+/* ---- the few numbers beside the length ---- */
+function renderInsight(){
+  const i = ST.insight || {};
+  const cells = [
+    ["ピーク", i.peak || "—", ""],
+    ["荒いつなぎ", i.rough != null ? `${i.rough} 箇所` : "—", i.rough ? "warn" : ""],
+    ["フレーズ解析", i.tracks ? `${i.phrases}/${i.tracks}` : "—", ""],
+  ];
+  $("insight").innerHTML = cells.map(([k, v, c]) => `<div><dt>${k}</dt><dd class="${c}">${esc(v)}</dd></div>`).join("");
+}
+
+/* ---- improved version: a new playlist next to the DJ's, never an edit of it ---- */
+const KIND = {add: "+", remove: "−", move: "↕"};
+function renderImproved(){
+  document.querySelectorAll("[data-level]").forEach(b =>
+    b.setAttribute("aria-pressed", String(b.dataset.level === LEVEL)));
+  $("impHelp").textContent = LEVEL_HELP[LEVEL] || "";
+  const m = ST.improved, box = $("impRes");
+  if(!m){ box.innerHTML = ""; renderMini(); return; }
+  const a = m.after, b = m.before, c = m.counts;
+  const cls = fitClass(a.delta_s);
+  const pill = cls === "over" ? `<span class="pill over">${fmt(a.delta_s)} 超過</span>`
+             : cls === "under" ? `<span class="pill under">${fmt(-a.delta_s)} 不足</span>`
+             : cls === "ok" ? `<span class="pill ok">目標内</span>` : "";
+  const busy = PUB && PUB.active;
+  box.innerHTML = `<div class="imp-res">
+      <div class="top"><span class="t">${esc(a.total)}</span>${pill}
+        <span class="meta">${esc(m.label)} · ${a.tracks} 曲</span></div>
+      <div class="cnts"><span>足す <b>${c.add}</b></span><span>外す <b>${c.remove}</b></span>
+        <span>動かす <b>${c.move}</b></span><span>荒いつなぎ <b>${b.rough} → ${a.rough}</b></span></div>
+      ${m.changes.length ? `<ul class="chg">${m.changes.map(x =>
+          `<li><span class="k ${x.kind}">${KIND[x.kind]}</span><span class="n" title="${esc(x.title)}">${esc(x.title)}</span>
+           <span class="x">${esc(x.detail || "")}</span></li>`).join("")}</ul>` : `<p class="imp-help">${esc(m.note || "変更なし")}</p>`}
+      <div class="acts">
+        <button class="btn primary" id="impWrite" ${m.changes.length && !REMOTE ? "" : "disabled"}>${busy ? "書き出し中…" : "rekordbox に書き出す"}</button>
+        <button class="btn" id="impDrop">破棄</button>
+        <span class="meta" id="pubState"></span>
+      </div></div>`;
+  renderPublish(PUB);
+  renderMini();
+}
+document.addEventListener("click", async e=>{
+  const lv = e.target.closest("[data-level]");
+  if(lv){ LEVEL = lv.dataset.level; renderImproved(); window.pywebview.api.set_prefs(null, LEVEL); return; }
+  if(e.target.id === "impMake"){ e.target.disabled = true;
+    try { apply(await window.pywebview.api.make_improved(LEVEL)); } finally { e.target.disabled = false; } }
+  if(e.target.id === "impDrop") apply(await window.pywebview.api.discard_improved());
+  if(e.target.id === "impWrite") openPublish(null);
 });
-
-/* The list under the hero is advice, not the playlist (rekordbox shows that
-   already, right next to this panel). Over the target: the playlist's own
-   tracks the set would miss least, with the clock after each removal. Under
-   it: tracks from outside the playlist that fit the hole. Same engines as the
-   agent; the DJ makes the actual change in rekordbox. */
-function renderList(){
-  const r = ST.reco || {kind: "none", items: []};
-  const blk = $("listBlock");
-  if(r.kind !== "remove" && r.kind !== "add"){ blk.hidden = true; $("list").innerHTML = ""; return; }
-  blk.hidden = false;
-  let h = "";
-  if(r.kind === "remove"){
-    $("listHead").textContent = "外す候補";
-    $("listNote").textContent = r.enough
-      ? `展開と繋ぎへの影響が小さい順です。上から ${r.items.length} 曲を外すと目標に収まります。ロック中とマイルストーンの曲は含めていません`
-      : `全部外しても ${fmt(r.need_s)} には届きません（ロック中とマイルストーンの曲は除く）。目標尺かロックを見直してください`;
-    h += `<div class="list-h"><span></span><span>曲</span><span>外すと</span><span>外した後</span></div>`;
-    const tgt = ST.target_s || 0;
-    for(const it of r.items){
-      const fits = tgt && it.after_s <= tgt + ST.tolerance_s;
-      h += `<div class="row rm${fits ? " fits" : ""}" tabindex="0" data-i="${it.i}" data-sel="${it.i === ST.selected ? 1 : 0}"
-              title="${esc(it.title)}\n${esc(it.reasons.join("\n") || "理由なし")}">
-        <span class="art" data-art="${esc(it.track_id)}">${ART[it.track_id] ? `<img src="${ART[it.track_id]}" alt="">` : ""}</span>
-        <span class="t">${it.i + 1}. ${esc(it.title)}<span class="why">${esc(it.reasons.join("／"))}</span></span>
-        <span class="d minus">−${fmt(it.saves_s)}</span>
-        <span class="at">${fmt(it.after_s)}</span></div>`;
-    }
-  } else {
-    $("listHead").textContent = "足す候補";
-    $("listNote").textContent = r.items.length
-      ? `プレイリスト外から、最後の曲に繋がる BPM・キーで ${fmt(r.slot_s)} 前後に入る曲です。クリックすると挿入案をエージェントで確認できます`
-      : `${fmt(r.need_s)} 不足していますが、最後の曲に繋がる BPM・キーの曲がライブラリにありません`;
-    h += `<div class="list-h"><span></span><span>曲</span><span>BPM</span><span>尺</span></div>`;
-    for(const it of r.items){
-      h += `<div class="row add" tabindex="0" data-id="${esc(it.track_id)}"
-              title="${esc(it.title)}${it.artist ? " — " + esc(it.artist) : ""}\n${esc(it.reason || "")}">
-        <span class="art" data-art="${esc(it.track_id)}">${ART[it.track_id] ? `<img src="${ART[it.track_id]}" alt="">` : ""}</span>
-        <span class="t">${esc(it.title)}<span class="why">${esc(it.reason || "")}</span></span>
-        <span class="d">${(+it.bpm).toFixed(0)}${it.key ? `<small>${esc(it.key)}</small>` : ""}</span>
-        <span class="at">${esc(it.in_slot || "")}</span></div>`;
-    }
-  }
-  $("list").innerHTML = h;
-  loadArtwork();
-}
 
 /* Artwork: rekordbox's own JPEG per track, downscaled by the bridge into data
    URLs and cached here for the session. Rows render at once and fill in. */
@@ -1015,9 +1048,6 @@ async function loadArtwork(){
   } catch(e){ /* thumbnails are decoration; the list works without them */ }
   finally { artBusy = false; }
 }
-$("list").addEventListener("keydown", e=>{
-  if((e.key === "Enter" || e.key === " ") && e.target.classList.contains("row")){ e.preventDefault(); e.target.click(); }
-});
 
 /* ---- artwork popover ----
    Hovering a track block (.trk) or a candidate row (.row) for a moment opens a
@@ -1063,7 +1093,7 @@ function armArtPop(node, x, y){
   hideArtPop(); artPop.id = id;
   artPop.timer = setTimeout(()=> showArtPop(id, x, y), ART_POP_DELAY_MS);
 }
-for(const host of [$("tracks"), $("list")]){
+for(const host of [$("tracks")]){
   host.addEventListener("pointermove", e=>{
     if(drag){ hideArtPop(); return; }               /* never over a drag */
     const n = e.target.closest(".trk, .row");
@@ -1096,9 +1126,9 @@ function openCtx(x, y, i){
   const isMile = !!t.milestone, locked = (t.locks || []).includes("position");
   const c = $("ctx");
   c.innerHTML = `<div class="h">${i + 1}. ${esc(t.title)}</div>
-    <button data-act="mile" class="${isMile ? "on" : ""}" title="この曲をセットの要にします。エージェントは要の間を候補曲で埋めます">${isMile ? "マイルストーンを解除" : "マイルストーンにする"}</button>
-    <button data-act="time" title="この曲を鳴らしたい時刻（mm:ss）。区間の予算になります">目標時刻を設定…${t.milestone_s != null ? `（今 ${fmt(t.milestone_s)}）` : ""}</button>
-    <button data-act="lock" class="${locked ? "on" : ""}" title="曲順の並べ替えや削除の提案から守ります">${locked ? "位置のロックを解除" : "位置をロック"}</button>`;
+    <button data-act="mile" class="${isMile ? "on" : ""}" title="改善版でもこの曲を要として残します">${isMile ? "マイルストーンを解除" : "マイルストーンにする"}</button>
+    <button data-act="time" >目標時刻…${t.milestone_s != null ? `（今 ${fmt(t.milestone_s)}）` : ""}</button>
+    <button data-act="lock" class="${locked ? "on" : ""}" title="改善版でもこの位置から動かしません">${locked ? "固定を外す" : "この位置に固定"}</button>`;
   c.hidden = false;
   const W = 220, H = c.offsetHeight || 120;
   c.style.left = Math.max(4, Math.min(x, innerWidth - W - 4)) + "px";
@@ -1106,7 +1136,7 @@ function openCtx(x, y, i){
   c.querySelector("button").focus();
 }
 function hideCtx(){ $("ctx").hidden = true; ctxIndex = null; }
-for(const host of [$("tracks"), $("list")]){
+for(const host of [$("tracks")]){
   host.addEventListener("contextmenu", e=>{
     const n = e.target.closest(".trk, .row.rm"); if(!n || n.dataset.i == null) return;
     e.preventDefault(); openCtx(e.clientX, e.clientY, +n.dataset.i);
@@ -1145,13 +1175,6 @@ $("ctx").addEventListener("click", async e=>{
 addEventListener("pointerdown", e=>{ if(!e.target.closest("#ctx")) hideCtx(); }, true);
 addEventListener("keydown", e=>{ if(e.key === "Escape") hideCtx(); });
 addEventListener("scroll", hideCtx, true);
-$("list").addEventListener("click", async e=>{
-  const r = e.target.closest(".row"); if(!r) return;
-  if(r.classList.contains("rm")){ selectTrack(+r.dataset.i); return; }
-  /* an add candidate becomes an insertion proposal, reviewed in the drawer */
-  openDrawer(true);
-  apply(await window.pywebview.api.insert_candidate(r.dataset.id, null));
-});
 
 /* Freshness: the set on screen is a reading of master.db + -wal at one moment.
    Say when, and whether rekordbox is open. */
@@ -1165,17 +1188,9 @@ function renderFresh(){
   const txt = $("freshTxt"), b = $("rescan");
   if(!txt || !b) return;                      /* the sheet is not open */
   const at = LOADED_AT ? LOADED_AT.toLocaleTimeString("ja-JP", {hour:"2-digit", minute:"2-digit"}) : "—";
-  const rb = FRESH.rb != null ? FRESH.rb : (BOOT && BOOT.rekordbox_running);
-  let msg;
-  if(FRESH.state === "stale"){
-    msg = `rekordbox の変更を検出しました。この画面で試した操作を保つため、まだ反映していません`;
-    b.className = "btn primary";
-  } else {
-    msg = `${at} 時点の rekordbox ライブラリを表示しています` + (rb ? "（rekordbox 起動中）" : "");
-    b.className = "btn";
-  }
-  b.textContent = "今の rekordbox を読み直す";
-  txt.innerHTML = `<span class="dot${FRESH.state !== "fresh" || rb ? " rb" : ""}"></span>${msg}`;
+  txt.textContent = FRESH.state === "stale" ? "rekordbox に変更があります" : `${at} に読み込み`;
+  b.className = FRESH.state === "stale" ? "btn primary" : "btn";
+  b.textContent = "読み直す";
 }
 
 /* Automatic refresh (§5-1): poll master.db / -wal, and check on every window
@@ -1224,6 +1239,7 @@ function startPolling(){
   clearInterval(pollTimer);
   pollTimer = setInterval(pollLibrary, 5000);
   setInterval(pollSync, 2000);
+  setInterval(pollFollow, 1200);
   window.addEventListener("focus", pollLibrary);
   document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) pollLibrary(); });
 }
@@ -1546,7 +1562,7 @@ window.addEventListener("resize", ()=>{
   resizeTimer = setTimeout(()=>{ renderLanes(); renderMinimap(); syncView(); }, 120);
 });
 
-/* click to select, drag to reorder — one pointer gesture, 5px decides which */
+/* click selects. The order is rekordbox's, so nothing here drags or trims. */
 let drag = null;
 function selectTrack(i){
   ST.selected = i;
@@ -1554,106 +1570,8 @@ function selectTrack(i){
   renderSelected();
   window.pywebview.api.select(i);
 }
-function dropIndexAt(clientX){
-  /* snap only to boundaries that are actually on screen (Phase 1 research) */
-  const host = $("tracks").getBoundingClientRect();
-  const x = clientX - host.left, k = pps();
-  let best = 0;
-  for(const t of ST.tracks){
-    if(t.start_s*k < x) best = t.i; else break;
-  }
-  const t = ST.tracks[best];
-  if(t && x > (t.start_s + (t.end_s - t.start_s)/2)*k) best += 1;
-  return Math.max(0, Math.min(ST.tracks.length - 1, best));
-}
-const EDGE_PX = 7;                      /* grab zone for trimming the play range */
-
-function edgeAt(node, clientX){
-  const r = node.getBoundingClientRect();
-  if(r.width < EDGE_PX * 3) return null;    /* a sliver at the fit density has no edges to grab */
-  if(clientX - r.left <= EDGE_PX) return "in";
-  if(r.right - clientX <= EDGE_PX) return "out";
-  return null;
-}
-$("tracks").addEventListener("pointermove", e=>{
-  if(drag) return;                      /* mid-gesture: leave the cursor alone */
-  const n = e.target.closest(".trk");
-  $("tracks").style.cursor = (n && edgeAt(n, e.clientX)) ? "ew-resize" : "";
-});
-$("tracks").addEventListener("pointerdown", e=>{
-  const n = e.target.closest(".trk"); if(!n) return;
-  const t = ST.tracks.find(x => x.i === +n.dataset.i);
-  const edge = edgeAt(n, e.clientX);
-  drag = {i: +n.dataset.i, x0: e.clientX, node: n, moved: false,
-          edge, track: t,
-          w0: n.getBoundingClientRect().width,
-          left0: parseFloat(n.style.left) || 0};
-  n.setPointerCapture?.(e.pointerId);
-});
-$("tracks").addEventListener("pointermove", e=>{
-  if(!drag) return;
-  if(!drag.moved && Math.abs(e.clientX - drag.x0) < 5) return;
-  if(!drag.moved){
-    drag.moved = true;
-    if(!drag.edge){
-      drag.node.classList.add("dragging");
-      const line = document.createElement("div");
-      line.className = "dropline"; line.id = "dropline";
-      $("tracks").appendChild(line);
-    }
-  }
-  const dx = e.clientX - drag.x0;
-
-  if(drag.edge){                        /* trimming: the block follows the edge */
-    if(drag.edge === "in"){
-      const w = Math.max(6, drag.w0 - dx);
-      drag.node.style.left = (drag.left0 + dx) + "px";
-      drag.node.style.width = w + "px";
-    } else {
-      drag.node.style.width = Math.max(6, drag.w0 + dx) + "px";
-    }
-    drag.dx = dx;
-    return;
-  }
-
-  const to = dropIndexAt(e.clientX);
-  const target = ST.tracks[to];
-  const line = $("dropline");
-  if(line && target) line.style.left = ((to > drag.i ? target.end_s : target.start_s) * pps()) + "px";
-  drag.to = to;
-});
-$("tracks").addEventListener("pointerup", async e=>{
-  if(!drag) return;
-  const d = drag; drag = null;
-  $("dropline")?.remove();
-  d.node.classList.remove("dragging");
-  if(!d.moved){ selectTrack(d.i); return; }
-
-  if(d.edge){
-    /* set-time pixels -> source-time ms: undo the tempo scaling the engine applied */
-    const t = d.track;
-    const scale = (t.bpm && t.set_tempo) ? (t.set_tempo / t.bpm) : 1;
-    const deltaMs = (d.dx / pps()) * 1000 * scale;
-    const outMs = t.play_out_ms != null ? t.play_out_ms
-                : Math.round((t.source_len_s || 0) * 1000);
-    const inMs = d.edge === "in" ? Math.round(t.play_in_ms + deltaMs) : t.play_in_ms;
-    const newOut = d.edge === "out" ? Math.round(outMs + deltaMs) : outMs;
-    ST.selected = d.i;
-    apply(await window.pywebview.api.set_range(d.i, inMs, newOut));
-    return;
-  }
-
-  if(d.to == null || d.to === d.i) return;
-  ST.selected = d.to;
-  apply(await window.pywebview.api.move(d.i, d.to));
-});
-$("tracks").addEventListener("pointercancel", ()=>{
-  if(!drag) return;
-  $("dropline")?.remove();
-  drag.node.classList.remove("dragging");
-  const wasEdge = drag.edge;
-  drag = null;
-  if(wasEdge) renderLanes();            /* put the half-dragged block back */
+$("tracks").addEventListener("click", e=>{
+  const n = e.target.closest(".trk"); if(n) selectTrack(+n.dataset.i);
 });
 
 /* ---- phrase sheet: the rekordbox phrase colours, one track at a time ---- */
@@ -1784,63 +1702,69 @@ function modelOptions(s){
   if(!opts.some(o => o[0] === cur)) opts.push([cur, cur]);
   return opts.map(([v, l]) => `<option value="${esc(v)}"${v === cur ? " selected" : ""}>${esc(l)}</option>`).join("");
 }
+const NOTIFY = [["passive", "聞かれたときだけ"], ["proactive", "気づいたら知らせる"], ["off", "オフ"]];
 async function openSettings(refresh){
   if(REMOTE){ openRemoteSettings(); return; }
   const s = await window.pywebview.api.llm_status(!!refresh);
-  const where = s.source === "settings"
-      ? (s.stored === "dpapi" ? "暗号化して保存済み" : "平文で保存済み")
-      : s.source === "env" ? "環境変数" : "未設定";
+  const theme = document.documentElement.dataset.theme === "dark" ? "dark" : "original";
+  const lvl = (ST && ST.agent && ST.agent.level) || "passive";
+  const needFollow = FOLLOW === "no_permission";
   modal("設定",
-    `<p class="sec-title" style="margin-top:0">rekordbox ライブラリ</p>
-     <div class="fresh"><span class="meta" id="freshTxt"></span>
-       <button class="btn" id="rescan" title="rekordbox の master.db と -wal を今すぐ読み直します。ふだんは自動で追従するので、この画面の試行を保っているときだけ必要です"></button></div>
-     <p class="sec-title">rekordbox の横に付ける</p>
-     <div class="field"><select id="fDock" title="rekordbox のウィンドウに合わせてパネルを動かします">
+    `<p class="sec-title" style="margin-top:0">表示</p>
+     <div class="field"><select id="fTheme">
+       <option value="original"${theme === "original" ? " selected" : ""}>オリジナル</option>
+       <option value="dark"${theme === "dark" ? " selected" : ""}>ダーク</option></select></div>
+     <p class="sec-title">rekordbox</p>
+     ${needFollow ? `<div class="fresh"><span class="meta">選んでいるプレイリストを読むには許可が必要です</span>
+       <button class="btn primary" id="fFollow">許可する</button></div>` : ""}
+     <div class="fresh"><span class="meta" id="freshTxt"></span><button class="btn" id="rescan"></button></div>
+     <div class="field"><span>パネルの位置</span><select id="fDock">
        ${DOCK_MODES.map(([v, l]) => `<option value="${v}"${(ST && ST.dock && ST.dock.mode) === v ? " selected" : ""}>${l}</option>`).join("")}
      </select></div>
-     <p class="hint${ST && ST.dock && ST.dock.note ? " warn" : ""}" id="fDockNote">${esc(dockNote())}</p>
-     <p class="sec-title">rekordbox への書き込み</p>
-     <p class="hint">「rekordbox へ」は rekordbox の「Set Agent」フォルダの中だけを書き換えます。書き込む前に毎回データベースをバックアップします（新しい 10 件を保存）。</p>
-     <div class="bk-list" id="fBackups"><span class="meta">読み込み中…</span></div>
-     <p class="sec-title">エージェント（Claude）</p>
-     <div class="conn" id="llmConn">${connHtml(s)}
-       <button class="btn" id="fRecheck" title="Claude Code のログイン状態を今すぐ確かめます">再確認</button></div>
-     <p class="hint">${esc(s.note)}</p>
-     <div class="field"><span>モデル</span>
-       <select id="fModel" title="Sonnet は速く、席の利用上限にも余裕があります。Opus はより高度ですが遅く、上限を早く使います">${modelOptions(s)}</select></div>
-     <div class="field"><span>API キー（Claude Code が使えない PC 用・任意 · ${esc(where)}${s.masked ? " · " + esc(s.masked) : ""}）</span>
+     <p class="hint warn" id="fDockNote">${esc(dockNote())}</p>
+     <p class="sec-title">書き出しのバックアップ</p>
+     <div class="bk-list" id="fBackups"><span class="meta">…</span></div>
+     <p class="sec-title">エージェント</p>
+     ${s.mode === "cli" || s.mode === "api" ? "" : `<div class="conn" id="llmConn">${connHtml(s)}
+       <button class="btn" id="fRecheck">再確認</button></div>`}
+     <div class="field"><span>声かけ</span><select id="fNotify">
+       ${NOTIFY.map(([v, l]) => `<option value="${v}"${lvl === v ? " selected" : ""}>${l}</option>`).join("")}</select></div>
+     <div class="field"><span>API キー（任意）${s.masked ? " · " + esc(s.masked) : ""}</span>
        <input type="password" id="fKey" placeholder="${s.configured ? "変更するときだけ入力" : "sk-ant-…"}"></div>
-     <p class="hint">キーは Windows の DPAPI でこのアカウントに紐づけて暗号化します。
-        空のまま保存するとキーを削除できます。</p>
-     <p class="sec-title">iPhone で表示</p>
-     <div class="fresh"><span class="meta">同じ Wi-Fi のスマホのブラウザで、このパネルを開きます</span>
-       <button class="btn" id="fPhone" title="QR コードを表示します。読み取ると iPhone の Safari でこのセットが開き、どちらで操作しても両方に反映されます">QR を表示</button></div>`,
-    [{label:"キャンセル"},
+     <p class="sec-title">iPhone</p>
+     <div class="fresh"><button class="btn" id="fPhone">QR を表示</button></div>`,
+    [{label:"閉じる"},
      {label:"保存", primary:true, close:false, run: async ()=>{
-        const key = $("fKey").value, model = $("fModel").value;
-        const r = await window.pywebview.api.set_llm(key === "" ? null : key, model);
+        const key = $("fKey").value;
+        if(key !== "") await window.pywebview.api.set_llm(key, null);
+        await window.pywebview.api.set_level($("fNotify").value);
         closeModal();
-        toast(r.warning || (r.mode === "cli" ? `Claude Code で動きます（${r.cli_model}）`
-                          : r.mode === "api" ? `API キーで動きます（${r.api_model}）`
-                          : "Claude に接続していません。アドバイザで動作します"));
         apply(await window.pywebview.api.state());
      }}]);
   renderFresh();
+  $("fTheme").addEventListener("change", async ()=>{
+    const t = $("fTheme").value; setTheme(t); await window.pywebview.api.set_prefs(t, null);
+  });
   $("fDock").addEventListener("change", async ()=>{
     const r = await window.pywebview.api.set_dock($("fDock").value);
     if(r && r.error){ toast(r.error); return; }
-    DOCK = r;                          /* the DJ chose this: no "undocked" toast */
-    renderDock(r);
+    DOCK = r; renderDock(r);
     $("fDockNote").textContent = dockNote();
+  });
+  const ff = $("fFollow");
+  if(ff) ff.addEventListener("click", async ()=>{
+    await window.pywebview.api.request_follow_permission();
+    toast("システム設定で Set Agent をオンにしてください");
   });
   fillBackups();
   $("rescan").addEventListener("click", ()=>{ closeModal(); refreshFromRekordbox(null); });
-  $("fRecheck").addEventListener("click", ()=>{ closeModal(); openSettings(true); });
+  const rc = $("fRecheck");
+  if(rc) rc.addEventListener("click", ()=>{ closeModal(); openSettings(true); });
   $("fPhone").addEventListener("click", ()=>{ closeModal(); openPhone(); });
   const lg = $("fLogin");
   if(lg) lg.addEventListener("click", async ()=>{
     const r = await window.pywebview.api.claude_login();
-    toast(r.ok ? "コンソールでログインを完了したら「再確認」を押してください" : r.error);
+    toast(r.ok ? "ログインしたら「再確認」を押してください" : r.error);
   });
 }
 $("settings").addEventListener("click", ()=> openSettings(false));
@@ -1907,27 +1831,44 @@ $("target").addEventListener("change", async ()=>
   apply(await window.pywebview.api.set_target(targetSeconds())));
 $("curve").addEventListener("change", async ()=>
   apply(await window.pywebview.api.set_curve($("curve").value)));
-$("undo").addEventListener("click", async ()=> apply(await window.pywebview.api.undo()));
-$("redo").addEventListener("click", async ()=> apply(await window.pywebview.api.redo()));
 $("cRetry").addEventListener("click", ()=>{ $("cRetry").hidden = true; boot(); });
 
+/* ---- theme: the original design, or dark ---- */
+function setTheme(t){
+  document.documentElement.dataset.theme = t === "dark" ? "dark" : "light";
+}
+
+/* ---- follow the playlist rekordbox is showing (selection.py) ---- */
+let following = false;
+async function pollFollow(){
+  if(REMOTE || following || !ST || !$("curtain").hidden) return;
+  following = true;
+  try {
+    const r = await window.pywebview.api.rb_selection();
+    if(!r) return;
+    const was = FOLLOW; FOLLOW = r.why;
+    if(was !== FOLLOW) renderHead();
+    const busy = !$("modal").hidden || (ST.agent && ST.agent.pending) || (PUB && PUB.active);
+    if(r.changed && !busy){
+      if([...$("pl").options].some(o => o.value === r.playlist_id)) $("pl").value = r.playlist_id;
+      await reload();
+    }
+  } catch(e){ /* nothing to say */ }
+  finally { following = false; }
+}
+
 /* ---- dock (B): follow rekordbox's window ---- */
-const DOCK_MODES = [["side", "横に付ける（入らないときは内側）"], ["inside", "rekordbox の内側、右端に重ねる"],
-                    ["split", "rekordbox を縮めて並べる"], ["off", "付けない（自由に置く）"]];
+const DOCK_MODES = [["side", "横"], ["inside", "内側（右端）"], ["split", "並べる（rekordbox を縮める）"], ["off", "付けない"]];
 let DOCK = null;
 function dockNote(){
   const d = DOCK || (ST && ST.dock) || {};
-  if(!d.available) return "この環境ではドッキングできません";
-  if(d.note) return d.note;
-  const eff = {side:"rekordbox の横に付いています", inside:"rekordbox の内側に重ねています",
-               split:"rekordbox と並べています", waiting:"rekordbox のウィンドウを待っています",
-               off:"自由に置けます。パネルを動かすとドッキングは解除されます"}[d.effective] || "";
-  return eff + (d.mode !== "off" ? "。パネルをドラッグすると解除されます" : "");
+  if(!d.available) return "この環境では使えません";
+  return d.note || "";
 }
 function renderDock(d){
   if(!d) return;
   if(DOCK && DOCK.mode !== "off" && d.mode === "off")
-    toast("パネルを動かしたので rekordbox へのドッキングを解除しました（設定から戻せます）");
+    toast("ドッキングを外しました");
   DOCK = d;
   if(ST) ST.dock = d;
   $("collapseBtn").hidden = REMOTE || !d.available;
@@ -1950,13 +1891,12 @@ let PUB = null, PUB_WAIT = false, pubTimer = null;
 function renderPublish(p){
   if(!p) return;
   PUB = p;
-  const b = $("publishBtn");
-  b.hidden = REMOTE || p.available === false;
-  b.classList.toggle("busy", !!p.active);
-  b.textContent = p.active ? "書き込みの状況" : "rekordbox へ書き込む";
+  const st = $("pubState");
   const last = p.last;
-  $("pubState").textContent = p.active ? (STATE_LABEL[p.state] || "")
-    : last && last.ok ? `「${last.name}」を書き込み済み` : "";
+  if(st) st.textContent = p.active ? (STATE_LABEL[p.state] || "")
+    : last && last.ok ? "書き出し済み" : "";
+  const w = $("impWrite");
+  if(w && p.active) w.textContent = "書き出しの状況";
   if(p.active && !PUB_WAIT) watchPublish();
 }
 function watchPublish(){
@@ -1977,15 +1917,14 @@ async function pollPublish(){
   if(p.needs_force){ confirmForce(); return; }
   if(p.state === "cancelled"){ toast("書き込みの予約を取り消しました"); }
   else if(last && last.ok){
-    toast(`rekordbox の「Set Agent」フォルダに「${last.name}」（${last.tracks} 曲）を${last.replaced ? "上書き" : "作成"}しました`
-          + (last.error ? `。${last.error}` : ""));
+    toast(`「${last.name}」を書き出しました` + (last.error ? `。${last.error}` : ""));
   } else if(last){ toast("書き込めませんでした: " + last.error); }
   apply(await window.pywebview.api.state());
 }
 function confirmForce(){
   modal("rekordbox が終了しませんでした",
-    `<p>rekordbox に確認のダイアログ（保存するか等）が出ている可能性があります。rekordbox の画面を確認して閉じてから、もう一度「rekordbox へ」を押してください。</p>
-     <p class="hint warn">強制終了すると、rekordbox で保存していない変更が失われることがあります。</p>`,
+    `<p>rekordbox に確認が出ていないか見てください。</p>
+     <p class="hint warn">強制終了すると、保存していない変更が失われることがあります。</p>`,
     [{label:"やめる", primary:true},
      {label:"強制終了して書き込む", danger:true, run: ()=> submitPublish(PUB_NAME, "quit_write_relaunch", true)}]);
 }
@@ -1995,29 +1934,19 @@ async function submitPublish(name, how, force){
   if(!r || !r.ok){ toast((r && r.error) || "書き込めませんでした"); return; }
   renderPublish(r);
   watchPublish();
-  toast(how === "when_closed" ? "rekordbox を閉じたら書き込みます"
-       : how === "quit_write_relaunch" ? "rekordbox を終了して書き込みます…" : "書き込んでいます…");
+  toast(how === "when_closed" ? "rekordbox を閉じたら書き出します"
+       : how === "quit_write_relaunch" ? "rekordbox を終了して書き出します…" : "書き出しています…");
   apply(await window.pywebview.api.state());
 }
 function pubBody(pv){
   const p = pv.plan, rb = pv.rekordbox_running;
   const skip = (p.skipped || []).length
-    ? `<p class="pub-skip">入らない曲 ${p.skipped.length} 曲: ${p.skipped.map(x => esc((x.title || x.track_id) + "（" + x.why + "）")).join("、")}</p>` : "";
-  const clash = pv.name_clash
-    ? `<p class="hint warn">rekordbox に同じ名前のプレイリストが別の場所にあります。Set Agent のプレイリスト一覧では見分けにくくなるので、名前を変えるのがおすすめです。</p>` : "";
-  return `<div class="field"><span>プレイリスト名（rekordbox の「Set Agent」フォルダに入ります）</span>
+    ? `<p class="pub-skip">入らない曲 ${p.skipped.length}: ${p.skipped.map(x => esc(x.title || x.track_id)).join("、")}</p>` : "";
+  return `<div class="field"><span>名前（rekordbox の「Set Agent」フォルダ）</span>
             <input type="text" id="pubName" value="${esc(p.name)}" maxlength="120"></div>
-     <p id="pubText">${esc(pv.text)}</p>
-     <dl class="pub-kv">
-       <dt>入るもの</dt><dd>曲順（${p.track_ids.length} 曲）</dd>
-       <dt>入らないもの</dt><dd>再生範囲・テンポ・マイルストーン（Set Agent の中に残ります）</dd>
-       <dt>触らないもの</dt><dd>曲・キュー・解析と、「Set Agent」フォルダ以外のプレイリスト</dd>
-       <dt>バックアップ</dt><dd>書き込む直前に毎回（設定から戻せます）</dd>
-     </dl>
-     ${skip}${clash}
-     <div class="pub-state"><span class="dot${rb ? " rb" : ""}"></span>${rb
-        ? "rekordbox が起動しています。書き込みは rekordbox を閉じている間だけ行います"
-        : "rekordbox は閉じています。すぐに書き込めます"}</div>`;
+     <p id="pubText">${p.replaces ? "同じ名前のプレイリストを置き換えます" : "新しいプレイリストを作ります"}（${p.track_ids.length} 曲）</p>
+     ${skip}
+     <div class="pub-state"><span class="dot${rb ? " rb" : ""}"></span>${rb ? "rekordbox が起動しています" : "書き込む前にバックアップを取ります"}</div>`;
 }
 async function openPublish(name){
   if(REMOTE){ toast("rekordbox への書き込みは PC の Set Agent で行ってください"); return; }
@@ -2034,22 +1963,30 @@ async function openPublish(name){
   if(!pv || !pv.available){ toast((pv && pv.error) || "書き込みは使えません"); return; }
   const rb = pv.rekordbox_running;
   const go = how => ({close:true, run: ()=> submitPublish(PUB_NAME, how, false)});
-  modal("rekordbox へ書き込む", pubBody(pv), rb
+  modal("rekordbox に書き出す", pubBody(pv), rb
     ? [{label:"キャンセル"},
-       {label:"rekordbox を閉じたら書き込む", ...go("when_closed")},
-       {label:"rekordbox を終了して書き込む", primary:true, ...go("quit_write_relaunch")}]
-    : [{label:"キャンセル"}, {label:"書き込む", primary:true, ...go("now")}]);
+       {label:"閉じたら書き出す", ...go("when_closed")},
+       {label:"終了して書き出す", primary:true, ...go("quit_write_relaunch")}]
+    : [{label:"キャンセル"}, {label:"書き出す", primary:true, ...go("now")}]);
   PUB_NAME = pv.plan.name;
   $("pubName").addEventListener("input", ()=>{
     PUB_NAME = $("pubName").value;
     clearTimeout(pubPrevTimer);
     pubPrevTimer = setTimeout(async ()=>{
       const q = await window.pywebview.api.publish_preview(PUB_NAME);
-      if(q && q.available && !$("modal").hidden && $("pubText")) $("pubText").textContent = q.text;
+      if(q && q.available && !$("modal").hidden && $("pubText"))
+        $("pubText").textContent = `${q.plan.replaces ? "同じ名前のプレイリストを置き換えます" : "新しいプレイリストを作ります"}（${q.plan.track_ids.length} 曲）`;
     }, 300);
   });
 }
-$("publishBtn").addEventListener("click", ()=> openPublish(null));
+$("pending").addEventListener("click", async e=>{
+  if(e.target.id === "metaNo") apply(await window.pywebview.api.dismiss_metadata());
+  if(e.target.id === "metaGo"){
+    const r = await window.pywebview.api.write_metadata(FRESH.rb ? "quit_write_relaunch" : "now", false);
+    if(!r || !r.ok){ toast((r && r.error) || "書き込めませんでした"); return; }
+    watchPublish(); apply(await window.pywebview.api.state());
+  }
+});
 $("pending").addEventListener("click", async e=>{
   if(e.target.id === "pubCardGo") openPublish(e.target.dataset.name);
   if(e.target.id === "pubCardNo") apply(await window.pywebview.api.dismiss_publish_card());
@@ -2060,20 +1997,19 @@ async function fillBackups(){
   let r;
   try { r = await window.pywebview.api.backups(); } catch(e){ box.textContent = ""; return; }
   const list = (r && r.backups) || [];
-  if(!list.length){ box.innerHTML = `<span class="meta">まだバックアップはありません</span>`; return; }
+  if(!list.length){ box.innerHTML = `<span class="meta">まだありません</span>`; return; }
   box.innerHTML = list.map(b => `<div class="bk-row"><span>${esc(b.created.replace("T", " "))}
-      <span class="meta">${esc(b.reason)} · ${b.size_mb} MB</span></span>
-      <button class="btn" data-bk="${esc(b.id)}" title="rekordbox のデータベースをこの時点に戻します（rekordbox を閉じている必要があります。戻す直前の状態もバックアップします）">この時点に戻す</button></div>`).join("");
+      <span class="meta">${esc(b.reason)}</span></span>
+      <button class="btn" data-bk="${esc(b.id)}">戻す</button></div>`).join("");
   box.querySelectorAll("[data-bk]").forEach(btn => btn.addEventListener("click", ()=>{
     const id = btn.dataset.bk;
     closeModal();
     modal("この時点に戻しますか",
-      `<p>rekordbox のデータベース（プレイリスト・曲の情報すべて）を ${esc(id)} の状態に戻します。それ以降に rekordbox で行った変更も戻ります。</p>
-       <p class="hint">戻す直前の状態もバックアップするので、やり直せます。rekordbox を閉じてから実行してください。</p>`,
+      `<p>rekordbox のライブラリをこの時点に戻します。それ以降の rekordbox での変更も戻ります。rekordbox を閉じてから実行してください。</p>`,
       [{label:"キャンセル", primary:true},
        {label:"戻す", danger:true, run: async ()=>{
           const x = await window.pywebview.api.restore_backup(id);
-          toast(x.error || "戻しました。rekordbox を起動すると反映されています");
+          toast(x.error || "戻しました");
           if(!x.error) refreshFromRekordbox(null);
        }}]);
   }));
@@ -2111,8 +2047,8 @@ $("askHints").addEventListener("click", e=>{
   $("askText").value = a.dataset.q;
   send();
 });
-$("level").addEventListener("change", async ()=>
-  apply(await window.pywebview.api.set_level($("level").value)));
+$("model").addEventListener("change", async ()=>
+  apply(await window.pywebview.api.set_model($("model").value)));
 $("cands").addEventListener("click", async e=>{
   const b = e.target.closest(".cand"); if(!b) return;
   apply(await window.pywebview.api.insert_candidate(b.dataset.id, null));

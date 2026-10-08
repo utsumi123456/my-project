@@ -18,7 +18,7 @@ from setagent.settings import Settings
 from setagent.webui.api import Api
 
 DEFAULT = dict(width=460, height=940)
-MIN_SIZE = (64, 560)            # 64: the collapsed strip (dock); the view switches to it below 300px
+MIN_SIZE = (148, 560)           # 148: the collapsed strip (dock); the view switches to it below 300px
 RESTORE_MIN_W = 380
 
 
