@@ -17,6 +17,7 @@
   /* ink-3 is darker than TE's graphite so 11px helper text stays AA (4.8:1) */
   --ink:#000000; --ink-2:#3c3c3c; --ink-3:#6e6e6e;
   --carbon:#0f0e12; --on-carbon:#f6f8f7; --on-carbon-2:#b2b2b2; --carbon-2:#26252b;
+  --carbon-rule:var(--carbon); --primary-hover:#26252b;
   --r:0;
   /* track blocks: two greys alternating so blocks can be counted without a key */
   --trk-a:#e5e5e5; --trk-b:#d2d2d2;
@@ -39,16 +40,20 @@
   --mono:var(--sans);
   --ghost-fill:rgba(0,0,0,.06); --veil:rgba(0,0,0,.05);
 }
-/* Dark (2026-10-09, reworked after review): the same catalogue turned over,
-   with nothing but its own neutrals. Carbon becomes the canvas, the islands
-   go black, hairlines go light -- and the display case inverts with them: the
-   predicted length is the one light band on the page. No new hues. */
+/* Dark (2026-10-09, reworked after two reviews): the same catalogue turned
+   over, with nothing but its own neutrals. Carbon becomes the canvas, the
+   islands go black, hairlines go light. The display case stays dark (an
+   inverted white band was rejected: the page no longer read as dark); it is
+   told apart as the one window on the page by going a step deeper, to pure
+   black, framed above and below by a light 1px rule. No new hues, no
+   gradient, no shadow. */
 :root[data-theme="dark"]{
   color-scheme:dark;
   --page:#0f0e12; --surface:#0f0e12; --raised:#000000; --sunken:#26252b;
   --line:#6e6e6e; --line-soft:#26252b; --rule:#f6f8f7;
   --ink:#f6f8f7; --ink-2:#e5e5e5; --ink-3:#b2b2b2;
-  --carbon:#f6f8f7; --on-carbon:#0f0e12; --on-carbon-2:#3c3c3c; --carbon-2:#e5e5e5;
+  --carbon:#000000; --on-carbon:#f6f8f7; --on-carbon-2:#b2b2b2; --carbon-2:#26252b;
+  --carbon-rule:#f6f8f7; --primary-hover:#e5e5e5;
   --trk-a:#26252b; --trk-b:#3c3c3c;
   --target:#f6f8f7; --measure:#f6f8f7; --ok:#f6f8f7; --link:#3a9ad9;
   --critical-ink:#f0533a; --caution-ink:#f5a800;
@@ -85,7 +90,7 @@ b,strong{font-weight:400}
 select:focus,input:focus{outline:none}
 select:focus-visible,input:focus-visible{outline:1px solid var(--target);outline-offset:0;border-color:var(--target)}
 .btn.primary{color:var(--page);background:var(--ink);border-color:var(--ink)}
-.btn.primary:hover{background:var(--carbon-2)}
+.btn.primary:hover{background:var(--primary-hover);border-color:var(--primary-hover)}
 .btn.danger{color:#fff;background:var(--critical);border-color:var(--critical)}
 .btn.danger:hover{background:var(--critical-ink)}
 .btn:disabled{color:var(--line);border-color:var(--line);background:transparent;cursor:default}
@@ -311,7 +316,7 @@ select:focus-visible,input:focus-visible{outline:1px solid var(--target);outline
   white-space:pre-wrap;max-height:240px;overflow:auto}
 /* toast: a strip of the Carbon band */
 .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--carbon);
-  color:var(--on-carbon);border:0;border-radius:0;
+  color:var(--on-carbon);border:1px solid var(--carbon-rule);border-radius:0;
   padding:10px 16px;font-size:13px;z-index:30;max-width:70vw}
 /* Hover window for artwork (2026-09-17, user decision: not fixed in the lanes).
    Fixed-position so it can leave the scrolled lane; pointer-events off so it
@@ -338,7 +343,8 @@ select:focus-visible,input:focus-visible{outline:1px solid var(--target);outline
 /* the predicted length is the one object on display: a Carbon band, full bleed,
    like the dark vitrine TE puts a product in */
 .hero-block{margin:0 calc(-1 * var(--s4));padding:var(--s5) var(--s4) var(--s4);
-  background:var(--carbon);color:var(--on-carbon)}
+  background:var(--carbon);color:var(--on-carbon);
+  border-top:1px solid var(--carbon-rule);border-bottom:1px solid var(--carbon-rule)}
 .hero-block .eyebrow{color:var(--on-carbon-2)}
 .hero-block .hero{font-size:64px;line-height:1;letter-spacing:-.01em;color:var(--on-carbon)}
 .hero-block .gap-sub{margin-top:var(--s3);display:flex;align-items:center;gap:var(--s2);flex-wrap:wrap;
@@ -484,7 +490,11 @@ select{-webkit-appearance:none;appearance:none;padding-right:24px!important;
 .pl-head .dot.off{background:transparent;border:1px solid var(--ink-3)}
 .pl-head h1{margin:0;font-family:var(--display);font-size:19px;font-weight:300;line-height:1.2;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.pl-head .path{font-size:12px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* the folder path under the name: its first letter under the name's first letter
+   (dot 7px + gap), clear of the panel edge. Its own block, not .pl-head (a flex row) */
+.pl-path{margin:2px 0 0;padding-left:calc(7px + var(--s2));font-size:12px;color:var(--ink-3);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pl-path:empty{display:none}
 .pl-head select{max-width:100%}
 .insight{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--s2);margin:0}
 .insight div{border:1px solid var(--line-soft);background:var(--raised);padding:var(--s2) var(--s3)}
@@ -512,7 +522,7 @@ select{-webkit-appearance:none;appearance:none;padding-right:24px!important;
 .dw-head select{max-width:130px}
 [hidden]{display:none!important}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
-/* "iPhone で表示": the QR stays black on white whatever the panel theme, so cameras read it */
+/* screen mirroring: the QR stays black on white whatever the panel theme, so cameras read it */
 .qr{display:flex;justify-content:center;margin:var(--s2) 0 var(--s3)}
 .qr svg{width:216px;height:216px;background:#fff}
 .qrUrl{word-break:break-all;user-select:all}
@@ -543,7 +553,7 @@ select{-webkit-appearance:none;appearance:none;padding-right:24px!important;
         <h1 id="plTitle">—</h1>
         <select id="pl" hidden aria-label="プレイリスト"></select>
       </div>
-      <p class="pl-head path" id="plPath"></p>
+      <p class="pl-path" id="plPath"></p>
       <div class="cond-row">
         <label>target <input type="text" id="target" value="60:00" aria-label="目標時間"></label>
         <label>mix <select id="preset"></select></label>
@@ -739,7 +749,7 @@ async function boot(){
   FOLLOW = (b.follow || {}).why || "";
   LEVEL = b.level || "light";
   $("levelSeg").innerHTML = (b.levels || []).map(l =>
-    `<button type="button" data-level="${esc(l.key)}" title="${esc(l.help)}">${esc(l.label)}</button>`).join("");
+    `<button type="button" data-level="${esc(l.key)}">${esc(l.label)}</button>`).join("");
   LEVEL_HELP = Object.fromEntries((b.levels || []).map(l => [l.key, l.help]));
   $("model").innerHTML = (b.models || []).map(m => `<option value="${esc(m.id)}">${esc(m.label)}</option>`).join("");
   $("preset").innerHTML = b.presets.map(popt).join("");
@@ -966,7 +976,7 @@ function renderHero(){
   $("miniL").textContent = ST.playlist || "—";
   const i = ST.insight || {};
   $("miniKv").innerHTML = [["target", fmt(ST.target_s || 0)], ["tracks", ST.tracks.length],
-    ["bpm", ST.set_bpm || "—"], ["peak", i.peak || "—"], ["rough", i.rough != null ? i.rough : "—"]]
+    ["bpm", ST.set_bpm || "—"], ["peak", i.peak || "—"], ["clashes", i.rough != null ? i.rough : "—"]]
     .map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join("");
   const im = ST.improved;
   $("miniImp").hidden = !im;
@@ -992,7 +1002,7 @@ function renderInsight(){
   const i = ST.insight || {};
   const cells = [
     ["peak", i.peak || "—", ""],
-    ["rough transitions", i.rough != null ? `${i.rough}` : "—", i.rough ? "warn" : ""],
+    ["clashes", i.rough != null ? `${i.rough}` : "—", i.rough ? "warn" : ""],
     ["phrase data", i.tracks ? `${i.phrases}/${i.tracks}` : "—", ""],
   ];
   $("insight").innerHTML = cells.map(([k, v, c]) => `<div><dt>${k}</dt><dd class="${c}">${esc(v)}</dd></div>`).join("");
@@ -1016,7 +1026,7 @@ function renderImproved(){
       <div class="top"><span class="t">${esc(a.total)}</span>${pill}
         <span class="meta">${esc(m.label)} · ${trk(a.tracks)}</span></div>
       <div class="cnts"><span>add <b>${c.add}</b></span><span>remove <b>${c.remove}</b></span>
-        <span>move <b>${c.move}</b></span><span>rough <b>${b.rough} → ${a.rough}</b></span></div>
+        <span>move <b>${c.move}</b></span><span>clashes <b>${b.rough} → ${a.rough}</b></span></div>
       ${m.changes.length ? `<ul class="chg">${m.changes.map(x =>
           `<li><span class="k ${x.kind}">${KIND[x.kind]}</span><span class="n" title="${esc(x.title)}">${esc(x.title)}</span>
            <span class="x">${esc(x.detail || "")}</span></li>`).join("")}</ul>` : `<p class="imp-help">${esc(m.note || "no changes")}</p>`}
@@ -1742,8 +1752,8 @@ async function openSettings(refresh){
        ${NOTIFY.map(([v, l]) => `<option value="${v}"${lvl === v ? " selected" : ""}>${l}</option>`).join("")}</select></div>
      <div class="field"><span>api key (optional)${s.masked ? " · " + esc(s.masked) : ""}</span>
        <input type="password" id="fKey" placeholder="${s.configured ? "leave blank to keep" : "sk-ant-…"}"></div>
-     <p class="sec-title">iPhone</p>
-     <div class="fresh"><button class="btn" id="fPhone">show qr</button></div>`,
+     <p class="sec-title">screen mirroring</p>
+     <div class="fresh"><button class="btn" id="fPhone">show QR</button></div>`,
     [{label:"close"},
      {label:"save", primary:true, close:false, run: async ()=>{
         const key = $("fKey").value;
@@ -1784,7 +1794,7 @@ $("settings").addEventListener("click", ()=> openSettings(false));
 async function openPhone(ip){
   const r = await window.pywebview.api.remote_start(ip || null);
   if(!r || r.error){ toast((r && r.error) || "iPhone 用のサーバを起動できません"); return; }
-  modal("iphone",
+  modal("screen mirroring",
     `<div class="qr">${r.qr}</div>
      <p class="hint">iPhone を PC と同じ Wi-Fi につなぎ、カメラでこの QR コードを読み取ってください。
         Safari でこのセットが開きます。どちらで操作しても両方に反映されます。</p>
@@ -1797,7 +1807,7 @@ async function openPhone(ip){
         プライベート ネットワークに許可してください。QR コードには接続キーが入っているので、
         読み取っていない端末からは開けません。</p>`,
     [{label:"stop", danger:true, run: async ()=>{
-        await window.pywebview.api.remote_stop(); toast("iphone view stopped"); }},
+        await window.pywebview.api.remote_stop(); toast("screen mirroring stopped"); }},
      {label:"close", primary:true}]);
   $("mBody").querySelectorAll("[data-ip]").forEach(b =>
     b.addEventListener("click", ()=>{ closeModal(); openPhone(b.dataset.ip); }));

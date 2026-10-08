@@ -3,10 +3,15 @@
 Set Agent does not edit the DJ's playlist. What it can offer is a *new*
 playlist next to it, written into rekordbox's "Set Agent" folder. How far that
 version may stray from the original is the DJ's call, because track selection
-is the DJ's craft, not ours ("余計なお世話" is the failure mode):
+is the DJ's craft, not ours ("余計なお世話" is the failure mode).
 
-  light     same tracks. Only rough transitions (key / BPM jumps) are smoothed
-            by swapping with a nearby track.
+Timeline: all of this is prep, before the set. Set Agent only changes the
+*running order* of a playlist. Mixing one track into the next happens later,
+during the set, and is the DJ's alone -- so nothing here "smooths a mix" or
+"fixes a transition"; it reorders tracks whose neighbours clash.
+
+  light     same tracks. Where two neighbours clash (key / BPM far apart),
+            the second one swaps places with a nearby track.
   standard  light + land on the target length: remove the tracks the set
             misses least, or add library tracks that chain by BPM/key (and,
             as a tie-breaker, that the DJ has played after the previous one).
@@ -32,10 +37,13 @@ from setagent.rekordbox.library import PhraseStatus
 
 LEVELS = ("light", "standard", "bold")
 LEVEL_LABEL = {"light": "light", "standard": "standard", "bold": "bold"}
-LEVEL_HELP = {"light": "曲はそのまま。つなぎだけ整える",
-              "standard": "目標の尺に合わせて足し引きする",
-              "bold": "展開に合わせて組み直す"}
+# What each level does to the running order (prep). Never say "つなぎ" here:
+# mixing is what the DJ does during the set, not what Set Agent does.
+LEVEL_HELP = {"light": "曲は変えず、キーや BPM の相性が悪い並びだけ近くの曲と入れ替えます",
+              "standard": "light に加えて、目標の尺に合うように曲を足し引きします",
+              "bold": "展開と隣り合う曲の相性に合わせて、曲順を組み直します"}
 
+# "rough" = two neighbours in the running order that clash (shown as "clashes")
 ROUGH_KEY = 3            # Camelot steps that count as a clash
 ROUGH_BPM = 0.08         # 8% apart in original tempo
 WINDOW = 4               # light: how far a swap may reach
@@ -149,7 +157,7 @@ def _metrics(d: SetDraft, lib, anlz: dict, curve, info: dict) -> dict:
 
 def smooth(ids: list[str], fixed: set[int], info: dict, window: int = WINDOW,
            max_swaps: int | None = None) -> list[str]:
-    """Swap the track after a rough seam with a nearby one, best gain first,
+    """Swap the track after a clashing pair with a nearby one, best gain first,
     while that lowers the cost of every seam it touches. Fixed positions never
     move. max_swaps keeps the light level light."""
     ids = list(ids)

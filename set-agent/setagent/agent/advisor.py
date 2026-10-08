@@ -260,7 +260,7 @@ class Advisor:
             lines = [f"・{c.title[:28]}（{fmt(c.saves_s)}）: " + "／".join(c.reasons) for c in shown]
             if len(picked) > len(shown):
                 lines.append(f"・ほか {len(picked) - len(shown)} 曲（下の一覧に含まれています）")
-            reason = (head + f"\n曲を外す候補として、展開と繋ぎへの影響が小さい順に {len(picked)} 曲を選びました。"
+            reason = (head + f"\n曲を外す候補として、展開と前後の曲との相性への影響が小さい順に {len(picked)} 曲を選びました。"
                       "\n" + "\n".join(lines))
             reply = self._propose(reason, ops + [{"op": "remove", "track_ref": c.track_id} for c in picked],
                                   "目標尺に収める（範囲と曲の削除）")

@@ -31,6 +31,17 @@
 - CRLF のファイル（HANDOFF.md, README.md, api.py, index.html, tools.py など）は Python の open() で書くと LF に化ける。
   `newline=''` で読んで `\r\n` を保つこと（2026-10-08 に一度事故）。
 
+### 2.5 進捗（クラウドセッション、Linux コンテナ。Mac 実機なし）
+- 下の 3 の **1〜4 は実装済み**。ブランチ `claude/set-agent-continue-p1cw8o`（`set-agent/rekordbox-integration` の上に 1 コミット、
+  PR は rekordbox-integration 向けのドラフト）。内容は `docs/redesign_2026-10-09.md` 末尾の「3回目のレビュー」。
+- 5 のうち済み: テスト 268 OK（Python 3.13 の venv）、`tools.check_js` OK、`webui_live` を合成ライブラリ
+  （`tests/rbfixture.build` の 24 曲）で起動し、Playwright の Chromium で 2 テーマ × 460px / 148px を撮影して確認。
+  帯はダークで #000＋上下 1px #f6f8f7、パスは見出しの文字頭（左 30px）にそろう、介入度ボタンの title なし、
+  insight と改善版の結果が clashes 表示、設定に screen mirroring / show QR。
+- **残り（Mac で）**: `git switch claude/set-agent-continue-p1cw8o` → `build.py --no-tests` でアプリを作り直し、
+  実機（WKWebView）で 2 テーマ × 通常/畳んだ表示を目視 → 問題なければ rekordbox-integration にマージ。
+  eval_agent（実 Claude）は SYSTEM_PROMPT とツール説明を変えたので回し直す（このコンテナには Claude CLI のログインが無く未実施）。
+
 ### 3. 次にやること（2026-10-09 夜のユーザーレビュー。この順で）
 1. **文言**: 設定の「iPhone」→「**screen mirroring**」、「show qr」→「**show QR**」。QR のモーダル見出しも同じ（`openPhone()` の `modal("iphone", …)`）。
 2. **プレイリストのパス表示**（`#plPath`、`<p class="pl-head path">`）が左に寄りすぎて枠にほぼ接している。
