@@ -42,6 +42,19 @@
   実機（WKWebView）で 2 テーマ × 通常/畳んだ表示を目視 → 問題なければ rekordbox-integration にマージ。
   eval_agent（実 Claude）は SYSTEM_PROMPT とツール説明を変えたので回し直す（このコンテナには Claude CLI のログインが無く未実施）。
 
+### 2.6 進捗（MacBook-Pro、2026-10-09 未明）
+- PR #3 はマージ済み（`5bd2cd1`）。eval_agent acid を実 Claude で再実行 → **11/11**（128s）。
+- 実機レビューでの追加修正:
+  - パスの行（`#plPath`）は**削除**（ユーザー判断: フォルダ名は要らない）。`api.py` の `playlist_path` / `_path_of` も削除。
+  - 実機で「枠にくっつく・重複」に見えていたのは、追従が切れたとき（作り直しでアクセシビリティ許可が外れる）に出る
+    選択ボックス `#pl`。appearance:none で内側の余白 0、中身がフルパス。padding 4px 8px・高さ 30px・`--raised`・`--line` を付けた。
+  - プレイリスト名と条件の行の間 = 行どうしの間（`.cond-row` に margin-top: var(--s2)）。
+  - `selection.py`: AX 呼び出し 1 回 0.5s・走査全体 1.5s の上限。超えたら why="busy"、パネルは表示を変えない。
+- 注意: Claude のブラウザペインは index.html を編集するたびにそのファイルを直接開く（pywebview が無く
+  「loading library…」で止まる）。`webui_live` の URL に開き直すこと。アプリの不具合ではない。
+- 配布物: `build.py`（テスト込み）→ `dist/SetAgent-macOS.zip` + `dist/はじめに.md`。この Mac には `/Applications/SetAgent.app` を入れた。
+  ad-hoc 署名・arm64 のみ（Developer ID が無いので公証なし。初回は「このまま開く」が要る。はじめに.md に記載）。
+
 ### 3. 次にやること（2026-10-09 夜のユーザーレビュー。この順で）
 1. **文言**: 設定の「iPhone」→「**screen mirroring**」、「show qr」→「**show QR**」。QR のモーダル見出しも同じ（`openPhone()` の `modal("iphone", …)`）。
 2. **プレイリストのパス表示**（`#plPath`、`<p class="pl-head path">`）が左に寄りすぎて枠にほぼ接している。

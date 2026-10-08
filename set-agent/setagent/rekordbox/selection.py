@@ -19,6 +19,7 @@ from __future__ import annotations
 import re
 import sqlite3
 import sys
+import time
 from dataclasses import dataclass, field
 
 _SIZE = re.compile(r"([\d.,]+)\s*(KB|MB|GB|TB)", re.I)
@@ -101,6 +102,10 @@ class Fingerprints:
 
 # ------------------------------------------------------------------ reading
 
+_AX_CALL_S = 0.5     # one accessibility call
+_AX_WALK_S = 1.5     # the whole walk for the status line
+
+
 def _mac_status_text() -> tuple[str | None, str]:
     try:
         import AppKit
@@ -114,7 +119,18 @@ def _mac_status_text() -> tuple[str | None, str]:
     if not pids:
         return None, "not_running"
 
+    # A busy rekordbox (analysing, loading a library) answers AX calls late, and each
+    # call waits up to 6s by default; a walk of dozens of calls then held boot() --
+    # and the "loading library" curtain -- for minutes. Cap each call and the walk.
+    try:
+        AS.AXUIElementSetMessagingTimeout(AS.AXUIElementCreateSystemWide(), _AX_CALL_S)
+    except Exception:
+        pass
+    deadline = time.monotonic() + _AX_WALK_S
+
     def attr(e, a):
+        if time.monotonic() > deadline:
+            raise TimeoutError
         err, v = AS.AXUIElementCopyAttributeValue(e, a, None)
         return None if err else v
 
@@ -131,10 +147,17 @@ def _mac_status_text() -> tuple[str | None, str]:
         return None
 
     app = AS.AXUIElementCreateApplication(pids[0])
-    for w in attr(app, "AXWindows") or []:
-        t = find(w, 0)
-        if t:
-            return t, "ok"
+    try:
+        AS.AXUIElementSetMessagingTimeout(app, _AX_CALL_S)
+    except Exception:
+        pass
+    try:
+        for w in attr(app, "AXWindows") or []:
+            t = find(w, 0)
+            if t:
+                return t, "ok"
+    except TimeoutError:
+        return None, "busy"
     return None, "not_found"
 
 

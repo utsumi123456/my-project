@@ -318,7 +318,6 @@ class Api:
             s["publish"] = self.publish_status()
             s["dock"] = self.dock_status()
             s["playlist_id"] = self.playlist_id
-            s["playlist_path"] = self._path_of(self.playlist_id)
             s["improved"] = self.improved.to_json() if self.improved else None
             s["level"] = self.cfgfile.improve_level
             s["insight"] = self._insight()
@@ -816,12 +815,6 @@ class Api:
                     for p in playlist_tree(self.lib.db.con) if p["kind"] == "playlist"]
         except Exception:
             return [{"id": p.id, "name": p.name, "path": p.name} for p in self.lib.playlists()]
-
-    def _path_of(self, pid) -> str:
-        for p in self._playlist_items() if pid else []:
-            if p["id"] == pid:
-                return p["path"]
-        return self.draft.name if self.draft else ""
 
     def rb_selection(self) -> dict:
         """The playlist on screen in rekordbox. Off the worker thread: it reads

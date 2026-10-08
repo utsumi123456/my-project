@@ -370,7 +370,8 @@ select:focus-visible,input:focus-visible{outline:1px solid var(--target);outline
 .reco p{margin:3px 0 0;font-size:12px;line-height:1.5;color:var(--ink-2);max-width:60ch}
 .reco .go{font-size:12px;color:var(--link);white-space:nowrap}
 .reco:hover .go{text-decoration:underline}
-.cond-row{display:flex;flex-wrap:wrap;gap:var(--s2) var(--s4)}
+/* margin-top = the row gap, so the name sits as far above the first row as the rows sit apart */
+.cond-row{display:flex;flex-wrap:wrap;gap:var(--s2) var(--s4);margin-top:var(--s2)}
 .cond-row label{display:flex;align-items:center;gap:6px;color:var(--ink-3);font-size:12px}
 .cond-row select,.cond-row input[type=text]{background:var(--raised);color:var(--ink);
   border:1px solid var(--line);border-radius:0;padding:4px 7px}
@@ -490,12 +491,12 @@ select{-webkit-appearance:none;appearance:none;padding-right:24px!important;
 .pl-head .dot.off{background:transparent;border:1px solid var(--ink-3)}
 .pl-head h1{margin:0;font-family:var(--display);font-size:19px;font-weight:300;line-height:1.2;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-/* the folder path under the name: its first letter under the name's first letter
-   (dot 7px + gap), clear of the panel edge. Its own block, not .pl-head (a flex row) */
-.pl-path{margin:2px 0 0;padding-left:calc(7px + var(--s2));font-size:12px;color:var(--ink-3);
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.pl-path:empty{display:none}
-.pl-head select{max-width:100%}
+/* no folder path under the name: rekordbox's tree already shows where it lives.
+   the picker shown instead of the name when the selection can't be read. appearance:none
+   drops WebKit's inner padding, so it needs its own or the text sits on the 1px frame */
+.pl-head select{flex:1 1 auto;min-width:0;max-width:100%;height:30px;padding:4px 8px;
+  background-color:var(--raised);color:var(--ink);border:1px solid var(--line);font-size:14px;
+  text-overflow:ellipsis}
 .insight{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--s2);margin:0}
 .insight div{border:1px solid var(--line-soft);background:var(--raised);padding:var(--s2) var(--s3)}
 .insight dt{font-size:11px;color:var(--ink-3)} .insight dd{margin:2px 0 0;font-size:15px}
@@ -553,7 +554,6 @@ select{-webkit-appearance:none;appearance:none;padding-right:24px!important;
         <h1 id="plTitle">—</h1>
         <select id="pl" hidden aria-label="プレイリスト"></select>
       </div>
-      <p class="pl-path" id="plPath"></p>
       <div class="cond-row">
         <label>target <input type="text" id="target" value="60:00" aria-label="目標時間"></label>
         <label>mix <select id="preset"></select></label>
@@ -987,8 +987,6 @@ function renderHero(){
 let FOLLOW = "", LEVEL = "light", LEVEL_HELP = {};
 function renderHead(){
   $("plTitle").textContent = ST.playlist || "—";
-  const path = ST.playlist_path || "";
-  $("plPath").textContent = path && path !== ST.playlist ? path : "";
   const on = FOLLOW === "ok" || FOLLOW === "no_match";
   $("followDot").className = "dot" + (on ? "" : " off");
   $("followDot").title = on ? "rekordbox の選択に追従中" : "rekordbox の選択を読めません（設定）";
@@ -1867,7 +1865,8 @@ async function pollFollow(){
   try {
     const r = await window.pywebview.api.rb_selection();
     if(!r) return;
-    const was = FOLLOW; FOLLOW = r.why;
+    /* a slow answer from a busy rekordbox says nothing about the selection: keep what is shown */
+    const was = FOLLOW; if(r.why !== "busy") FOLLOW = r.why;
     if(was !== FOLLOW) renderHead();
     const busy = !$("modal").hidden || (ST.agent && ST.agent.pending) || (PUB && PUB.active);
     if(r.changed && !busy){
