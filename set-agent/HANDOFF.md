@@ -1,6 +1,59 @@
 # Set Agent — 引き継ぎメモ
 
-## ▶ 最新（2026-10-09）: 再設計 — rekordbox の選択に追従・改善版・チャット層
+## ▶ 次のセッションはここから（2026-10-09 夜の引き継ぎ）
+
+### 0. 最初に読むもの（この順）
+1. この節。
+2. `docs/redesign_2026-10-09.md`（現在の思想と実装。末尾に 2 回目のレビュー）。
+3. デザインの正典: `setagent/webui/index.html` 冒頭コメントと、コミット `5f46f54` のメッセージ（teenage engineering 準拠）。
+   Obsidian `Claude/projects/set-agent.md` の「デザインの正典」と `Claude/user/preferences.md` も同じ内容。
+
+### 1. 守ること（ユーザー明示。破ると差し戻し）
+- **デザイン**: teenage engineering のカタログ準拠を崩さない。角丸 0・影 0・1px 罫線・色は状態だけ・細字。
+  **AI テンプレート的なデザイン（汎用の角丸カード、青み掛かったダーク、OS 既定の部品の見た目）は不可。**
+  macOS（WKWebView）は select/checkbox を OS の角丸で描くので、新しい部品も appearance:none で描くこと。
+- **用語**: ラベル・単語・概念は英語の小文字（専門用語で可）。詳細な説明だけ日本語。固有名詞の大文字は保つ（QR, iPhone は下記のとおり置き換え）。
+- **思想**: Set Agent は rekordbox に組み込まれた「準備（プレップ）」の補助。DJ のプレイリストは直さない。頼まれたら
+  改善版を別プレイリストとして書き出すだけ。介入度は DJ が選ぶ（「余計なお世話」が最大のリスク）。
+- **時系列の取り違えに注意（下の 3 の 4 点目を必読）**。
+
+### 2. 現在の状態
+- 作業機: MacBook-Pro（macOS 26.6、rekordbox 7.2.19）。リポジトリ `~/src/my-project`、アプリ `set-agent/`。
+  venv: `set-agent/.venv`（uv の Python 3.12）。ブランチ `set-agent/rekordbox-integration`、
+  PR utsumi123456/my-project#2（未マージ）。最新コミット `e1a8f93`。
+- テスト: `.venv/bin/python -m unittest discover -s tests`（268 OK）。JS: `.venv/bin/python -m tools.check_js`。
+  エージェント評価: `SETAGENT_HOME=<tmp> .venv/bin/python -m tools.eval_agent acid`（11/11、実 Claude を使う）。
+- UI の確認: `SETAGENT_MASTER_DB=<ライブラリのコピー>/master.db SETAGENT_HOME=<tmp> .venv/bin/python -m tools.webui_live`
+  → 出た URL を Claude のブラウザペインで 460×940 に。本物のライブラリでは起動しない。Chromium なので macOS の部品の見た目は再現しない。
+- アプリ: `.venv/bin/python build.py --no-tests` → `build/exe/SetAgent.app`（`open -n build/exe/SetAgent.app`）。
+  ad-hoc 署名のため、作り直すとアクセシビリティ許可が外れることがある（システム設定で SetAgent をオフ→オン）。
+- この Mac は画面収録の許可がない（スクショ不可）。ウィンドウ位置は Quartz CGWindowList で確認。
+- CRLF のファイル（HANDOFF.md, README.md, api.py, index.html, tools.py など）は Python の open() で書くと LF に化ける。
+  `newline=''` で読んで `\r\n` を保つこと（2026-10-08 に一度事故）。
+
+### 3. 次にやること（2026-10-09 夜のユーザーレビュー。この順で）
+1. **文言**: 設定の「iPhone」→「**screen mirroring**」、「show qr」→「**show QR**」。QR のモーダル見出しも同じ（`openPhone()` の `modal("iphone", …)`）。
+2. **プレイリストのパス表示**（`#plPath`、`<p class="pl-head path">`）が左に寄りすぎて枠にほぼ接している。
+   見出しの ■ と文字の頭をそろえ、枠との余白を取る（`.pl-head` は flex 用のクラスなので p に付けたのが原因の可能性。要確認）。
+   **improve のホバー表示（levelSeg の各ボタンの title=LEVEL_HELP）は削除**。下の `#impHelp` の 1 行と重複している。
+3. **ダークテーマの予測時間の帯**: 今は「表示窓」を反転させて白い帯にしているが、ユーザーは不可（ダークになっていない）。
+   帯はダークのまま、オリジナルの「1 つだけの表示窓」という考え方と親和性のある区別にする
+   （案: 地 #0f0e12 に対して帯は #000000＋上下 1px の明色罫線、文字 #f6f8f7。新しい色相・グラデーション・影は使わない）。
+   `:root[data-theme="dark"]` の `--carbon` 系トークンを見直す（今は --carbon:#f6f8f7 で反転させている）。
+4. **improve の説明文の誤り（時系列の取り違え）**: light の説明「曲はそのまま。繋ぎだけ整える」は誤り。
+   **曲を実際に繋ぐ（ミックスする）のは DJ で、それはプレイ中のこと。** Set Agent が触れるのはプレイ前の準備段階の「曲順」だけ。
+   操作フローを時系列で整理し直すこと:
+   - 準備（rekordbox でプレイリストを作る／Set Agent が尺と流れを見る／改善版を書き出す）→ 本番（DJ がその順でかけ、繋ぐ）。
+   - light がしているのは「隣り合う曲どうしの相性（キー・BPM）が悪い所を、近くの曲と入れ替える＝曲順の調整」。
+     説明は「曲は変えず、相性の悪い並びだけ入れ替える」のように、**曲順**の話として書く。standard / bold も同様に見直す。
+   - コード側の用語も同じ: `agent/improve.py` の LEVEL_HELP、`rough`（rough transitions）の表示名、`docs/redesign_2026-10-09.md`、
+     `dist_readme/はじめに.md`、エージェントの SYSTEM_PROMPT（`agent/llm.py`）とツール説明（`agent/tools.py` の set.propose_improvement）。
+     「つなぎ」「繋ぐ」という語は、DJ のミックス操作を指すので Set Agent の動作の説明には使わない（隣接曲の相性・並びと言う）。
+   - 再発防止: 新しい機能や文言を書く前に「それは準備中のことか、プレイ中のことか」「誰が行うか（DJ か Set Agent か）」を確認する。
+     この原則は Obsidian の `Claude/projects/set-agent.md` と `Claude/knowledge` にも記録済み。
+5. 上記のあと: テスト・check_js・webui_live で 2 テーマ×通常/畳んだ表示を確認 → アプリを作り直して実機確認 → コミット・push。
+
+## ▶ 2026-10-09: 再設計 — rekordbox の選択に追従・改善版・チャット層
 
 全体は `docs/redesign_2026-10-09.md`。要点:
 
