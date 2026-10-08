@@ -34,7 +34,7 @@ from setagent.analysis.timing import fmt
 from setagent.domain.draft import (History, LockedError, Move, SetBpmChange, SetDraft,
                                    SetLock, SetMilestone, SetRange, SetSetBpm,
                                    SetTargetLength, SetTempo, TrackEntry)
-from setagent.rekordbox import xml_export
+from setagent.rekordbox import writeback, xml_export
 from setagent.rekordbox.library import (Library, LibraryNotFound, PhraseStatus,
                                         rekordbox_running)
 from setagent.settings import Settings
@@ -52,12 +52,13 @@ _SERIAL = ("boot", "load", "state", "select", "set_curve", "set_milestone",
            "export_preview", "export_xml", "llm_status", "set_llm",
            "agent_status", "set_level", "ask", "insert_candidate",
            "set_item_approved", "apply_pending", "reject_pending",
-           "restart_rekordbox", "artwork")
+           "restart_rekordbox", "artwork", "publish_preview", "publish", "restore_backup",
+           "dismiss_publish_card")
 
 # Calls that cannot change what a view shows. Everything else in _SERIAL bumps
 # the revision, so a second view (the phone, see webui.remote) knows to refetch.
 _READ_ONLY = frozenset({"boot", "state", "artwork", "export_preview", "export_xml",
-                        "llm_status", "agent_status"})
+                        "llm_status", "agent_status", "publish_preview"})
 
 
 def median_bpm(bpms) -> float | None:
@@ -100,6 +101,10 @@ class Api:
         self.cands: list[dict] = []
         self.chat: list[dict] = []
         self._last_notice: str | None = None
+        self.publish_card: dict | None = None     # the agent's "write this into rekordbox?" card
+        self._publisher = None
+        self._absorbed_publish = ""
+        self.docker = None                         # webui.dock.Docker, set by app.main
 
         # who is calling: "pc" for the WebView, a client id for a phone
         self.origin: contextvars.ContextVar[str] = contextvars.ContextVar(
@@ -238,7 +243,9 @@ class Api:
         # The agent boundary is unchanged: it gets tools and an advisor, and can
         # only emit a Change Set. It never touches the draft.
         self.tools = AgentTools(draft=d, lib=self.lib, anlz=self.anlz,
-                                curve=self.curve, cfg=cfg)
+                                curve=self.curve, cfg=cfg,
+                                publish_planner=self._plan_publish,
+                                on_publish_proposal=self._on_publish_card)
         try:
             level = Intervention(self.cfgfile.level)
         except ValueError:
@@ -247,6 +254,7 @@ class Api:
         self.plog = self.advisor.log
         self.agent = LLMAgent(self.tools, self.advisor, cfg=self.llm_config())
         self.pending = None
+        self.publish_card = None
         self._last_notice = None
 
         self._save_settings(pl.name)
@@ -271,7 +279,10 @@ class Api:
                 self.tools.curve = self.curve
                 self.tools.anlz = self.anlz
             self._pump_notices()
+            self._pump_publish_notices()
             s["agent"] = self._agent_block()
+            s["publish"] = self.publish_status()
+            s["dock"] = self.dock_status()
             s["reco"] = self._reco_block(s)
             return s
         except Exception as e:
@@ -526,7 +537,8 @@ class Api:
         edited = bool(self.history) and \
             len(getattr(self.history, "_done", ())) != getattr(self, "_done_base", 0)
         return {"ready": True, "db": db_sig, "wal": wal_sig, "edited": edited,
-                "rekordbox_running": rekordbox_running()}
+                "rekordbox_running": rekordbox_running(),
+                "publish": self.publish_status(), "dock": self.dock_status()}
 
     def set_lock(self, index, target, on) -> dict:
         return self._run(lambda e: SetLock(e.track_id, target, bool(on)), index)
@@ -598,6 +610,174 @@ class Api:
                 self.cfgfile.save()
             except Exception:
                 pass
+        return r
+
+    # ------------------------------------------------- write-back (A)
+    # The one place Set Agent writes to rekordbox: a playlist inside the
+    # "Set Agent" folder, on the DJ's button, with a backup and a read-back.
+    # rekordbox.writeback has the rules; rekordbox.publisher picks the moment.
+    def _backups(self) -> writeback.Backups:
+        from setagent.settings import app_home
+        return writeback.Backups(app_home() / "backups")
+
+    @property
+    def publisher(self):
+        if self._publisher is None:
+            from setagent.rekordbox.publisher import Publisher
+            w = writeback.Writer(self._backups())
+            self._publisher = Publisher(
+                w, lambda: self.lib.master_db,
+                remembered_exe=lambda: getattr(self.cfgfile, "rekordbox_exe", "") or None)
+        return self._publisher
+
+    def default_publish_name(self) -> str:
+        """'acid (60:00)': the source name keeps it findable, the target keeps
+        it apart from the source playlist in rekordbox's sidebar and ours."""
+        if not self.draft:
+            return "Set Agent"
+        t = self.draft.constraints.target_length_s
+        return writeback.clean_name(f"{self.draft.name} ({fmt(t)})" if t else self.draft.name)
+
+    def _plan_publish(self, name: str = "") -> writeback.PublishPlan:
+        if not self.draft or not self.lib:
+            raise writeback.WriteError("セットが読み込まれていません")
+        ok, why = writeback.available()
+        if not ok:
+            raise writeback.WriterUnavailable(why)
+        name = writeback.clean_name(name) if (name or "").strip() else self.default_publish_name()
+        return writeback.plan_publish_fresh(self.lib.master_db, [e.track_id for e in self.draft.tracks],
+                                            name, source=self.draft.name)
+
+    def _write_blocked(self) -> bool:
+        """rekordbox is open on the very file we would write. A copy of the
+        library (SETAGENT_MASTER_DB pointing elsewhere) is never blocked."""
+        if not self.lib:
+            return False
+        live = writeback._default_live()
+        if self.lib.master_db.resolve() not in {p.resolve() for p in live if p.exists()}:
+            return False
+        return bool(rekordbox_running())
+
+    def _on_publish_card(self, card: dict) -> None:
+        self.publish_card = card
+
+    def dismiss_publish_card(self) -> dict:
+        self.publish_card = None
+        return self.state()
+
+    def publish_preview(self, name=None) -> dict:
+        """What a write would do, before anything is written."""
+        try:
+            plan = self._plan_publish(name or "")
+        except writeback.WriteError as ex:
+            return {"available": False, "error": str(ex)}
+        except Exception as e:
+            return {"available": False, "error": f"{type(e).__name__}: {e}",
+                    "detail": traceback.format_exc()}
+        clash = [p.name for p in self.lib.playlists() if p.name == plan.name]
+        return {"available": True, "plan": plan.to_json(), "text": plan.describe(),
+                "default_name": self.default_publish_name(),
+                "rekordbox_running": self._write_blocked(),
+                "name_clash": bool(clash) and not plan.replaces,
+                "status": self.publish_status(),
+                "backups": [b.to_json() for b in self._backups().list()[:5]]}
+
+    def publish(self, name=None, how="now", force=False) -> dict:
+        """how: now | when_closed | quit_write_relaunch. force only comes from the
+        second confirm after rekordbox refused to quit."""
+        try:
+            plan = self._plan_publish(name or "")
+        except writeback.WriteError as ex:
+            return {"ok": False, "error": str(ex)}
+        if not plan.track_ids:
+            return {"ok": False, "error": "書き込める曲がありません"}
+        if how == "now" and self._write_blocked():
+            return {"ok": False, "error": "rekordbox が起動しています。終了後に書き込むか、終了して書き込んでください",
+                    "rekordbox_running": True}
+        r = self.publisher.submit(plan, how, force=bool(force))
+        if r.get("ok"):
+            self.publish_card = None
+            verb = {"now": "書き込みます", "when_closed": "rekordbox の終了後に書き込みます",
+                    "quit_write_relaunch": "rekordbox を終了して書き込み、もう一度起動します"}[how]
+            self._say("meta", f"「{plan.name}」（{len(plan.track_ids)} 曲）を {verb}")
+        return r
+
+    def publish_status(self) -> dict:
+        """Cheap and off the worker thread: the view polls it while a job runs."""
+        if self._publisher is None:
+            ok, why = writeback.available()
+            return {"active": False, "state": "idle", "available": ok, "why": why, "last": None,
+                    "needs_force": False}
+        st = self._publisher.status()
+        st["available"] = True
+        return st
+
+    def publish_cancel(self) -> dict:
+        if self._publisher is None:
+            return {"ok": False, "error": "予約はありません"}
+        return self._publisher.cancel()
+
+    def _pump_publish_notices(self) -> None:
+        p = self._publisher
+        while p is not None and p.notices:
+            self._say("meta", p.notices.popleft())
+        last = p.last if p is not None else None
+        if last is not None and last.ok and last.at != self._absorbed_publish:
+            # our own write: re-read the library (not the set) so the new
+            # playlist, and the agent's view of it, are current
+            self._absorbed_publish = last.at
+            try:
+                self.lib.rescan()
+            except Exception:
+                pass
+        if p is not None and p.last_exe and p.last_exe != getattr(self.cfgfile, "rekordbox_exe", ""):
+            try:
+                self.cfgfile.rekordbox_exe = p.last_exe
+                self.cfgfile.save()
+            except Exception:
+                pass
+
+    def backups(self) -> dict:
+        return {"backups": [b.to_json() for b in self._backups().list()]}
+
+    def restore_backup(self, backup_id) -> dict:
+        """Put an earlier database back (rekordbox must be closed)."""
+        if not self.lib:
+            return {"error": "ライブラリが開かれていません"}
+        if self._publisher is not None and self._publisher.status()["active"]:
+            return {"error": "書き込みの予約・実行中は戻せません"}
+        try:
+            r = writeback.Writer(self._backups()).restore(self.lib.master_db, str(backup_id))
+        except writeback.WriteError as ex:
+            return {"error": str(ex)}
+        except Exception as e:
+            return {"error": f"戻せませんでした: {type(e).__name__}: {e}"}
+        self._say("meta", f"rekordbox のデータベースを {r['restored']} の状態に戻しました"
+                          f"（戻す直前の状態も {r['safety_backup']} に保存しました）")
+        return {"ok": True, **r}
+
+    # ---------------------------------------------------------- dock (B)
+    def dock_status(self) -> dict:
+        if self.docker is None:
+            return {"mode": "off", "effective": "off", "available": False, "collapsed": False,
+                    "note": "", "modes": ["off", "side", "inside", "split"]}
+        return self.docker.status()
+
+    def set_dock(self, mode) -> dict:
+        if self.docker is None:
+            return {"error": "この画面ではドッキングできません"}
+        r = self.docker.set_mode(str(mode))
+        if "error" not in r:
+            self.cfgfile.dock = self.docker.mode
+            self.cfgfile.save()
+        return r
+
+    def set_collapsed(self, on) -> dict:
+        if self.docker is None:
+            return {"error": "この画面ではドッキングできません"}
+        r = self.docker.set_collapsed(bool(on))
+        self.cfgfile.dock_collapsed = bool(on)
+        self.cfgfile.save()
         return r
 
     # ----------------------------------------------------------------- llm
@@ -744,6 +924,7 @@ class Api:
                 "diff": list(cs.diff_lines),
             },
             "ghost": ghost,
+            "publish_card": self.publish_card,
         }
 
     def _say(self, who: str, text: str) -> None:

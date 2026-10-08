@@ -237,6 +237,11 @@ select:focus-visible,input:focus-visible{outline:1px solid var(--target);outline
 .cand span:first-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cand-list{display:flex;flex-direction:column;gap:3px;margin-top:5px;max-height:130px;
   overflow:auto}
+/* a long Change Set (a fit plan can remove 80+ tracks) scrolls inside its own
+   box; its buttons stay pinned at the bottom so it can always be applied */
+#pending{flex:0 1 auto;min-height:0;max-height:58vh;overflow:auto}
+#pending .card .acts{position:sticky;bottom:calc(-1 * var(--s3));background:var(--raised);
+  margin-bottom:calc(-1 * var(--s3));padding:var(--s2) 0 var(--s3);border-top:1px solid var(--line-soft)}
 .card{background:var(--raised);border:1px solid var(--rule);
   border-radius:0;padding:var(--s3) var(--s4);margin-top:var(--s2)}
 .card h3{margin:0 0 5px;font-size:13px;font-weight:400;color:var(--ink)}
@@ -410,6 +415,39 @@ input[type=checkbox]{accent-color:var(--ink);border-radius:0}
 .reality-row{padding:var(--s3) var(--s4);border-top:1px solid var(--line-soft);background:var(--page);flex:none}
 .reality-row .reality{max-height:140px}
 
+/* ---- write-back (rekordbox へ) ---- */
+.pub-kv{display:grid;grid-template-columns:auto 1fr;gap:4px var(--s3);font-size:12px;margin:0 0 var(--s3)}
+.pub-kv dt{color:var(--ink-3)} .pub-kv dd{margin:0;color:var(--ink)}
+.pub-skip{font-size:12px;color:var(--caution-ink);margin:0 0 var(--s3);max-height:96px;overflow:auto}
+.pub-state{display:flex;align-items:center;gap:var(--s2);font-size:12px;color:var(--ink-2);margin:0 0 var(--s3)}
+.pub-state .dot{display:inline-block;width:7px;height:7px;background:var(--ink)}
+.pub-state .dot.rb{background:var(--caution)}
+.bk-list{display:flex;flex-direction:column;gap:2px;margin:var(--s2) 0 var(--s3)}
+.bk-row{display:grid;grid-template-columns:1fr auto;gap:var(--s2);align-items:center;font-size:12px;
+  padding:4px 0;border-bottom:1px solid var(--line-soft)}
+.bk-row .meta{color:var(--ink-3)}
+/* the last step of a set lives under its verdict, in the Carbon band */
+.hero-block .hero-acts{display:flex;align-items:center;justify-content:flex-end;gap:var(--s3);margin-top:var(--s4)}
+.hero-block .hero-acts .meta{font-size:12px;color:var(--on-carbon-2);margin-right:auto}
+.hero-block .hero-acts .btn{color:var(--on-carbon);border-color:var(--on-carbon-2)}
+.hero-block .hero-acts .btn:hover{background:var(--on-carbon);color:var(--carbon)}
+.hero-block .hero-acts .btn.busy{border-color:var(--caution);color:var(--caution)}
+/* ---- docked as a strip: below 300px the panel shows only the verdict ---- */
+.mini{display:none}
+@media (max-width:299px){
+  .app,.drawer,.curtain{display:none!important}
+  .mini{display:flex;flex-direction:column;align-items:center;gap:var(--s3);height:100vh;
+    padding:var(--s3) 0;background:var(--carbon);color:var(--on-carbon);border-left:1px solid var(--rule)}
+  .mini .btn{color:var(--on-carbon);border-color:var(--on-carbon-2);padding:3px 6px;min-width:0}
+  .mini .btn:hover{background:var(--on-carbon);color:var(--carbon)}
+  .mini .t{writing-mode:vertical-rl;font-family:var(--display);font-size:28px;font-weight:300;
+    letter-spacing:.02em;line-height:1}
+  .mini .d{writing-mode:vertical-rl;font-size:12px;font-weight:400;padding:6px 2px}
+  .mini .d.over{background:var(--critical);color:#fff}
+  .mini .d.under{background:var(--caution);color:#000}
+  .mini .d.ok{color:var(--on-carbon-2)}
+  .mini .lbl{writing-mode:vertical-rl;font-size:11px;color:var(--on-carbon-2);margin-top:auto}
+}
 [hidden]{display:none!important}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 /* "iPhone で表示": the QR stays black on white whatever the panel theme, so cameras read it */
@@ -431,6 +469,8 @@ input[type=checkbox]{accent-color:var(--ink);border-radius:0}
     <button class="btn glyph" id="undo" aria-label="元に戻す"
       title="元に戻す: Set Agent 内での試行を 1 つ戻します（rekordbox には影響しません）">↶</button>
     <button class="btn glyph" id="redo" aria-label="やり直す" title="やり直す: 戻した試行をもう一度行います">↷</button>
+    <button class="btn glyph" id="collapseBtn" hidden aria-label="細く畳む"
+      title="細く畳む: rekordbox の横に予測時間だけを残します。もう一度押すと戻ります">⇥</button>
     <button class="btn" id="agentBtn"
       title="エージェント: 分析の数値をもとに質問に答え、提案（チェックして適用）を出します">エージェント</button>
     <button class="btn" id="settings"
@@ -481,6 +521,11 @@ input[type=checkbox]{accent-color:var(--ink);border-radius:0}
         <div class="bullet-tick" id="bTick"></div>
       </div>
       <div class="bullet-scale"><span>0:00</span><span id="bTargetLbl"></span><span id="bTotalLbl"></span></div>
+      <div class="hero-acts">
+        <span class="meta" id="pubState"></span>
+        <button class="btn" id="publishBtn" type="button"
+          title="このセットの曲順を rekordbox の「Set Agent」フォルダにプレイリストとして書き込みます。書き込む前に内容を確認できます">rekordbox へ書き込む</button>
+      </div>
     </div>
 
     <button class="reco" id="reco" type="button" hidden
@@ -534,6 +579,13 @@ input[type=checkbox]{accent-color:var(--ink);border-radius:0}
     </div>
   </div>
   </section>
+</div>
+
+<div class="mini" id="mini" aria-label="Set Agent（畳んだ表示）">
+  <button class="btn" id="expandBtn" title="広げる: パネルを元の幅に戻します" aria-label="広げる">⇤</button>
+  <div class="t" id="miniT">—</div>
+  <div class="d" id="miniD"></div>
+  <div class="lbl" id="miniL">set agent</div>
 </div>
 
 <div class="curtain" id="curtain">
@@ -711,6 +763,8 @@ function apply(s, firstPaint){
 const esc = t => String(t).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
 function render(){
+  renderPublish(ST.publish);
+  renderDock(ST.dock);
   renderHero();
   renderReco();
   renderList();
@@ -785,6 +839,20 @@ function renderAgent(){
        </div>
      </div>`;
 
+  const pc = a.publish_card;
+  if(pc && !REMOTE){
+    $("pending").insertAdjacentHTML("beforeend",
+      `<div class="card">
+         <h3>rekordbox に書き込む</h3>
+         ${pc.reason ? `<p class="why">${esc(pc.reason)}</p>` : ""}
+         <p class="why">${esc(pc.summary)}</p>
+         <div class="acts">
+           <button class="btn primary" id="pubCardGo" data-name="${esc(pc.name)}">確認して書き込む…</button>
+           <button class="btn" id="pubCardNo">閉じる</button>
+         </div>
+       </div>`);
+  }
+
   $("plog").textContent = a.log || "";
 
   /* a proactive notice is worthless if the drawer is shut and nothing says so */
@@ -828,6 +896,18 @@ function renderHero(){
   $("curveEdited").textContent = ST.curve_edited ? " 編集済み" : "";
   $("bTargetLbl").textContent = "目標 " + fmt(tgt);
   $("bTotalLbl").textContent = fmt(tot);
+  renderMini();
+}
+
+/* the collapsed strip (dock): the predicted length and the verdict, vertical */
+function renderMini(){
+  if(!ST) return;
+  const d = ST.delta_s, cls = fitClass(d);
+  $("miniT").textContent = fmt(ST.total_s);
+  const m = $("miniD");
+  m.className = "d " + cls;
+  m.textContent = cls === "over" ? `+${fmt(d)}` : cls === "under" ? `−${fmt(-d)}` : cls === "ok" ? "目標内" : "";
+  $("miniL").textContent = ST.playlist || "set agent";
 }
 
 /* One card, worded by state. It is the doorway to recommendations: over -> ask
@@ -1112,6 +1192,9 @@ async function pollLibrary(){
     const c = await window.pywebview.api.library_changed();
     if(!c || !c.ready) return;
     FRESH.rb = c.rekordbox_running;
+    renderPublish(c.publish);
+    renderDock(c.dock);
+    if(PUB_WAIT) return;                 /* our own write is landing; pollPublish acknowledges it */
     if(!LIB_SIG){ LIB_SIG = c; renderFresh(); return; }
     if(c.db !== LIB_SIG.db || c.wal !== LIB_SIG.wal){
       const busy = drag || knobDrag || !$("modal").hidden || (ST.agent && ST.agent.pending);
@@ -1711,6 +1794,14 @@ async function openSettings(refresh){
     `<p class="sec-title" style="margin-top:0">rekordbox ライブラリ</p>
      <div class="fresh"><span class="meta" id="freshTxt"></span>
        <button class="btn" id="rescan" title="rekordbox の master.db と -wal を今すぐ読み直します。ふだんは自動で追従するので、この画面の試行を保っているときだけ必要です"></button></div>
+     <p class="sec-title">rekordbox の横に付ける</p>
+     <div class="field"><select id="fDock" title="rekordbox のウィンドウに合わせてパネルを動かします">
+       ${DOCK_MODES.map(([v, l]) => `<option value="${v}"${(ST && ST.dock && ST.dock.mode) === v ? " selected" : ""}>${l}</option>`).join("")}
+     </select></div>
+     <p class="hint${ST && ST.dock && ST.dock.note ? " warn" : ""}" id="fDockNote">${esc(dockNote())}</p>
+     <p class="sec-title">rekordbox への書き込み</p>
+     <p class="hint">「rekordbox へ」は rekordbox の「Set Agent」フォルダの中だけを書き換えます。書き込む前に毎回データベースをバックアップします（新しい 10 件を保存）。</p>
+     <div class="bk-list" id="fBackups"><span class="meta">読み込み中…</span></div>
      <p class="sec-title">エージェント（Claude）</p>
      <div class="conn" id="llmConn">${connHtml(s)}
        <button class="btn" id="fRecheck" title="Claude Code のログイン状態を今すぐ確かめます">再確認</button></div>
@@ -1735,6 +1826,14 @@ async function openSettings(refresh){
         apply(await window.pywebview.api.state());
      }}]);
   renderFresh();
+  $("fDock").addEventListener("change", async ()=>{
+    const r = await window.pywebview.api.set_dock($("fDock").value);
+    if(r && r.error){ toast(r.error); return; }
+    DOCK = r;                          /* the DJ chose this: no "undocked" toast */
+    renderDock(r);
+    $("fDockNote").textContent = dockNote();
+  });
+  fillBackups();
   $("rescan").addEventListener("click", ()=>{ closeModal(); refreshFromRekordbox(null); });
   $("fRecheck").addEventListener("click", ()=>{ closeModal(); openSettings(true); });
   $("fPhone").addEventListener("click", ()=>{ closeModal(); openPhone(); });
@@ -1811,6 +1910,174 @@ $("curve").addEventListener("change", async ()=>
 $("undo").addEventListener("click", async ()=> apply(await window.pywebview.api.undo()));
 $("redo").addEventListener("click", async ()=> apply(await window.pywebview.api.redo()));
 $("cRetry").addEventListener("click", ()=>{ $("cRetry").hidden = true; boot(); });
+
+/* ---- dock (B): follow rekordbox's window ---- */
+const DOCK_MODES = [["side", "横に付ける（入らないときは内側）"], ["inside", "rekordbox の内側、右端に重ねる"],
+                    ["split", "rekordbox を縮めて並べる"], ["off", "付けない（自由に置く）"]];
+let DOCK = null;
+function dockNote(){
+  const d = DOCK || (ST && ST.dock) || {};
+  if(!d.available) return "この環境ではドッキングできません";
+  if(d.note) return d.note;
+  const eff = {side:"rekordbox の横に付いています", inside:"rekordbox の内側に重ねています",
+               split:"rekordbox と並べています", waiting:"rekordbox のウィンドウを待っています",
+               off:"自由に置けます。パネルを動かすとドッキングは解除されます"}[d.effective] || "";
+  return eff + (d.mode !== "off" ? "。パネルをドラッグすると解除されます" : "");
+}
+function renderDock(d){
+  if(!d) return;
+  if(DOCK && DOCK.mode !== "off" && d.mode === "off")
+    toast("パネルを動かしたので rekordbox へのドッキングを解除しました（設定から戻せます）");
+  DOCK = d;
+  if(ST) ST.dock = d;
+  $("collapseBtn").hidden = REMOTE || !d.available;
+}
+async function setCollapsed(on){
+  const r = await window.pywebview.api.set_collapsed(on);
+  if(r && r.error){ toast(r.error); return; }
+  renderDock(r);
+}
+$("collapseBtn").addEventListener("click", ()=> setCollapsed(true));
+$("expandBtn").addEventListener("click", ()=> setCollapsed(false));
+
+/* ---- write-back (A): rekordbox へ ---- */
+/* The DJ's button is the only path that writes. The agent can put a card in
+   the drawer; the card opens this same sheet. */
+const HOW_LABEL = {now:"書き込み", when_closed:"終了後に書き込み（予約）", quit_write_relaunch:"終了→書き込み→再起動"};
+const STATE_LABEL = {queued:"準備中", waiting:"rekordbox の終了を待っています", quitting:"rekordbox を終了しています",
+                     writing:"書き込んでいます", relaunching:"rekordbox を起動しています"};
+let PUB = null, PUB_WAIT = false, pubTimer = null;
+function renderPublish(p){
+  if(!p) return;
+  PUB = p;
+  const b = $("publishBtn");
+  b.hidden = REMOTE || p.available === false;
+  b.classList.toggle("busy", !!p.active);
+  b.textContent = p.active ? "書き込みの状況" : "rekordbox へ書き込む";
+  const last = p.last;
+  $("pubState").textContent = p.active ? (STATE_LABEL[p.state] || "")
+    : last && last.ok ? `「${last.name}」を書き込み済み` : "";
+  if(p.active && !PUB_WAIT) watchPublish();
+}
+function watchPublish(){
+  PUB_WAIT = true;
+  clearInterval(pubTimer);
+  pubTimer = setInterval(pollPublish, 1000);
+}
+async function pollPublish(){
+  let p;
+  try { p = await window.pywebview.api.publish_status(); } catch(e){ return; }
+  renderPublish(p);
+  if(p.active) return;
+  clearInterval(pubTimer); PUB_WAIT = false;
+  /* our own write changed master.db: take that as the new baseline instead of
+     calling it "a change in rekordbox" */
+  try { LIB_SIG = await window.pywebview.api.library_changed(); } catch(e){}
+  const last = p.last;
+  if(p.needs_force){ confirmForce(); return; }
+  if(p.state === "cancelled"){ toast("書き込みの予約を取り消しました"); }
+  else if(last && last.ok){
+    toast(`rekordbox の「Set Agent」フォルダに「${last.name}」（${last.tracks} 曲）を${last.replaced ? "上書き" : "作成"}しました`
+          + (last.error ? `。${last.error}` : ""));
+  } else if(last){ toast("書き込めませんでした: " + last.error); }
+  apply(await window.pywebview.api.state());
+}
+function confirmForce(){
+  modal("rekordbox が終了しませんでした",
+    `<p>rekordbox に確認のダイアログ（保存するか等）が出ている可能性があります。rekordbox の画面を確認して閉じてから、もう一度「rekordbox へ」を押してください。</p>
+     <p class="hint warn">強制終了すると、rekordbox で保存していない変更が失われることがあります。</p>`,
+    [{label:"やめる", primary:true},
+     {label:"強制終了して書き込む", danger:true, run: ()=> submitPublish(PUB_NAME, "quit_write_relaunch", true)}]);
+}
+let PUB_NAME = null, pubPrevTimer = null;
+async function submitPublish(name, how, force){
+  const r = await window.pywebview.api.publish(name, how, !!force);
+  if(!r || !r.ok){ toast((r && r.error) || "書き込めませんでした"); return; }
+  renderPublish(r);
+  watchPublish();
+  toast(how === "when_closed" ? "rekordbox を閉じたら書き込みます"
+       : how === "quit_write_relaunch" ? "rekordbox を終了して書き込みます…" : "書き込んでいます…");
+  apply(await window.pywebview.api.state());
+}
+function pubBody(pv){
+  const p = pv.plan, rb = pv.rekordbox_running;
+  const skip = (p.skipped || []).length
+    ? `<p class="pub-skip">入らない曲 ${p.skipped.length} 曲: ${p.skipped.map(x => esc((x.title || x.track_id) + "（" + x.why + "）")).join("、")}</p>` : "";
+  const clash = pv.name_clash
+    ? `<p class="hint warn">rekordbox に同じ名前のプレイリストが別の場所にあります。Set Agent のプレイリスト一覧では見分けにくくなるので、名前を変えるのがおすすめです。</p>` : "";
+  return `<div class="field"><span>プレイリスト名（rekordbox の「Set Agent」フォルダに入ります）</span>
+            <input type="text" id="pubName" value="${esc(p.name)}" maxlength="120"></div>
+     <p id="pubText">${esc(pv.text)}</p>
+     <dl class="pub-kv">
+       <dt>入るもの</dt><dd>曲順（${p.track_ids.length} 曲）</dd>
+       <dt>入らないもの</dt><dd>再生範囲・テンポ・マイルストーン（Set Agent の中に残ります）</dd>
+       <dt>触らないもの</dt><dd>曲・キュー・解析と、「Set Agent」フォルダ以外のプレイリスト</dd>
+       <dt>バックアップ</dt><dd>書き込む直前に毎回（設定から戻せます）</dd>
+     </dl>
+     ${skip}${clash}
+     <div class="pub-state"><span class="dot${rb ? " rb" : ""}"></span>${rb
+        ? "rekordbox が起動しています。書き込みは rekordbox を閉じている間だけ行います"
+        : "rekordbox は閉じています。すぐに書き込めます"}</div>`;
+}
+async function openPublish(name){
+  if(REMOTE){ toast("rekordbox への書き込みは PC の Set Agent で行ってください"); return; }
+  const st = await window.pywebview.api.publish_status();
+  if(st && st.active){
+    modal("rekordbox へ",
+      `<p>「${esc(st.name)}」（${st.tracks} 曲）: ${esc(STATE_LABEL[st.state] || st.state)}（${esc(HOW_LABEL[st.how] || "")}）</p>`,
+      [{label:"閉じる", primary:true},
+       ...(st.state === "waiting" || st.state === "queued" ? [{label:"予約を取り消す", danger:true, run: async ()=>{
+          const r = await window.pywebview.api.publish_cancel(); renderPublish(r); }}] : [])]);
+    return;
+  }
+  const pv = await window.pywebview.api.publish_preview(name || null);
+  if(!pv || !pv.available){ toast((pv && pv.error) || "書き込みは使えません"); return; }
+  const rb = pv.rekordbox_running;
+  const go = how => ({close:true, run: ()=> submitPublish(PUB_NAME, how, false)});
+  modal("rekordbox へ書き込む", pubBody(pv), rb
+    ? [{label:"キャンセル"},
+       {label:"rekordbox を閉じたら書き込む", ...go("when_closed")},
+       {label:"rekordbox を終了して書き込む", primary:true, ...go("quit_write_relaunch")}]
+    : [{label:"キャンセル"}, {label:"書き込む", primary:true, ...go("now")}]);
+  PUB_NAME = pv.plan.name;
+  $("pubName").addEventListener("input", ()=>{
+    PUB_NAME = $("pubName").value;
+    clearTimeout(pubPrevTimer);
+    pubPrevTimer = setTimeout(async ()=>{
+      const q = await window.pywebview.api.publish_preview(PUB_NAME);
+      if(q && q.available && !$("modal").hidden && $("pubText")) $("pubText").textContent = q.text;
+    }, 300);
+  });
+}
+$("publishBtn").addEventListener("click", ()=> openPublish(null));
+$("pending").addEventListener("click", async e=>{
+  if(e.target.id === "pubCardGo") openPublish(e.target.dataset.name);
+  if(e.target.id === "pubCardNo") apply(await window.pywebview.api.dismiss_publish_card());
+});
+
+async function fillBackups(){
+  const box = $("fBackups"); if(!box) return;
+  let r;
+  try { r = await window.pywebview.api.backups(); } catch(e){ box.textContent = ""; return; }
+  const list = (r && r.backups) || [];
+  if(!list.length){ box.innerHTML = `<span class="meta">まだバックアップはありません</span>`; return; }
+  box.innerHTML = list.map(b => `<div class="bk-row"><span>${esc(b.created.replace("T", " "))}
+      <span class="meta">${esc(b.reason)} · ${b.size_mb} MB</span></span>
+      <button class="btn" data-bk="${esc(b.id)}" title="rekordbox のデータベースをこの時点に戻します（rekordbox を閉じている必要があります。戻す直前の状態もバックアップします）">この時点に戻す</button></div>`).join("");
+  box.querySelectorAll("[data-bk]").forEach(btn => btn.addEventListener("click", ()=>{
+    const id = btn.dataset.bk;
+    closeModal();
+    modal("この時点に戻しますか",
+      `<p>rekordbox のデータベース（プレイリスト・曲の情報すべて）を ${esc(id)} の状態に戻します。それ以降に rekordbox で行った変更も戻ります。</p>
+       <p class="hint">戻す直前の状態もバックアップするので、やり直せます。rekordbox を閉じてから実行してください。</p>`,
+      [{label:"キャンセル", primary:true},
+       {label:"戻す", danger:true, run: async ()=>{
+          const x = await window.pywebview.api.restore_backup(id);
+          toast(x.error || "戻しました。rekordbox を起動すると反映されています");
+          if(!x.error) refreshFromRekordbox(null);
+       }}]);
+  }));
+}
 
 /* ---- agent drawer ---- */
 function openDrawer(on){

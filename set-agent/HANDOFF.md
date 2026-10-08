@@ -1,5 +1,31 @@
 # Set Agent — 引き継ぎメモ
 
+## ▶ 最新（2026-10-08）: rekordbox との統合 — 書き戻し・ドッキング・履歴
+
+設計と検証の全体は `docs/rekordbox_integration_2026-10-08.md`。要点:
+
+- **A 書き戻し**: 「rekordbox へ書き込む」（予測時間の帯の右下）で、セットの曲順を rekordbox の root
+  「Set Agent」フォルダにプレイリストとして書く（pyrekordbox）。他は一切触らない。rekordbox が閉じているときだけ。
+  起動中は「閉じたら書き込む（予約）」か「終了→書き込み→再起動」。毎回バックアップ、読み戻しで不一致なら自動復元、
+  設定から任意のバックアップへ復元可。B-2 は「Set Agent フォルダのプレイリストだけ」に狭めて維持。
+- **B ドッキング**: パネルが rekordbox のウィンドウに追従（side／inside／split／off、既定 side→余地なしなら inside）。
+  rekordbox か Set Agent が前面のときだけ浮く。ドラッグで解除。⇥ で 64px の帯に畳む。
+- **C MCP 統合**: rekordbox-mcp のツールを読み取り専用 SQL で再実装（履歴セッション・曲の再生履歴と前後の共起・
+  詳細・統計・プレイリスト一覧・Camelot 互換検索）＋ `rekordbox.publish_preview / propose_publish`。
+  エージェントのツールは 14 → 21。共起は候補選びのタイブレーカーにも使用。
+- この作業は **MacBook-Pro（macOS 26.6、rekordbox 7.2.19）** で実施。`~/src/my-project`、venv は
+  `set-agent/.venv`（uv の Python 3.12）。macOS バンドルの実機起動はこれが初。
+- テスト 249 OK、`tools.eval_agent acid` 8/8 PASS（publish / history シナリオ追加）。
+- 新しい開発ツール: `tools/webui_live.py`（本物の Api をブラウザに出す。ライブラリのコピーでのみ起動）。
+- 既存バグ修正: 長い Change Set（85 件など）でドロワーの「適用」が画面外に出て押せなかった → `#pending` を
+  スクロールさせ、ボタンを下に固定。
+
+**次にやること**
+1. 本物のライブラリで初回の書き込み（DJ が rekordbox を閉じて「書き込む」）→ rekordbox で「Set Agent」フォルダを確認。
+2. Windows 機（AT26A320D）で: テスト、`--doctor` の「ドッキング」「書き込み」行、ドッキングの目視（DPI 150% を含む）、
+   「終了→書き込み→再起動」。
+3. ドッキング split の macOS アクセシビリティ許可の流れを、配布版（.app）で確認。
+
 ## ▶ 次のセッションはここから（2026-09-17 19:30 時点の引き継ぎ）
 
 ここだけ読めば続きから拾える。詳細は下の日付付き追記に全部ある。

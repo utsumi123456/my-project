@@ -37,12 +37,21 @@ def build_exe() -> None:
            "--add-data", f"{ui}{os.pathsep}setagent/webui",
            "--hidden-import", "tools.decrypt_masterdb",
            # the phone view (webui.remote) and its QR code are imported on demand
-           "--hidden-import", "setagent.webui.remote", "--hidden-import", "segno"]
+           "--hidden-import", "setagent.webui.remote", "--hidden-import", "segno",
+           # write-back (A): pyrekordbox + SQLCipher, imported only when the DJ writes.
+           # The SQLAlchemy dialect is named in a URL string, so name it here too.
+           "--hidden-import", "setagent.rekordbox.writeback", "--hidden-import", "setagent.rekordbox.publisher",
+           "--hidden-import", "setagent.rekordbox.insights", "--hidden-import", "setagent.webui.dock",
+           "--collect-all", "pyrekordbox", "--collect-all", "sqlcipher3",
+           "--hidden-import", "sqlalchemy.dialects.sqlite.pysqlcipher"]
     if WIN:
         cmd += ["--hidden-import", "webview.platforms.winforms", "--hidden-import", "clr_loader"]
     elif MAC:
         # pywebview drives WKWebView through pyobjc; PyInstaller cannot see the lazy import
-        cmd += ["--hidden-import", "webview.platforms.cocoa", "--osx-bundle-identifier", "jp.alphatheta.setagent"]
+        cmd += ["--hidden-import", "webview.platforms.cocoa", "--osx-bundle-identifier", "jp.alphatheta.setagent",
+                # dock (B): window geometry (Quartz) and, for "split", moving rekordbox (Accessibility)
+                "--hidden-import", "Quartz", "--hidden-import", "ApplicationServices",
+                "--hidden-import", "PyObjCTools.AppHelper"]
     else:
         cmd += ["--hidden-import", "webview.platforms.gtk"]
     cmd.append("run_setagent.py")

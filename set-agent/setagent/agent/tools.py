@@ -1,9 +1,14 @@
 """The agent's tool surface (spec E-6).
 
-Every tool returns plain JSON-able data. Ten of the eleven are read-only; the
-last one, `set.propose_changes`, builds a Change Set and hands it to the user —
-it never applies anything. An LLM that can only call these tools cannot make up
-a number and cannot edit the set behind the DJ's back.
+Every tool returns plain JSON-able data. All are read-only except two that only
+*propose*: `set.propose_changes` builds a Change Set, `rekordbox.propose_publish`
+offers to write the set into rekordbox. Both hand the decision to the DJ and
+apply nothing. An LLM that can only call these tools cannot make up a number,
+cannot edit the set behind the DJ's back, and cannot write to rekordbox.
+
+The library / history tools (lib.*, history.*, rekordbox.get_playlists) follow
+rekordbox-mcp's surface, reimplemented over the read-only decrypted copy
+(rekordbox.insights).
 """
 from __future__ import annotations
 
@@ -31,6 +36,12 @@ class AgentTools:
     curve: TargetCurve | None = None
     cfg: dict = field(default_factory=lambda: dict(PRESET_CONFIG))
     on_proposal: Callable[[ChangeSet], None] | None = None
+    # write-back (A): the planner previews, the callback shows a proposal card.
+    # Neither writes; the DJ's button does (webui.api.publish).
+    publish_planner: Callable[[str], Any] | None = None
+    on_publish_proposal: Callable[[dict], None] | None = None
+    _history: Any = field(default=None, init=False, repr=False)
+    _history_db: Any = field(default=None, init=False, repr=False)
 
     # -------------------------------------------------------------- helpers
     def _timeline(self):
@@ -38,6 +49,39 @@ class AgentTools:
 
     def _points(self, tl=None):
         return set_energy_curve(tl or self._timeline(), self.anlz)
+
+    def _con(self):
+        db = getattr(self.lib, "db", None)
+        return getattr(db, "con", None)
+
+    def history(self):
+        """The DJ-history index, rebuilt when the library is re-read."""
+        con = self._con()
+        if con is None:
+            return None
+        if self._history is None or self._history_db is not self.lib.db:
+            from setagent.rekordbox.insights import HistoryIndex
+            try:
+                self._history = HistoryIndex(con)
+            except Exception:                      # an old DB without history tables
+                self._history = None
+            self._history_db = self.lib.db
+        return self._history
+
+    def followers(self, track_id: str) -> dict:
+        h = self.history()
+        return dict(h.followers(track_id)) if h else {}
+
+    def _track_id(self, ref: str) -> str:
+        try:
+            return self.draft.tracks[self.draft.find(ref)].track_id
+        except Exception:
+            return ref
+
+    def _pool(self, playlist: str) -> list[str] | None:
+        if not playlist:
+            return None
+        return list(self.lib.db.playlist_by_name(playlist).track_ids)
 
     def title_of(self, ref: str) -> str:
         try:
@@ -193,34 +237,108 @@ class AgentTools:
                 for c in trim_candidates(self.draft, self.lib, presets)[:limit]]
 
     def search(self, text: str = "", bpm_min: float | None = None, bpm_max: float | None = None,
-               key: str = "", playlist: str = "", limit: int = 20) -> list[dict]:
+               key: str = "", playlist: str = "", limit: int = 20, compatible_with: str = "",
+               genre: str = "", rating_min: int | None = None, unplayed: bool = False,
+               sort: str = "") -> list[dict]:
         """lib.search — the DJ's own library, nothing else."""
-        ids = None
-        if playlist:
-            try:
-                ids = list(self.lib.db.playlist_by_name(playlist).track_ids)
-            except Exception:
-                return []
-        rows = [self.lib.track(i) for i in ids] if ids is not None else self.lib.db.tracks()
-        text = text.lower()
-        out = []
-        for t in rows:
-            if text and text not in t.title.lower() and text not in t.artist.lower():
-                continue
-            if bpm_min is not None and t.bpm < bpm_min: continue
-            if bpm_max is not None and t.bpm > bpm_max: continue
-            if key and t.key != key: continue
-            out.append({"track_id": t.id, "title": t.title, "artist": t.artist,
-                        "bpm": t.bpm, "key": t.key, "length": fmt(t.length_s),
-                        "cloud": t.is_cloud})
-            if len(out) >= limit:
-                break
+        from setagent.rekordbox.insights import search
+        try:
+            ids = self._pool(playlist)
+        except KeyError:
+            return []
+        con = self._con()
+        if con is None:
+            return []
+        return search(con, text=text, bpm_min=bpm_min, bpm_max=bpm_max, key=key,
+                      compatible_with=compatible_with, genre=genre, rating_min=rating_min,
+                      unplayed=bool(unplayed), ids=ids, sort=sort, limit=int(limit))
+
+    def get_play_history(self, track_ref: str = "", limit: int = 8) -> dict:
+        """lib.get_play_history — how often, when, and next to what the DJ played it."""
+        from setagent.rekordbox.insights import history_sessions, track_history
+        con, h = self._con(), self.history()
+        if con is None or h is None:
+            return {"available": False, "note": "このライブラリには DJ 履歴がありません"}
+        if not track_ref:
+            return {"available": True, "recent_sessions": history_sessions(con, limit=5),
+                    "note": "曲を指定すると、その曲の再生回数・前後にかけた曲を返します"}
+        out = track_history(con, h, self._track_id(track_ref), limit=int(limit))
+        out["available"] = "error" not in out
         return out
 
-    def get_play_history(self, track_ref: str = "") -> dict:
-        """lib.get_play_history — not wired up yet; says so rather than guessing."""
-        return {"available": False,
-                "note": "再生履歴はまだ読み込んでいません。共起統計は使えません"}
+    def get_history_sessions(self, days: int | None = None, query: str = "",
+                             min_tracks: int = 1, limit: int = 20) -> list[dict]:
+        """history.get_sessions — the DJ's past sessions, newest first."""
+        from setagent.rekordbox.insights import history_sessions
+        con = self._con()
+        return history_sessions(con, days=days, query=query, min_tracks=int(min_tracks),
+                                limit=int(limit)) if con is not None else []
+
+    def get_session_tracks(self, session_id: str) -> dict:
+        """history.get_session_tracks — what was played, in order."""
+        from setagent.rekordbox.insights import session_tracks
+        con = self._con()
+        if con is None:
+            return {"error": "履歴を読めません"}
+        tracks = session_tracks(con, session_id)
+        if not tracks:
+            return {"error": f"セッション {session_id} に曲がありません"}
+        return {"session_id": str(session_id), "tracks": tracks,
+                "total": fmt(sum(t["length_s"] for t in tracks))}
+
+    def get_track_details(self, track_ref: str) -> dict:
+        """lib.get_track_details — tags, rating, play count, Camelot key."""
+        from setagent.rekordbox.insights import track_details
+        con = self._con()
+        if con is None:
+            return {"error": "ライブラリを読めません"}
+        return track_details(con, self._track_id(track_ref))
+
+    def get_library_stats(self, playlist: str = "") -> dict:
+        """lib.get_stats — the shape of the library (or one playlist)."""
+        from setagent.rekordbox.insights import library_stats
+        con = self._con()
+        if con is None:
+            return {"error": "ライブラリを読めません"}
+        try:
+            ids = self._pool(playlist)
+        except KeyError:
+            return {"error": f"プレイリスト「{playlist}」が見つかりません"}
+        out = library_stats(con, ids)
+        out["scope"] = playlist or "library"
+        return out
+
+    def get_playlists(self) -> list[dict]:
+        """rekordbox.get_playlists — every playlist with its folder path."""
+        from setagent.rekordbox.insights import playlist_tree
+        con = self._con()
+        return playlist_tree(con) if con is not None else []
+
+    def publish_preview(self, name: str = "") -> dict:
+        """rekordbox.publish_preview — what writing this set into rekordbox would do."""
+        if self.publish_planner is None:
+            return {"available": False, "note": "この環境では rekordbox への書き込みは使えません"}
+        try:
+            plan = self.publish_planner(name)
+        except Exception as ex:
+            return {"available": False, "note": str(ex)}
+        return {"available": True, "summary": plan.describe(), **plan.to_json(),
+                "note": "曲順だけが rekordbox に入ります。再生範囲・テンポ・マイルストーンは Set Agent の中だけです"}
+
+    def propose_publish(self, reason: str = "", name: str = "") -> dict:
+        """rekordbox.propose_publish — offer to write the set; the DJ decides."""
+        prev = self.publish_preview(name)
+        if not prev.get("available"):
+            return {"accepted": False, "reason": prev.get("note", "書き込みは使えません")}
+        if not prev.get("track_ids"):
+            return {"accepted": False, "reason": "書き込める曲がありません"}
+        card = {"name": prev["name"], "summary": prev["summary"], "reason": reason,
+                "tracks": len(prev["track_ids"]), "replaces": prev["replaces"],
+                "skipped": prev["skipped"]}
+        if self.on_publish_proposal:
+            self.on_publish_proposal(card)
+        return {"accepted": True, "summary": prev["summary"],
+                "note": "ユーザーに書き込みの確認を出しました。書き込むかはユーザーが決めます"}
 
     def recommend_candidates(self, duration: str, target_energy: float | None = None,
                              after_index: int | None = None, playlist: str = "",
@@ -229,18 +347,21 @@ class AgentTools:
         from setagent.agent.changeset import parse_mmss
         secs = parse_mmss(duration) or 0
         bpm = key = None
+        follows: dict = {}
         if after_index is not None and 0 <= after_index < len(self.draft.tracks):
             tl = self._timeline()
             prev = tl.placements[after_index]
             bpm = prev.set_tempo
             key = self.lib.track(prev.track_id).key
+            follows = self.followers(prev.track_id)
         pool = None
         if playlist:
             try:
                 pool = list(self.lib.db.playlist_by_name(playlist).track_ids)
             except Exception:
                 pool = None
-        slot = Slot(duration_s=secs, target_energy=target_energy, bpm=bpm, key=key or "")
+        slot = Slot(duration_s=secs, target_energy=target_energy, bpm=bpm, key=key or "",
+                    follows=follows or None)
         used = {e.track_id for e in self.draft.tracks}
         return [{"track_id": c.track.id, "title": c.track.title, "artist": c.track.artist,
                  "bpm": c.track.bpm, "key": c.track.key, "in_slot": fmt(c.play_s),
@@ -314,6 +435,13 @@ TOOL_DISPATCH: dict[str, Callable] = {
     "analysis.get_trim_candidates": AgentTools.get_trim_candidates,
     "lib.search": AgentTools.search,
     "lib.get_play_history": AgentTools.get_play_history,
+    "lib.get_track_details": AgentTools.get_track_details,
+    "lib.get_stats": AgentTools.get_library_stats,
+    "history.get_sessions": AgentTools.get_history_sessions,
+    "history.get_session_tracks": AgentTools.get_session_tracks,
+    "rekordbox.get_playlists": AgentTools.get_playlists,
+    "rekordbox.publish_preview": AgentTools.publish_preview,
+    "rekordbox.propose_publish": AgentTools.propose_publish,
     "recommend.candidates": AgentTools.recommend_candidates,
     "analysis.plan_fit_to_target": AgentTools.plan_fit_to_target,
     "analysis.removal_candidates": AgentTools.removal_candidates,
@@ -345,12 +473,49 @@ TOOL_SCHEMA: list[dict] = [
                       "required": ["operations"]}},
     {"name": "analysis.get_trim_candidates", "description": "目標尺に収めるための削り代の候補",
      "input_schema": {"type": "object", "properties": {"limit": {"type": "integer"}}}},
-    {"name": "lib.search", "description": "ライブラリ検索（テキスト・BPM範囲・Key・プレイリスト）",
+    {"name": "lib.search",
+     "description": ("ライブラリ検索。テキスト・BPM 範囲・Key（rekordbox 表記 Am/F# など）・compatible_with（その Key と"
+                     "ハーモニックに繋がる Key、Camelot ±1 と平行調）・ジャンル・レーティング下限・未再生のみ・プレイリスト。"
+                     "sort は plays/rating/bpm/added。結果には camelot も付く"),
      "input_schema": {"type": "object", "properties": {
          "text": {"type": "string"}, "bpm_min": {"type": "number"}, "bpm_max": {"type": "number"},
-         "key": {"type": "string"}, "playlist": {"type": "string"}, "limit": {"type": "integer"}}}},
-    {"name": "lib.get_play_history", "description": "演奏履歴と共起統計（未実装。使えない旨を返す）",
-     "input_schema": {"type": "object", "properties": {"track_ref": {"type": "string"}}}},
+         "key": {"type": "string"}, "compatible_with": {"type": "string"},
+         "genre": {"type": "string"}, "rating_min": {"type": "integer"}, "unplayed": {"type": "boolean"},
+         "sort": {"type": "string", "enum": ["", "plays", "rating", "bpm", "added"]},
+         "playlist": {"type": "string"}, "limit": {"type": "integer"}}}},
+    {"name": "lib.get_play_history",
+     "description": ("DJ 履歴（rekordbox の HISTORY）。track_ref を渡すとその曲の再生回数・出たセッション数・最後にかけた日・"
+                     "直後／直前によくかけた曲（回数付き）。省略すると直近のセッション"),
+     "input_schema": {"type": "object", "properties": {"track_ref": {"type": "string"},
+                                                       "limit": {"type": "integer"}}}},
+    {"name": "lib.get_track_details",
+     "description": "曲のタグ（ジャンル・アルバム・レーベル・年）・レーティング・再生回数・Camelot キー・追加日",
+     "input_schema": {"type": "object", "properties": {"track_ref": {"type": "string"}},
+                      "required": ["track_ref"]}},
+    {"name": "lib.get_stats",
+     "description": "ライブラリ（または playlist）の統計: 曲数・総時間・BPM 分布・ジャンル上位・キー上位・未再生数",
+     "input_schema": {"type": "object", "properties": {"playlist": {"type": "string"}}}},
+    {"name": "history.get_sessions",
+     "description": "過去の DJ セッション（新しい順）。days で直近 N 日、query で名前・日付を絞る",
+     "input_schema": {"type": "object", "properties": {
+         "days": {"type": "integer"}, "query": {"type": "string"},
+         "min_tracks": {"type": "integer"}, "limit": {"type": "integer"}}}},
+    {"name": "history.get_session_tracks", "description": "あるセッションでかけた曲を順番どおりに",
+     "input_schema": {"type": "object", "properties": {"session_id": {"type": "string"}},
+                      "required": ["session_id"]}},
+    {"name": "rekordbox.get_playlists", "description": "rekordbox のプレイリスト一覧（フォルダのパス・曲数・種類）",
+     "input_schema": {"type": "object", "properties": {}}},
+    {"name": "rekordbox.publish_preview",
+     "description": ("今のセットを rekordbox の「Set Agent」フォルダにプレイリストとして書き込むと何が起きるか"
+                     "（新規か上書きか・入らない曲）。書き込みはしない"),
+     "input_schema": {"type": "object", "properties": {
+         "name": {"type": "string", "description": "プレイリスト名（省略時は既定）"}}}},
+    {"name": "rekordbox.propose_publish",
+     "description": ("「rekordbox に入れて」「書き出して」「プレイリストにして保存」の依頼で使う。書き込みの確認カードを"
+                     "ユーザーに出すだけで、書き込むかはユーザーが決める。rekordbox が起動中なら、終了後の予約か"
+                     "終了→書き込み→再起動をユーザーが選ぶ"),
+     "input_schema": {"type": "object", "properties": {
+         "reason": {"type": "string"}, "name": {"type": "string"}}}},
     {"name": "recommend.candidates", "description": "区間に合う実在曲の候補。曲名を作らないこと",
      "input_schema": {"type": "object", "properties": {
          "duration": {"type": "string", "description": "mm:ss"},

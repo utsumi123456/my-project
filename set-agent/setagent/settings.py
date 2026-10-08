@@ -68,6 +68,8 @@ class Settings:
     rekordbox_exe: str = ""          # remembered path, for relaunch after export
     window: str = ""                 # "x,y,w,h" of the panel when it was last closed
     set_bpm: str = ""                # the set's tempo as typed ("160"); "" = each track's own
+    dock: str = "side"               # off | side | inside | split (webui.dock); follows rekordbox's window
+    dock_collapsed: bool = False     # docked as a narrow strip
 
     # ------------------------------------------------------------- llm key
     # The key is a credential on someone else's PC, so it is not written in

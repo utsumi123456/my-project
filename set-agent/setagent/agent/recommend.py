@@ -55,6 +55,10 @@ class Slot:
     bpm_tolerance: float = 0.08          # 8% — a nudge on the platter, not a jump
     max_key_distance: int = 2
     length_slack: float = 0.5            # a track may be 50% longer than the gap
+    # From the DJ's own history (rekordbox.insights.HistoryIndex): how often each
+    # track was played right after the one before the gap. A tie-breaker, never
+    # a floor -- a track the DJ has not played yet is not a worse track.
+    follows: dict | None = None
 
 
 @dataclass(frozen=True)
@@ -123,6 +127,11 @@ def candidates(lib, slot: Slot, pool: list[str] | None = None,
 
         fit = 1 - abs(play_s - slot.duration_s) / max(slot.duration_s, 1)
         score += 0.15 * max(fit, 0.0)
+
+        times = (slot.follows or {}).get(tid, 0)
+        if times:
+            score += 0.1 * min(times, 3) / 3
+            reasons.append(f"過去のセットで直後にかけた {times} 回")
 
         from setagent.analysis.timing import fmt
         reasons.append(f"区間に入れると {fmt(play_s)}")

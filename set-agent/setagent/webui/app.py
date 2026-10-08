@@ -18,7 +18,8 @@ from setagent.settings import Settings
 from setagent.webui.api import Api
 
 DEFAULT = dict(width=460, height=940)
-MIN_SIZE = (380, 560)
+MIN_SIZE = (64, 560)            # 64: the collapsed strip (dock); the view switches to it below 300px
+RESTORE_MIN_W = 380
 
 
 def saved_geometry(cfg: Settings, screens=None) -> dict:
@@ -32,7 +33,7 @@ def saved_geometry(cfg: Settings, screens=None) -> dict:
         x, y, w, h = (int(v) for v in cfg.window.split(","))
     except (ValueError, AttributeError):
         return dict(DEFAULT)
-    w, h = max(w, MIN_SIZE[0]), max(h, MIN_SIZE[1])
+    w, h = max(w, RESTORE_MIN_W), max(h, MIN_SIZE[1])
     if screens is None:
         try:
             screens = webview.screens
@@ -69,6 +70,32 @@ def remember_geometry(window, cfg: Settings) -> None:
     window.events.closing += lambda *a: save()
 
 
+def start_dock(window, api: Api) -> None:
+    """Follow rekordbox's window (webui.dock). Starts once the native window
+    exists; a platform without support just leaves the panel free-floating."""
+    from setagent.webui.dock import Docker, current_platform
+
+    def undocked(msg: str) -> None:
+        api.cfgfile.dock = "off"
+        api.cfgfile.save()
+
+    def go(*_a):
+        if api.docker is not None:
+            return
+        cfg = api.cfgfile
+        w = 460
+        try:
+            w = int(cfg.window.split(",")[2])
+        except (ValueError, IndexError, AttributeError):
+            pass
+        d = Docker(window, current_platform(), mode=cfg.dock, panel_w=w, on_undock=undocked)
+        d.collapsed = bool(cfg.dock_collapsed)
+        api.docker = d
+        d.start()
+
+    window.events.shown += go
+
+
 def index_path() -> str:
     """Works from source and from inside a PyInstaller one-file bundle."""
     base = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent.parent))
@@ -95,6 +122,7 @@ def main(playlist: str | None = None) -> None:
         **saved_geometry(api.cfgfile),
     )
     remember_geometry(window, api.cfgfile)
+    start_dock(window, api)
     # Underscore-private on purpose: pywebview walks the js_api object's public
     # attributes to expose them to JS, and handing it a Window sends that walk
     # into an infinite recursion through .AccessibilityObject.Bounds.Empty.

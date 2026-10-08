@@ -143,7 +143,31 @@ def run(master_db: str | None = None, sample: int = 200) -> Report:
     elif present < scanned * 0.3:
         r.hints.append("フレーズ解析のある曲が少ない。展開の分析と再生範囲のプリセットは"
                        "解析のある曲にしか効きません。クラウド保存の曲は rekordbox が解析しません")
+    integration_checks(r, lib)
     return r
+
+
+def integration_checks(r: Report, lib=None) -> None:
+    """rekordbox write-back (A), docking (B) and DJ history (C)."""
+    from setagent.rekordbox import writeback
+    ok, why = writeback.available()
+    r.add("rekordbox への書き込み", ok, "使えます（Set Agent フォルダのみ）" if ok else why)
+    try:
+        from setagent.webui.dock import current_platform
+        p = current_platform()
+        rb = p.rekordbox_window() if p else None
+        r.add("rekordbox へのドッキング", p is not None,
+              ("rekordbox のウィンドウ " + (f"{rb.w}×{rb.h}" if rb else "は今は見つかりません（起動すると追従します）"))
+              if p else "この OS では使えません")
+    except Exception as ex:
+        r.add("rekordbox へのドッキング", False, f"{type(ex).__name__}: {ex}")
+    if lib is not None:
+        try:
+            from setagent.rekordbox.insights import history_sessions
+            n = len(history_sessions(lib.db.con, limit=100000))
+            r.add("DJ 履歴", n > 0 or None, f"{n} セッション")
+        except Exception as ex:
+            r.add("DJ 履歴", None, f"{type(ex).__name__}: {ex}")
 
 
 def main(argv=None) -> int:

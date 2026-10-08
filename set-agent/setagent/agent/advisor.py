@@ -46,6 +46,8 @@ BALANCE_WORDS = ("バランス", "どう", "どうか", "評価", "balance", "re
 FIT_WORDS = ("収めて", "収める", "縮めて", "短く", "削って", "fit", "trim", "shorten")
 FILL_WORDS = ("足したい", "埋めたい", "追加", "候補", "add", "fill", "suggest", "recommend")
 BUILD_WORDS = ("埋めて", "生成", "組んで", "組み立て", "作って", "build", "generate")
+PUBLISH_WORDS = ("rekordboxに", "rekordbox に", "書き込", "書き出", "保存して", "publish", "export")
+HISTORY_WORDS = ("履歴", "前回", "前にかけ", "よくかけ", "再生回数", "history", "played")
 FULL_WORDS = ("フル", "full", "丸ごと")
 
 OFF_TEXT = "エージェントはオフになっています。分析とタイムラインはそのまま使えます。"
@@ -76,6 +78,10 @@ class Advisor:
         def has(words):
             return any(w in t or w in low for w in words)
 
+        if has(PUBLISH_WORDS):
+            return self.publish()
+        if has(HISTORY_WORDS):
+            return self.history_report(selected_index)
         if has(FIT_WORDS):
             return self.fit_to_target(_mmss(t))
         if has(FULL_WORDS) and selected_index is not None:
@@ -150,6 +156,34 @@ class Advisor:
             lines.append("大きな問題は見当たりません")
         return Reply("\n".join(f"・{l}" for l in lines),
                      used_tools=["analysis.get_set_summary", "analysis.get_energy_curve"])
+
+    def history_report(self, selected_index: int | None) -> Reply:
+        """What the DJ played before: for the selected track, or the last sessions."""
+        if selected_index is not None and 0 <= selected_index < len(self.tools.draft.tracks):
+            tid = self.tools.draft.tracks[selected_index].track_id
+            h = self.tools.get_play_history(tid, limit=3)
+            if not h.get("available"):
+                return Reply(h.get("note") or h.get("error") or "履歴を読めません")
+            lines = [f"「{h['title']}」: 再生 {h['play_count']} 回 / {h['sessions']} セッション"
+                     + (f" / 最後 {h['last_played']}" if h["last_played"] else "")]
+            if h["followed_by"]:
+                lines.append("直後によくかけた曲: " + "、".join(
+                    f"{f['title']}（{f['times']} 回）" for f in h["followed_by"]))
+            return Reply("\n".join(f"・{l}" for l in lines), used_tools=["lib.get_play_history"])
+        ss = self.tools.get_history_sessions(limit=5, min_tracks=2)
+        if not ss:
+            return Reply("DJ 履歴が見つかりません")
+        return Reply("直近のセッション:\n" + "\n".join(
+            f"・{s['date']} {s['name']}（{s['tracks']} 曲）" for s in ss)
+            + "\n曲を選んでから「履歴」と聞くと、その曲の前後にかけた曲を出します",
+            used_tools=["history.get_sessions"])
+
+    def publish(self) -> Reply:
+        r = self.tools.propose_publish(reason="依頼により、今のセットを rekordbox に書き込む確認を出します")
+        if not r.get("accepted"):
+            return Reply(f"rekordbox には書き込めません。{r.get('reason', '')}")
+        return Reply(f"{r['summary']}\n入るのは曲順だけで、再生範囲・テンポは Set Agent の中に残ります。"
+                     "下のカードから書き込んでください。", used_tools=["rekordbox.propose_publish"])
 
     # ------------------------------------------------------------ proposals
     def _propose(self, reason: str, ops: list[dict], title: str = "") -> Reply:

@@ -6,6 +6,9 @@ pillow==12.3.0
 cryptography==50.0.1
 # QR code for opening the panel on a phone (pure Python, no deps)
 segno==1.6.6
+# write-back into rekordbox (A): pyrekordbox brings SQLAlchemy and the SQLCipher wheel.
+# Optional at runtime -- without it Set Agent stays read-only and says so.
+pyrekordbox==0.4.4
 pyinstaller==6.22.2
 # pywebview's Windows backend (WebView2 via WinForms)
 pythonnet==3.1.0; sys_platform == "win32"
@@ -16,3 +19,5 @@ pyobjc-framework-Cocoa; sys_platform == "darwin"
 pyobjc-framework-WebKit; sys_platform == "darwin"
 pyobjc-framework-Quartz; sys_platform == "darwin"
 pyobjc-framework-Security; sys_platform == "darwin"
+# dock (B), "split" mode: resize rekordbox's window via the Accessibility API
+pyobjc-framework-ApplicationServices; sys_platform == "darwin"
