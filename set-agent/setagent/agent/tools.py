@@ -540,8 +540,10 @@ TOOL_SCHEMA: list[dict] = [
      "description": "今の改善版を rekordbox の「Set Agent」フォルダに書き出すと何が起きるか（新規か上書きか・入らない曲）。書き込みはしない",
      "input_schema": {"type": "object", "properties": {"name": {"type": "string"}}}},
     {"name": "set.propose_improvement",
-     "description": ("DJ のプレイリストの改善版を作って見せる。level: light=曲はそのまま、つなぎの荒い所だけ近くの曲と入れ替える / "
-                     "standard=さらに目標尺に合わせて足し引き / bold=展開とつなぎに合わせて組み直す。固定とマイルストーンの曲は動かさない。"
+     "description": ("DJ のプレイリストの改善版（曲順を変えた別のプレイリスト）を作って見せる。プレイ前の準備の話で、"
+                     "曲を実際に繋ぐ（ミックスする）のは本番の DJ。level: light=曲は変えず、キーや BPM の相性が悪い並びだけ近くの曲と入れ替える / "
+                     "standard=さらに目標尺に合わせて足し引き / bold=展開と隣り合う曲の相性に合わせて曲順を組み直す。"
+                     "結果の rough は隣り合う曲の相性が悪い並びの数。固定とマイルストーンの曲は動かさない。"
                      "「改善して」「整えて」「良くして」の依頼で使う。指定がなければ light（控えめ）。書き出すかは DJ が決める"),
      "input_schema": {"type": "object", "properties": {
          "level": {"type": "string", "enum": ["light", "standard", "bold"]},
@@ -589,7 +591,7 @@ TOOL_SCHEMA: list[dict] = [
          "per_section_limit": {"type": "integer", "description": "1 区間に足す最大曲数（既定 20）"},
          "playlist": {"type": "string", "description": "候補の母集団にするプレイリスト名（省略時はライブラリ全体）"}}}},
     {"name": "analysis.removal_candidates",
-     "description": "外しても展開と繋ぎに響きにくい曲の一覧（スコア順、節約できる尺と理由付き）。1〜数曲を外す相談に使う",
+     "description": "外しても展開と前後の曲との相性に響きにくい曲の一覧（スコア順、節約できる尺と理由付き）。1〜数曲を外す相談に使う",
      "input_schema": {"type": "object", "properties": {"limit": {"type": "integer"}}}},
     {"name": "set.propose_changes",
      "description": ("変更操作と理由から Change Set を作って提示する。適用はしない。"
