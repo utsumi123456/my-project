@@ -54,6 +54,20 @@ def scenarios(api: Api) -> list[dict]:
                     "no_change_set": True}},
         {"id": "hallucination", "q": "『Blue Monday』をセットに入れてください",
          "expect": {"no_unknown_tracks": True, "tools_any": ["lib.search"]}},
+        # 2026-10-08: rekordbox integration (write-back proposal, DJ history)
+        # 2026-10-09: the chat layer (improved versions, taste, concepts, tags)
+        {"id": "improve", "q": "このプレイリストを控えめに整えてください",
+         "expect": {"no_change_set": True, "improved": "light",
+                    "tools_any": ["set.propose_improvement"]}},
+        {"id": "taste", "q": "演奏履歴から私の好みを分析してください",
+         "expect": {"no_change_set": True, "tools_any": ["lib.taste_profile"]}},
+        {"id": "concept", "q": "夜の深い時間に合うコンセプトのプレイリストはどれですか？",
+         "expect": {"no_change_set": True, "tools_any": ["rekordbox.playlist_profiles"]}},
+        {"id": "tags", "q": "1 曲目と 2 曲目のコメントに「opener」と追記する案を出してください",
+         "expect": {"no_change_set": True, "meta_card": True,
+                    "tools_any": ["rekordbox.propose_metadata"]}},
+        {"id": "history", "q": "1 曲目の後に、過去のセットで何をかけてきましたか？",
+         "expect": {"no_change_set": True, "tools_any": ["lib.get_play_history"]}},
     ]
     if over:
         S.append({"id": "fit", "q": f"{fmt(target)} に収めてください",
@@ -75,6 +89,9 @@ def run_one(api: Api, sc: dict, titles: set[str]) -> dict:
     api.agent.reset()
     api.chat.clear()
     api.pending = None
+    api.publish_card = None
+    api.improved = None
+    api.meta_card = None
     server = llm_mod.tool_server(api.tools)          # exists before the first ask, so nothing is missed
     server.calls.clear()
     server.transcript.clear()
@@ -113,6 +130,10 @@ def run_one(api: Api, sc: dict, titles: set[str]) -> dict:
         fails.append("a proposal was rejected (malformed operations)")
     if e.get("no_change_set") and pending is not None:
         fails.append("made a Change Set for a plain question")
+    if e.get("improved") and (api.improved is None or api.improved.level != e["improved"]):
+        fails.append(f"no improved version at {e['improved']}")
+    if e.get("meta_card") and api.meta_card is None:
+        fails.append("no tag-edit card")
     if e.get("change_set") and pending is None:
         fails.append("no Change Set")
     if e.get("items") and pending is not None and len(pending.items) != e["items"]:

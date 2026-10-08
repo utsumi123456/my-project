@@ -75,7 +75,9 @@ def pending_wal_bytes(master_db: Path) -> int:
         return 0
 
 
-def default_master_db_candidates() -> list[Path]:
+def default_master_db_candidates(include_env: bool = True) -> list[Path]:
+    """Where rekordbox keeps master.db. include_env=False gives only the places
+    rekordbox itself uses -- the files the write-back guard protects."""
     c: list[Path] = []
     if sys.platform.startswith("win"):
         appdata = os.environ.get("APPDATA")
@@ -84,7 +86,7 @@ def default_master_db_candidates() -> list[Path]:
     elif sys.platform == "darwin":
         c.append(Path.home() / "Library" / "Pioneer" / "rekordbox" / "master.db")
     # allow tests / non-standard installs
-    env = os.environ.get("SETAGENT_MASTER_DB")
+    env = os.environ.get("SETAGENT_MASTER_DB") if include_env else None
     if env:
         c.insert(0, Path(env))
     return c

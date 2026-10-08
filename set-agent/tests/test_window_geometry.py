@@ -3,7 +3,7 @@ import unittest
 from types import SimpleNamespace
 
 from setagent.settings import Settings
-from setagent.webui.app import DEFAULT, MIN_SIZE, saved_geometry
+from setagent.webui.app import DEFAULT, MIN_SIZE, RESTORE_MIN_W, saved_geometry
 
 MAIN = SimpleNamespace(x=0, y=0, width=1920, height=1200)
 SIDE = SimpleNamespace(x=1920, y=0, width=1280, height=1024)
@@ -38,4 +38,5 @@ class SavedGeometryTest(unittest.TestCase):
 
     def test_size_never_below_minimum(self):
         g = saved_geometry(cfg("100,100,200,200"), [MAIN])
-        self.assertEqual((g["width"], g["height"]), MIN_SIZE)
+        # a collapsed strip (64px) is never restored as the free panel's width
+        self.assertEqual((g["width"], g["height"]), (RESTORE_MIN_W, MIN_SIZE[1]))

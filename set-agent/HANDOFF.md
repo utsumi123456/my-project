@@ -1,5 +1,127 @@
 # Set Agent — 引き継ぎメモ
 
+## ▶ 次のセッションはここから（2026-10-09 夜の引き継ぎ）
+
+### 0. 最初に読むもの（この順）
+1. この節。
+2. `docs/redesign_2026-10-09.md`（現在の思想と実装。末尾に 2 回目のレビュー）。
+3. デザインの正典: `setagent/webui/index.html` 冒頭コメントと、コミット `5f46f54` のメッセージ（teenage engineering 準拠）。
+   Obsidian `Claude/projects/set-agent.md` の「デザインの正典」と `Claude/user/preferences.md` も同じ内容。
+
+### 1. 守ること（ユーザー明示。破ると差し戻し）
+- **デザイン**: teenage engineering のカタログ準拠を崩さない。角丸 0・影 0・1px 罫線・色は状態だけ・細字。
+  **AI テンプレート的なデザイン（汎用の角丸カード、青み掛かったダーク、OS 既定の部品の見た目）は不可。**
+  macOS（WKWebView）は select/checkbox を OS の角丸で描くので、新しい部品も appearance:none で描くこと。
+- **用語**: ラベル・単語・概念は英語の小文字（専門用語で可）。詳細な説明だけ日本語。固有名詞の大文字は保つ（QR, iPhone は下記のとおり置き換え）。
+- **思想**: Set Agent は rekordbox に組み込まれた「準備（プレップ）」の補助。DJ のプレイリストは直さない。頼まれたら
+  改善版を別プレイリストとして書き出すだけ。介入度は DJ が選ぶ（「余計なお世話」が最大のリスク）。
+- **時系列の取り違えに注意（下の 3 の 4 点目を必読）**。
+
+### 2. 現在の状態
+- 作業機: MacBook-Pro（macOS 26.6、rekordbox 7.2.19）。リポジトリ `~/src/my-project`、アプリ `set-agent/`。
+  venv: `set-agent/.venv`（uv の Python 3.12）。ブランチ `set-agent/rekordbox-integration`、
+  PR utsumi123456/my-project#2（未マージ）。最新コミット `e1a8f93`。
+- テスト: `.venv/bin/python -m unittest discover -s tests`（268 OK）。JS: `.venv/bin/python -m tools.check_js`。
+  エージェント評価: `SETAGENT_HOME=<tmp> .venv/bin/python -m tools.eval_agent acid`（11/11、実 Claude を使う）。
+- UI の確認: `SETAGENT_MASTER_DB=<ライブラリのコピー>/master.db SETAGENT_HOME=<tmp> .venv/bin/python -m tools.webui_live`
+  → 出た URL を Claude のブラウザペインで 460×940 に。本物のライブラリでは起動しない。Chromium なので macOS の部品の見た目は再現しない。
+- アプリ: `.venv/bin/python build.py --no-tests` → `build/exe/SetAgent.app`（`open -n build/exe/SetAgent.app`）。
+  ad-hoc 署名のため、作り直すとアクセシビリティ許可が外れることがある（システム設定で SetAgent をオフ→オン）。
+- この Mac は画面収録の許可がない（スクショ不可）。ウィンドウ位置は Quartz CGWindowList で確認。
+- CRLF のファイル（HANDOFF.md, README.md, api.py, index.html, tools.py など）は Python の open() で書くと LF に化ける。
+  `newline=''` で読んで `\r\n` を保つこと（2026-10-08 に一度事故）。
+
+### 2.5 進捗（クラウドセッション、Linux コンテナ。Mac 実機なし）
+- 下の 3 の **1〜4 は実装済み**。ブランチ `claude/set-agent-continue-p1cw8o`（`set-agent/rekordbox-integration` の上に 1 コミット、
+  PR は rekordbox-integration 向けのドラフト）。内容は `docs/redesign_2026-10-09.md` 末尾の「3回目のレビュー」。
+- 5 のうち済み: テスト 268 OK（Python 3.13 の venv）、`tools.check_js` OK、`webui_live` を合成ライブラリ
+  （`tests/rbfixture.build` の 24 曲）で起動し、Playwright の Chromium で 2 テーマ × 460px / 148px を撮影して確認。
+  帯はダークで #000＋上下 1px #f6f8f7、パスは見出しの文字頭（左 30px）にそろう、介入度ボタンの title なし、
+  insight と改善版の結果が clashes 表示、設定に screen mirroring / show QR。
+- **残り（Mac で）**: `git switch claude/set-agent-continue-p1cw8o` → `build.py --no-tests` でアプリを作り直し、
+  実機（WKWebView）で 2 テーマ × 通常/畳んだ表示を目視 → 問題なければ rekordbox-integration にマージ。
+  eval_agent（実 Claude）は SYSTEM_PROMPT とツール説明を変えたので回し直す（このコンテナには Claude CLI のログインが無く未実施）。
+
+### 2.6 進捗（MacBook-Pro、2026-10-09 未明）
+- PR #3 はマージ済み（`5bd2cd1`）。eval_agent acid を実 Claude で再実行 → **11/11**（128s）。
+- 実機レビューでの追加修正:
+  - パスの行（`#plPath`）は**削除**（ユーザー判断: フォルダ名は要らない）。`api.py` の `playlist_path` / `_path_of` も削除。
+  - 実機で「枠にくっつく・重複」に見えていたのは、追従が切れたとき（作り直しでアクセシビリティ許可が外れる）に出る
+    選択ボックス `#pl`。appearance:none で内側の余白 0、中身がフルパス。padding 4px 8px・高さ 30px・`--raised`・`--line` を付けた。
+  - プレイリスト名と条件の行の間 = 行どうしの間（`.cond-row` に margin-top: var(--s2)）。
+  - `selection.py`: AX 呼び出し 1 回 0.5s・走査全体 1.5s の上限。超えたら why="busy"、パネルは表示を変えない。
+- 注意: Claude のブラウザペインは index.html を編集するたびにそのファイルを直接開く（pywebview が無く
+  「loading library…」で止まる）。`webui_live` の URL に開き直すこと。アプリの不具合ではない。
+- 配布物: `build.py`（テスト込み）→ `dist/SetAgent-macOS.zip` + `dist/はじめに.md`。この Mac には `/Applications/SetAgent.app` を入れた。
+  ad-hoc 署名・arm64 のみ（Developer ID が無いので公証なし。初回は「このまま開く」が要る。はじめに.md に記載）。
+
+### 3. 次にやること（2026-10-09 夜のユーザーレビュー。この順で）
+1. **文言**: 設定の「iPhone」→「**screen mirroring**」、「show qr」→「**show QR**」。QR のモーダル見出しも同じ（`openPhone()` の `modal("iphone", …)`）。
+2. **プレイリストのパス表示**（`#plPath`、`<p class="pl-head path">`）が左に寄りすぎて枠にほぼ接している。
+   見出しの ■ と文字の頭をそろえ、枠との余白を取る（`.pl-head` は flex 用のクラスなので p に付けたのが原因の可能性。要確認）。
+   **improve のホバー表示（levelSeg の各ボタンの title=LEVEL_HELP）は削除**。下の `#impHelp` の 1 行と重複している。
+3. **ダークテーマの予測時間の帯**: 今は「表示窓」を反転させて白い帯にしているが、ユーザーは不可（ダークになっていない）。
+   帯はダークのまま、オリジナルの「1 つだけの表示窓」という考え方と親和性のある区別にする
+   （案: 地 #0f0e12 に対して帯は #000000＋上下 1px の明色罫線、文字 #f6f8f7。新しい色相・グラデーション・影は使わない）。
+   `:root[data-theme="dark"]` の `--carbon` 系トークンを見直す（今は --carbon:#f6f8f7 で反転させている）。
+4. **improve の説明文の誤り（時系列の取り違え）**: light の説明「曲はそのまま。繋ぎだけ整える」は誤り。
+   **曲を実際に繋ぐ（ミックスする）のは DJ で、それはプレイ中のこと。** Set Agent が触れるのはプレイ前の準備段階の「曲順」だけ。
+   操作フローを時系列で整理し直すこと:
+   - 準備（rekordbox でプレイリストを作る／Set Agent が尺と流れを見る／改善版を書き出す）→ 本番（DJ がその順でかけ、繋ぐ）。
+   - light がしているのは「隣り合う曲どうしの相性（キー・BPM）が悪い所を、近くの曲と入れ替える＝曲順の調整」。
+     説明は「曲は変えず、相性の悪い並びだけ入れ替える」のように、**曲順**の話として書く。standard / bold も同様に見直す。
+   - コード側の用語も同じ: `agent/improve.py` の LEVEL_HELP、`rough`（rough transitions）の表示名、`docs/redesign_2026-10-09.md`、
+     `dist_readme/はじめに.md`、エージェントの SYSTEM_PROMPT（`agent/llm.py`）とツール説明（`agent/tools.py` の set.propose_improvement）。
+     「つなぎ」「繋ぐ」という語は、DJ のミックス操作を指すので Set Agent の動作の説明には使わない（隣接曲の相性・並びと言う）。
+   - 再発防止: 新しい機能や文言を書く前に「それは準備中のことか、プレイ中のことか」「誰が行うか（DJ か Set Agent か）」を確認する。
+     この原則は Obsidian の `Claude/projects/set-agent.md` と `Claude/knowledge` にも記録済み。
+5. 上記のあと: テスト・check_js・webui_live で 2 テーマ×通常/畳んだ表示を確認 → アプリを作り直して実機確認 → コミット・push。
+
+## ▶ 2026-10-09: 再設計 — rekordbox の選択に追従・改善版・チャット層
+
+全体は `docs/redesign_2026-10-09.md`。要点:
+
+- **思想**: Set Agent は rekordbox に組み込まれた補助。DJ のプレイリストは直さない。頼まれたときだけ **改善版** を
+  別プレイリスト（Set Agent フォルダ、「名前 (介入度)」）として書き出す。介入度は 控えめ / 標準 / 大胆。
+- **追従**: rekordbox のブラウザのステータス行をアクセシビリティで読み、指紋（曲数・分・MiB）でプレイリストを特定
+  （`rekordbox/selection.py`）。macOS は許可が要る。Windows（UIA）は実機未検証。
+- 編集系 UI（元に戻す/やり直す、ドラッグ、候補挿入、Change Set の適用）は削除。エージェントの提案は「改善版にする」。
+- テキスト削減、モデル選択（Opus 5.5 既定 / Sonnet 5.5 / Fable 5.1 / Haiku 5.5）、ダークテーマ、横書きの 148px の帯。
+- チャット層: 好み分析・コンセプト選び・タグ（コメント/レーティング/カラー）の書き込み提案。ツール 24。
+- API バックエンドのツール名にドットが入っていて API キー経路では弾かれていた既存バグを修正（`_` に変換）。
+- テスト 268、eval 11/11（Opus 5.5）。
+
+**次にやること**
+1. Windows 機で: 追従（UIA で「… トラック, …」の行が読めるか）、ドッキング、書き出し。
+2. 配布版 .app でアクセシビリティ許可の流れ（初回「許可する」→ システム設定 → 追従開始）。
+3. ユーザー検証: 改善版の各介入度が「余計なお世話」にならないか。
+
+## ▶ 2026-10-08: rekordbox との統合 — 書き戻し・ドッキング・履歴
+
+設計と検証の全体は `docs/rekordbox_integration_2026-10-08.md`。要点:
+
+- **A 書き戻し**: 「rekordbox へ書き込む」（予測時間の帯の右下）で、セットの曲順を rekordbox の root
+  「Set Agent」フォルダにプレイリストとして書く（pyrekordbox）。他は一切触らない。rekordbox が閉じているときだけ。
+  起動中は「閉じたら書き込む（予約）」か「終了→書き込み→再起動」。毎回バックアップ、読み戻しで不一致なら自動復元、
+  設定から任意のバックアップへ復元可。B-2 は「Set Agent フォルダのプレイリストだけ」に狭めて維持。
+- **B ドッキング**: パネルが rekordbox のウィンドウに追従（side／inside／split／off、既定 side→余地なしなら inside）。
+  rekordbox か Set Agent が前面のときだけ浮く。ドラッグで解除。⇥ で 64px の帯に畳む。
+- **C MCP 統合**: rekordbox-mcp のツールを読み取り専用 SQL で再実装（履歴セッション・曲の再生履歴と前後の共起・
+  詳細・統計・プレイリスト一覧・Camelot 互換検索）＋ `rekordbox.publish_preview / propose_publish`。
+  エージェントのツールは 14 → 21。共起は候補選びのタイブレーカーにも使用。
+- この作業は **MacBook-Pro（macOS 26.6、rekordbox 7.2.19）** で実施。`~/src/my-project`、venv は
+  `set-agent/.venv`（uv の Python 3.12）。macOS バンドルの実機起動はこれが初。
+- テスト 249 OK、`tools.eval_agent acid` 8/8 PASS（publish / history シナリオ追加）。
+- 新しい開発ツール: `tools/webui_live.py`（本物の Api をブラウザに出す。ライブラリのコピーでのみ起動）。
+- 既存バグ修正: 長い Change Set（85 件など）でドロワーの「適用」が画面外に出て押せなかった → `#pending` を
+  スクロールさせ、ボタンを下に固定。
+
+**次にやること**
+1. 本物のライブラリで初回の書き込み（DJ が rekordbox を閉じて「書き込む」）→ rekordbox で「Set Agent」フォルダを確認。
+2. Windows 機（AT26A320D）で: テスト、`--doctor` の「ドッキング」「書き込み」行、ドッキングの目視（DPI 150% を含む）、
+   「終了→書き込み→再起動」。
+3. ドッキング split の macOS アクセシビリティ許可の流れを、配布版（.app）で確認。
+
 ## ▶ 次のセッションはここから（2026-09-17 19:30 時点の引き継ぎ）
 
 ここだけ読めば続きから拾える。詳細は下の日付付き追記に全部ある。

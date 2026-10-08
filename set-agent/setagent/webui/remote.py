@@ -36,7 +36,7 @@ ALLOWED = frozenset({
     "rescan", "set_set_bpm", "set_bpm_change", "move_curve_point", "add_curve_point",
     "remove_curve_point", "export_preview", "llm_status", "agent_status", "set_level",
     "ask", "insert_candidate", "set_item_approved", "apply_pending", "reject_pending",
-    "artwork", "library_changed", "sync_rev",
+    "artwork", "library_changed", "sync_rev", "make_improved", "discard_improved",
 })
 PC_ONLY = "この操作は PC の Set Agent で行ってください"
 
@@ -79,7 +79,7 @@ FORBIDDEN_PAGE = """<!doctype html><html lang="ja"><head><meta charset="utf-8">
 <title>Set Agent</title></head>
 <body style="background:#0d1014;color:#e6e6e6;font-family:Arial,sans-serif;padding:24px">
 <p>接続キーが無効です。</p>
-<p>PC の Set Agent で「設定 → iPhone で表示」を開き、表示された QR コードをカメラで読み取ってください。</p>
+<p>PC の Set Agent で「設定 → screen mirroring → show QR」を開き、表示された QR コードをカメラで読み取ってください。</p>
 </body></html>"""
 
 

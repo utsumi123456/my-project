@@ -34,7 +34,9 @@ from setagent.analysis.timing import fmt
 from setagent.domain.draft import (History, LockedError, Move, SetBpmChange, SetDraft,
                                    SetLock, SetMilestone, SetRange, SetSetBpm,
                                    SetTargetLength, SetTempo, TrackEntry)
-from setagent.rekordbox import xml_export
+from setagent.agent.improve import LEVEL_HELP, LEVEL_LABEL, LEVELS, from_track_ids, improve
+from setagent.agent.llm import MODELS, model_id, model_label
+from setagent.rekordbox import selection, writeback, xml_export
 from setagent.rekordbox.library import (Library, LibraryNotFound, PhraseStatus,
                                         rekordbox_running)
 from setagent.settings import Settings
@@ -52,12 +54,14 @@ _SERIAL = ("boot", "load", "state", "select", "set_curve", "set_milestone",
            "export_preview", "export_xml", "llm_status", "set_llm",
            "agent_status", "set_level", "ask", "insert_candidate",
            "set_item_approved", "apply_pending", "reject_pending",
-           "restart_rekordbox", "artwork")
+           "restart_rekordbox", "artwork", "publish_preview", "publish", "restore_backup",
+           "dismiss_publish_card", "make_improved", "discard_improved", "write_metadata",
+           "dismiss_metadata", "set_model", "set_prefs")
 
 # Calls that cannot change what a view shows. Everything else in _SERIAL bumps
 # the revision, so a second view (the phone, see webui.remote) knows to refetch.
 _READ_ONLY = frozenset({"boot", "state", "artwork", "export_preview", "export_xml",
-                        "llm_status", "agent_status"})
+                        "llm_status", "agent_status", "publish_preview"})
 
 
 def median_bpm(bpms) -> float | None:
@@ -100,6 +104,14 @@ class Api:
         self.cands: list[dict] = []
         self.chat: list[dict] = []
         self._last_notice: str | None = None
+        self.publish_card: dict | None = None     # (unused since 2026-10-09; kept for old views)
+        self.improved = None                       # agent.improve.Improved: the version to write out
+        self.meta_card: dict | None = None         # the agent's tag edits, waiting for the DJ
+        self.playlist_id: str | None = None
+        self._fp = None                            # selection.Fingerprints for the open library
+        self._publisher = None
+        self._absorbed_publish = ""
+        self.docker = None                         # webui.dock.Docker, set by app.main
 
         # who is calling: "pc" for the WebView, a client id for a phone
         self.origin: contextvars.ContextVar[str] = contextvars.ContextVar(
@@ -165,13 +177,30 @@ class Api:
         except Exception as e:
             return {"error": f"{type(e).__name__}: {e}", "kind": "library_error",
                     "fatal": True, "detail": traceback.format_exc()}
-        names = [p.name for p in self.lib.playlists()]
+        pls = self.lib.playlists()
+        if not reuse or self._fp is None:
+            self._fp = self._fingerprints()
+        names = [p.name for p in pls]
         want = self.want_playlist or self.cfgfile.playlist
         if reuse and self.draft:
             want = self.draft.name
+        by_id = {p.id: p for p in pls}
+        want_id = (self.playlist_id if reuse and self.playlist_id else None) or \
+            (self.cfgfile.playlist_id if self.cfgfile.playlist_id in by_id and not self.want_playlist else None) or \
+            next((p.id for p in pls if p.name == want), None) or (pls[0].id if pls else None)
+        follow = selection.read(self._fp)
+        if follow.get("playlist_id") and not self.want_playlist:
+            want_id = follow["playlist_id"]
         return {
             "playlists": names,
-            "playlist": want if want in names else (names[0] if names else None),
+            "playlist_items": self._playlist_items(),
+            "playlist_id": want_id,
+            "follow": {"why": follow["why"]},
+            "theme": self.cfgfile.theme,
+            "level": self.cfgfile.improve_level,
+            "levels": [{"key": k, "label": LEVEL_LABEL[k], "help": LEVEL_HELP[k]} for k in LEVELS],
+            "models": [{"id": m, "label": l} for m, l in MODELS],
+            "playlist": by_id[want_id].name if want_id in by_id else (names[0] if names else None),
             "presets": list(viewstate.PRESET_LABELS),
             "preset_labels": dict(viewstate.PRESET_LABELS),
             "preset_help": dict(viewstate.PRESET_HELP),
@@ -195,18 +224,26 @@ class Api:
                     "fatal": True, "detail": traceback.format_exc()}
 
     def _load(self, opts: dict) -> dict:
-        name = opts.get("playlist") or self.cfgfile.playlist
         self.preset = opts.get("preset", self.preset)
         self.cap32 = bool(opts.get("cap32", self.cap32))
         self.target_s = int(opts.get("target_s", self.target_s))
 
-        pls = {p.name: p for p in self.lib.playlists()}
-        if name not in pls:
-            return {"error": f"プレイリスト「{name}」が見つかりません",
-                    "playlists": sorted(pls)}
-        pl = pls[name]
+        all_pls = self.lib.playlists()
+        by_id = {p.id: p for p in all_pls}
+        pid = opts.get("playlist_id")
+        if pid not in by_id:
+            name = opts.get("playlist") or (self.draft.name if self.draft else None) or self.cfgfile.playlist
+            pid = self.playlist_id if (self.playlist_id in by_id and self.draft and by_id[self.playlist_id].name == name) \
+                else next((p.id for p in all_pls if p.name == name), None)
+        if pid not in by_id:
+            return {"error": "プレイリストが見つかりません", "playlists": sorted(p.name for p in all_pls)}
+        pl = by_id[pid]
+        if pid != self.playlist_id:
+            self.improved = None                   # an improved version belongs to its playlist
+        self.playlist_id = pid
 
         d = SetDraft(name=pl.name, tracks=[TrackEntry(i) for i in pl.track_ids])
+        self._apply_intent(d, pid)
         h = History(d)
         h.run(SetTargetLength(self.target_s, 60))
         self.auto_bpm = median_bpm(self.lib.track(i).bpm for i in pl.track_ids)
@@ -238,7 +275,10 @@ class Api:
         # The agent boundary is unchanged: it gets tools and an advisor, and can
         # only emit a Change Set. It never touches the draft.
         self.tools = AgentTools(draft=d, lib=self.lib, anlz=self.anlz,
-                                curve=self.curve, cfg=cfg)
+                                curve=self.curve, cfg=cfg,
+                                publish_planner=self._plan_publish,
+                                improver=self._improve_for_agent,
+                                on_metadata_proposal=self._on_meta_card)
         try:
             level = Intervention(self.cfgfile.level)
         except ValueError:
@@ -247,6 +287,8 @@ class Api:
         self.plog = self.advisor.log
         self.agent = LLMAgent(self.tools, self.advisor, cfg=self.llm_config())
         self.pending = None
+        self.publish_card = None
+        self.meta_card = None
         self._last_notice = None
 
         self._save_settings(pl.name)
@@ -271,7 +313,14 @@ class Api:
                 self.tools.curve = self.curve
                 self.tools.anlz = self.anlz
             self._pump_notices()
+            self._pump_publish_notices()
             s["agent"] = self._agent_block()
+            s["publish"] = self.publish_status()
+            s["dock"] = self.dock_status()
+            s["playlist_id"] = self.playlist_id
+            s["improved"] = self.improved.to_json() if self.improved else None
+            s["level"] = self.cfgfile.improve_level
+            s["insight"] = self._insight()
             s["reco"] = self._reco_block(s)
             return s
         except Exception as e:
@@ -353,7 +402,9 @@ class Api:
         """at_s: None = not a milestone; negative = milestone without a target
         time (the DJ marks the anchor first, times it later); else the target."""
         target = None if at_s is None or int(at_s) < 0 else int(at_s)
-        return self._run(lambda e: SetMilestone(e.track_id, at_s is not None, target), index)
+        r = self._run(lambda e: SetMilestone(e.track_id, at_s is not None, target), index)
+        self._save_intent()
+        return r
 
     def set_preset(self, index, name) -> dict:
         if not self.draft:
@@ -498,7 +549,9 @@ class Api:
         if not self.lib:
             return {"error": "ライブラリが開かれていません"}
         self.lib.rescan()
-        return self._load({"playlist": self.draft.name if self.draft else None})
+        self._fp = self._fingerprints()
+        return self._load({"playlist_id": self.playlist_id,
+                           "playlist": self.draft.name if self.draft else None})
 
     # ------------------------------------------------------ change detection
     # Read-only loop (2026-09-16): the DJ edits in rekordbox, Set Agent follows.
@@ -526,10 +579,13 @@ class Api:
         edited = bool(self.history) and \
             len(getattr(self.history, "_done", ())) != getattr(self, "_done_base", 0)
         return {"ready": True, "db": db_sig, "wal": wal_sig, "edited": edited,
-                "rekordbox_running": rekordbox_running()}
+                "rekordbox_running": rekordbox_running(),
+                "publish": self.publish_status(), "dock": self.dock_status()}
 
     def set_lock(self, index, target, on) -> dict:
-        return self._run(lambda e: SetLock(e.track_id, target, bool(on)), index)
+        r = self._run(lambda e: SetLock(e.track_id, target, bool(on)), index)
+        self._save_intent()
+        return r
 
     # ---------------------------------------------------------- xml export
     def export_preview(self) -> dict:
@@ -598,6 +654,330 @@ class Api:
                 self.cfgfile.save()
             except Exception:
                 pass
+        return r
+
+    # ------------------------------------------------- write-back (A)
+    # The one place Set Agent writes to rekordbox: a playlist inside the
+    # "Set Agent" folder, on the DJ's button, with a backup and a read-back.
+    # rekordbox.writeback has the rules; rekordbox.publisher picks the moment.
+    def _backups(self) -> writeback.Backups:
+        from setagent.settings import app_home
+        return writeback.Backups(app_home() / "backups")
+
+    @property
+    def publisher(self):
+        if self._publisher is None:
+            from setagent.rekordbox.publisher import Publisher
+            w = writeback.Writer(self._backups())
+            self._publisher = Publisher(
+                w, lambda: self.lib.master_db,
+                remembered_exe=lambda: getattr(self.cfgfile, "rekordbox_exe", "") or None)
+        return self._publisher
+
+    def default_publish_name(self) -> str:
+        """'acid (60:00)': the source name keeps it findable, the target keeps
+        it apart from the source playlist in rekordbox's sidebar and ours."""
+        if not self.draft:
+            return "Set Agent"
+        lv = LEVEL_LABEL.get(self.improved.level, "AI") if self.improved else "AI"
+        return writeback.clean_name(f"{self.draft.name} ({lv})")
+
+    def _plan_publish(self, name: str = "") -> writeback.PublishPlan:
+        if not self.draft or not self.lib:
+            raise writeback.WriteError("セットが読み込まれていません")
+        ok, why = writeback.available()
+        if not ok:
+            raise writeback.WriterUnavailable(why)
+        if self.improved is None:
+            raise writeback.WriteError("先に改善版を作ってください")
+        name = writeback.clean_name(name) if (name or "").strip() else self.default_publish_name()
+        return writeback.plan_publish_fresh(self.lib.master_db, list(self.improved.track_ids),
+                                            name, source=self.draft.name)
+
+    def _write_blocked(self) -> bool:
+        """rekordbox is open on the very file we would write. A copy of the
+        library (SETAGENT_MASTER_DB pointing elsewhere) is never blocked."""
+        if not self.lib:
+            return False
+        live = writeback._default_live()
+        if self.lib.master_db.resolve() not in {p.resolve() for p in live if p.exists()}:
+            return False
+        return bool(rekordbox_running())
+
+    def _on_publish_card(self, card: dict) -> None:
+        self.publish_card = card
+
+    def dismiss_publish_card(self) -> dict:
+        self.publish_card = None
+        return self.state()
+
+    def publish_preview(self, name=None) -> dict:
+        """What a write would do, before anything is written."""
+        try:
+            plan = self._plan_publish(name or "")
+        except writeback.WriteError as ex:
+            return {"available": False, "error": str(ex)}
+        except Exception as e:
+            return {"available": False, "error": f"{type(e).__name__}: {e}",
+                    "detail": traceback.format_exc()}
+        clash = [p.name for p in self.lib.playlists() if p.name == plan.name]
+        return {"available": True, "plan": plan.to_json(), "text": plan.describe(),
+                "default_name": self.default_publish_name(),
+                "rekordbox_running": self._write_blocked(),
+                "name_clash": bool(clash) and not plan.replaces,
+                "status": self.publish_status(),
+                "backups": [b.to_json() for b in self._backups().list()[:5]]}
+
+    def publish(self, name=None, how="now", force=False) -> dict:
+        """how: now | when_closed | quit_write_relaunch. force only comes from the
+        second confirm after rekordbox refused to quit."""
+        try:
+            plan = self._plan_publish(name or "")
+        except writeback.WriteError as ex:
+            return {"ok": False, "error": str(ex)}
+        if not plan.track_ids:
+            return {"ok": False, "error": "書き込める曲がありません"}
+        if how == "now" and self._write_blocked():
+            return {"ok": False, "error": "rekordbox が起動しています。終了後に書き込むか、終了して書き込んでください",
+                    "rekordbox_running": True}
+        r = self.publisher.submit(plan, how, force=bool(force))
+        if r.get("ok"):
+            self.publish_card = None
+            if how == "when_closed":
+                self._say("meta", f"「{plan.name}」は rekordbox を閉じたら書き出します")
+        return r
+
+    def publish_status(self) -> dict:
+        """Cheap and off the worker thread: the view polls it while a job runs."""
+        if self._publisher is None:
+            ok, why = writeback.available()
+            return {"active": False, "state": "idle", "available": ok, "why": why, "last": None,
+                    "needs_force": False}
+        st = self._publisher.status()
+        st["available"] = True
+        return st
+
+    def publish_cancel(self) -> dict:
+        if self._publisher is None:
+            return {"ok": False, "error": "予約はありません"}
+        return self._publisher.cancel()
+
+    def _pump_publish_notices(self) -> None:
+        p = self._publisher
+        while p is not None and p.notices:
+            self._say("meta", p.notices.popleft())
+        last = p.last if p is not None else None
+        if last is not None and last.ok and last.at != self._absorbed_publish:
+            # our own write: re-read the library (not the set) so the new
+            # playlist, and the agent's view of it, are current
+            self._absorbed_publish = last.at
+            try:
+                self.lib.rescan()
+            except Exception:
+                pass
+        if p is not None and p.last_exe and p.last_exe != getattr(self.cfgfile, "rekordbox_exe", ""):
+            try:
+                self.cfgfile.rekordbox_exe = p.last_exe
+                self.cfgfile.save()
+            except Exception:
+                pass
+
+    def backups(self) -> dict:
+        return {"backups": [b.to_json() for b in self._backups().list()]}
+
+    def restore_backup(self, backup_id) -> dict:
+        """Put an earlier database back (rekordbox must be closed)."""
+        if not self.lib:
+            return {"error": "ライブラリが開かれていません"}
+        if self._publisher is not None and self._publisher.status()["active"]:
+            return {"error": "書き込みの予約・実行中は戻せません"}
+        try:
+            r = writeback.Writer(self._backups()).restore(self.lib.master_db, str(backup_id))
+        except writeback.WriteError as ex:
+            return {"error": str(ex)}
+        except Exception as e:
+            return {"error": f"戻せませんでした: {type(e).__name__}: {e}"}
+        self._say("meta", f"rekordbox のデータベースを {r['restored']} の状態に戻しました"
+                          f"（戻す直前の状態も {r['safety_backup']} に保存しました）")
+        return {"ok": True, **r}
+
+    # ------------------------------------------- follow rekordbox (2026-10-09)
+    def _fingerprints(self):
+        try:
+            return selection.Fingerprints.build(self.lib.db.con)
+        except Exception:
+            return None
+
+    def _playlist_items(self) -> list[dict]:
+        from setagent.rekordbox.insights import playlist_tree
+        try:
+            return [{"id": p["playlist_id"], "name": p["name"], "path": p["path"]}
+                    for p in playlist_tree(self.lib.db.con) if p["kind"] == "playlist"]
+        except Exception:
+            return [{"id": p.id, "name": p.name, "path": p.name} for p in self.lib.playlists()]
+
+    def rb_selection(self) -> dict:
+        """The playlist on screen in rekordbox. Off the worker thread: it reads
+        the accessibility tree and an immutable fingerprint table only."""
+        r = selection.read(self._fp, prefer=self.playlist_id)
+        r["current"] = self.playlist_id
+        r["changed"] = bool(r.get("playlist_id")) and r["playlist_id"] != self.playlist_id
+        return r
+
+    def request_follow_permission(self) -> dict:
+        return {"ok": selection.request_permission()}
+
+    # ------------------------------------------------ intent per playlist
+    # Milestones and locks are the DJ's intent for the improved version. They
+    # live with the playlist (by id), so following rekordbox never drops them.
+    def _intent_path(self) -> Path:
+        from setagent.settings import app_home
+        return app_home() / "intent.json"
+
+    def _read_intent(self) -> dict:
+        import json
+        try:
+            return json.loads(self._intent_path().read_text(encoding="utf-8"))
+        except Exception:
+            return {}
+
+    def _apply_intent(self, d: SetDraft, pid: str) -> None:
+        mine = self._read_intent().get(pid) or {}
+        for e in d.tracks:
+            x = mine.get(e.track_id)
+            if not x:
+                continue
+            e.is_milestone = bool(x.get("milestone"))
+            e.target_time_s = x.get("target_s")
+            e.locks = set(x.get("locks") or ())
+
+    def _save_intent(self) -> None:
+        import json
+        if not self.draft or not self.playlist_id:
+            return
+        allx = self._read_intent()
+        allx[self.playlist_id] = {e.track_id: {"milestone": e.is_milestone, "target_s": e.target_time_s,
+                                               "locks": sorted(e.locks)}
+                                  for e in self.draft.tracks if e.is_milestone or e.locks}
+        try:
+            p = self._intent_path()
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text(json.dumps(allx, ensure_ascii=False), encoding="utf-8")
+        except Exception:
+            pass
+
+    # ------------------------------------------------- improved version
+    def make_improved(self, level=None) -> dict:
+        if not self.tools:
+            return {"error": "セットが読み込まれていません"}
+        level = level if level in LEVELS else self.cfgfile.improve_level
+        if level in LEVELS and level != self.cfgfile.improve_level:
+            self.cfgfile.improve_level = level
+            self.cfgfile.save()
+        try:
+            self.improved = improve(self.tools, level, self.preset)
+        except Exception as e:
+            return {**self.state(), "error": f"改善版を作れませんでした: {type(e).__name__}: {e}"}
+        return self.state()
+
+    def discard_improved(self) -> dict:
+        self.improved = None
+        return self.state()
+
+    def _improve_for_agent(self, level: str):
+        self.improved = improve(self.tools, level, self.preset)
+        return self.improved
+
+    def _improved_ghost(self):
+        if not self.improved or not self.draft:
+            return None
+        try:
+            from setagent.agent.improve import draft_with
+            from setagent.analysis.timing import compute
+            tl = compute(draft_with(self.draft, self.improved.track_ids, self.lib, self.preset, self.cfg), self.lib)
+            return {"total_s": round(tl.total_s, 2),
+                    "tracks": [{"start_s": round(p.start_s, 2), "end_s": round(p.end_s, 2), "title": p.title}
+                               for p in tl.placements]}
+        except Exception:
+            return None
+
+    def _insight(self) -> dict:
+        """The few numbers the main view shows beside the predicted length."""
+        try:
+            from setagent.agent.improve import _info, rough_count
+            ids = [e.track_id for e in self.draft.tracks]
+            info = {t: _info(self.lib, t, self.anlz) for t in ids}
+            sm = self.tools.get_set_summary()
+            phr = sum(1 for t in ids if self.anlz.get(t) and self.anlz[t].structure)
+            return {"rough": rough_count(ids, info), "peak": sm.get("peak_at"),
+                    "phrases": phr, "tracks": len(ids)}
+        except Exception:
+            return {}
+
+    # --------------------------------------------------- tag edits (chat)
+    def _on_meta_card(self, card: dict) -> None:
+        self.meta_card = card
+
+    def dismiss_metadata(self) -> dict:
+        self.meta_card = None
+        return self.state()
+
+    def write_metadata(self, how="now", force=False) -> dict:
+        card = self.meta_card
+        if not card:
+            return {"ok": False, "error": "書き込む内容がありません"}
+        plan = writeback.MetadataPlan(card.get("name") or "タグ", writeback.clean_edits(card.get("edits")))
+        if not plan.edits:
+            return {"ok": False, "error": "書き込む内容がありません"}
+        if how == "now" and self._write_blocked():
+            return {"ok": False, "error": "rekordbox が起動しています", "rekordbox_running": True}
+        r = self.publisher.submit(plan, how, force=bool(force))
+        if r.get("ok"):
+            self.meta_card = None
+        return r
+
+    # ---------------------------------------------------- prefs (theme, model)
+    def set_prefs(self, theme=None, level=None) -> dict:
+        if theme in ("original", "dark"):
+            self.cfgfile.theme = theme
+        if level in LEVELS:
+            self.cfgfile.improve_level = level
+        self.cfgfile.save()
+        return {"theme": self.cfgfile.theme, "level": self.cfgfile.improve_level}
+
+    def set_model(self, model) -> dict:
+        m = model_id(model)
+        if m not in {x for x, _ in MODELS}:
+            return {"error": "そのモデルは選べません"}
+        self.cfgfile.llm_model = m
+        self.cfgfile.save()
+        forget_cli_status()
+        if self.agent:
+            self.agent = LLMAgent(self.tools, self.advisor, cfg=self.llm_config())
+        return self.state()
+
+    # ---------------------------------------------------------- dock (B)
+    def dock_status(self) -> dict:
+        if self.docker is None:
+            return {"mode": "off", "effective": "off", "available": False, "collapsed": False,
+                    "note": "", "modes": ["off", "side", "inside", "split"]}
+        return self.docker.status()
+
+    def set_dock(self, mode) -> dict:
+        if self.docker is None:
+            return {"error": "この画面ではドッキングできません"}
+        r = self.docker.set_mode(str(mode))
+        if "error" not in r:
+            self.cfgfile.dock = self.docker.mode
+            self.cfgfile.save()
+        return r
+
+    def set_collapsed(self, on) -> dict:
+        if self.docker is None:
+            return {"error": "この画面ではドッキングできません"}
+        r = self.docker.set_collapsed(bool(on))
+        self.cfgfile.dock_collapsed = bool(on)
+        self.cfgfile.save()
         return r
 
     # ----------------------------------------------------------------- llm
@@ -743,7 +1123,12 @@ class Api:
                           for n, it in enumerate(cs.items)],
                 "diff": list(cs.diff_lines),
             },
-            "ghost": ghost,
+            "ghost": ghost or self._improved_ghost(),
+            "publish_card": None,
+            "meta_card": self.meta_card,
+            "model": model_id(self.cfgfile.llm_model),
+            "model_label": model_label(self.cfgfile.llm_model),
+            "connected": self.agent.mode != "advisor" if self.agent else False,
         }
 
     def _say(self, who: str, text: str) -> None:
@@ -834,16 +1219,22 @@ class Api:
             return {"error": "提案がありません"}
         cmds = cs.approved_commands()
         if not cmds:
-            return {**self.state(), "notice": "承認された操作がありません"}
+            return {**self.state(), "notice": "選んだ操作がありません"}
+        # The DJ's playlist is never edited here (2026-10-09): the approved
+        # operations become the improved version, which the DJ may write out.
         try:
-            self.history.run_all(cmds)
+            import copy as _copy
+            d = _copy.deepcopy(self.draft)
+            for c in cmds:
+                c.check(d)
+                c.apply(d)
+            self.improved = from_track_ids(self.tools, [e.track_id for e in d.tracks], "agent", self.preset)
         except LockedError as ex:
-            return {**self.state(), "notice": f"適用できない（ロック: {ex}）"}
+            return {**self.state(), "notice": f"固定した曲は動かせません（{ex}）"}
         except Exception as e:
             return {**self.state(), "error": f"{type(e).__name__}: {e}"}
         self.plog.record_outcome(cs)
         self.pending = None
-        self._say("meta", f"適用しました（{len(cmds)}件）。「元に戻す」で戻せます")
         return self.state()
 
     def reject_pending(self) -> dict:
@@ -876,6 +1267,7 @@ class Api:
     def _save_settings(self, playlist: str) -> None:
         try:                                   # best-effort: never block the app
             self.cfgfile.playlist = playlist
+            self.cfgfile.playlist_id = self.playlist_id or ""
             self.cfgfile.preset = self.preset
             self.cfgfile.cap32 = self.cap32
             self.cfgfile.save()

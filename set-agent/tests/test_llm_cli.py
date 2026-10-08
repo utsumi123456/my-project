@@ -174,7 +174,7 @@ class CliBackendTests(unittest.TestCase):
                      "--setting-sources", "--output-format"):
             self.assertIn(flag, first)
         self.assertEqual(first[first.index("--tools") + 1], "")
-        self.assertEqual(first[first.index("--model") + 1], "sonnet")
+        self.assertEqual(first[first.index("--model") + 1], "claude-opus-5-5")
         self.assertEqual(first[-1], "今のセット何分？")
 
     def test_model_setting_reaches_the_cli(self):
@@ -182,7 +182,7 @@ class CliBackendTests(unittest.TestCase):
         a.cli.model = a.cfg.cli_model
         a.ask("x")
         c = [c for c in self.calls() if "-p" in c][0]
-        self.assertEqual(c[c.index("--model") + 1], "opus")
+        self.assertEqual(c[c.index("--model") + 1], "claude-opus-5-5")
 
     def test_proposal_becomes_a_change_set(self):
         os.environ["FAKE_CLAUDE_MODE"] = "propose"
@@ -241,12 +241,12 @@ class HelperTests(unittest.TestCase):
         self.assertEqual(arr["result"], "b")
 
     def test_config_models(self):
-        self.assertEqual(LLMConfig().cli_model, "sonnet")
-        self.assertEqual(LLMConfig().api_model, "claude-sonnet-5")
-        self.assertEqual(LLMConfig(model="opus").cli_model, "opus")
-        self.assertEqual(LLMConfig(model="opus").api_model, "claude-sonnet-5")
-        self.assertEqual(LLMConfig(model="claude-opus-5").api_model, "claude-opus-5")
-
+        # one exact ID for both backends; Opus 5.5 by default; old aliases map forward
+        self.assertEqual(LLMConfig().cli_model, "claude-opus-5-5")
+        self.assertEqual(LLMConfig().api_model, "claude-opus-5-5")
+        self.assertEqual(LLMConfig(model="sonnet").cli_model, "claude-sonnet-5-5")
+        self.assertEqual(LLMConfig(model="claude-fable-5-1").api_model, "claude-fable-5-1")
+        self.assertEqual(LLMConfig(model="claude-haiku-5-5").cli_model, "claude-haiku-5-5")
 
 if __name__ == "__main__":
     unittest.main()

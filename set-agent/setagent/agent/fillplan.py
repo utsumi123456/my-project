@@ -138,13 +138,15 @@ def plan_fill(tools, section: int | None = None, per_section_limit: int = 20,
         prev = tl.placements[s.last_track]
         prev_bpm = prev.set_tempo
         prev_key = lib.track(prev.track_id).key
+        prev_id = prev.track_id
         at = s.last_track + 1 + shift
         remaining = room
         while len(sf.picks) < per_section_limit and remaining > tol:
             t_here = s.end_s + sf.filled_s
             energy = tools.curve.at_time(t_here, total_for_curve) if tools.curve else None
             cands = candidates(lib, Slot(duration_s=remaining, target_energy=energy,
-                                         bpm=prev_bpm, key=prev_key or ""),
+                                         bpm=prev_bpm, key=prev_key or "",
+                                         follows=tools.followers(prev_id)),
                                pool=pool, exclude=used, limit=8)
             fit = next((c for c in cands if c.play_s <= remaining + tol), None)
             if fit is None:
@@ -159,6 +161,7 @@ def plan_fill(tools, section: int | None = None, per_section_limit: int = 20,
             used.add(pick.track_id)
             remaining -= fit.play_s
             prev_key = fit.track.key or prev_key
+            prev_id = fit.track.id
             at += 1
             shift += 1
     if cmds:

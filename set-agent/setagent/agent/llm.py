@@ -49,10 +49,16 @@ SYSTEM_PROMPT = """\
 あなたの提案は選択肢の一つであり、決定ではありません。
 口調は丁寧語（です・ます）で、簡潔に。命令形や乱暴な言い回しは使いません。
 
+時系列: あなたが関わるのはプレイ前の準備（プレイリストの曲順・尺・展開を見る、改善版を作る）だけです。
+曲を実際に繋ぐ（ミックスする）のは本番の DJ で、プレイ中のことです。自分の提案を「つなぎを整える」
+「繋ぎを良くする」とは言わず、「隣り合う曲の相性（キー・BPM）」「曲順」「並び」と言います。
+
 原則:
 1. 数値はツールから取る。尺・開始時刻・BPM・Key・エネルギー・目標カーブとの乖離は、必ず
    analysis.* や lib.* のツールで取得した値を使う。推測や暗算で数値を答えてはいけない。
 2. 変更は提案として出す。set.propose_changes で Change Set を作る。自分で適用はできない。
+   DJ のプレイリストは直さない。改善は set.propose_improvement で「改善版」として示し、rekordbox に書き出すのは DJ のボタン。
+   タグ（コメント・レーティング・カラー）の書き込みも rekordbox.propose_metadata で提案するだけ。
 3. 意図を上書きしない。ユーザーの明示した希望、ロックされた項目、マイルストーンの目標時刻が最優先。
    希望どうしが矛盾するときは、解消案を2〜3個示して選んでもらう。
 4. 余地を残す。セットを丸ごと組み直す提案はしない。依頼された範囲の最小の変更にとどめる。
@@ -69,6 +75,13 @@ SYSTEM_PROMPT = """\
 - 曲を 1〜数曲外す相談は analysis.removal_candidates の上位から選び、理由をそのまま添える。
 - 「埋めて」「プレイリストを作って／生成して」「組んで」など、マイルストーン（要の曲）の間を曲で満たす依頼では
   analysis.plan_fill_sections を呼び、その operations を set.propose_changes に渡す。曲を自分で選ばない。
+- 「改善して」「整えて」「rekordbox に書き出して」の依頼では set.propose_improvement を呼ぶ。level は依頼の強さに合わせ、
+  指定がなければ light（控えめ）。選曲は DJ の領分なので、頼まれていない大きな変更はしない。
+- 好み・傾向の分析は lib.taste_profile、コンセプトに合うプレイリスト選びは rekordbox.playlist_profiles を使う。
+- タグを付けたいときは rekordbox.propose_metadata（コメントは検索の目印になる）。
+- 過去のセット・再生回数・「この曲の後に何をかけてきたか」は lib.get_play_history / history.* から答える。
+  候補を選ぶとき、DJ が過去に繋いだ曲は理由として挙げてよいが、それだけで選ばない。
+- ハーモニックに相性の良い曲は lib.search の compatible_with（Camelot ±1 と平行調）で探す。
 - 時間（総尺・曲ごとの尺・開始/終了）は analysis.get_set_summary の値を mm:ss のまま引用する。
   set.get_draft の play_in_ms/play_out_ms から自分で計算しない。
 - 曲名はツールが返した表記のまま書く（空白やハイフンを変えない）。
@@ -96,13 +109,40 @@ CLI_PROMPT_NOTE = (
     "mcp__setagent__analysis_get_sections）。数値はすべてこれらのツールから取ります。"
 )
 
-DEFAULT_MODEL = "claude-sonnet-5"          # api
-DEFAULT_CLI_MODEL = "sonnet"               # cli alias; the seat picks the current Sonnet
+# The picker in the agent drawer (2026-10-09). Exact IDs, the same for the
+# Messages API and `claude -p --model`. Opus 5.5 is the default.
+MODELS: list[tuple[str, str]] = [
+    ("claude-opus-5-5", "Opus 5.5"),
+    ("claude-sonnet-5-5", "Sonnet 5.5"),
+    ("claude-fable-5-1", "Fable 5.1"),
+    ("claude-haiku-5-5", "Haiku 5.5"),
+]
+MODEL_IDS = {m for m, _ in MODELS}
+# what older settings.json files may still hold
+LEGACY_MODELS = {"sonnet": "claude-sonnet-5-5", "opus": "claude-opus-5-5", "haiku": "claude-haiku-5-5",
+                 "fable": "claude-fable-5-1", "claude-sonnet-5": "claude-sonnet-5-5"}
+DEFAULT_MODEL = "claude-opus-5-5"
+DEFAULT_CLI_MODEL = DEFAULT_MODEL
+
+
+def model_id(m: str) -> str:
+    m = (m or "").strip()
+    return LEGACY_MODELS.get(m, m) or DEFAULT_MODEL
+
+
+def model_label(m: str) -> str:
+    mid = model_id(m)
+    return next((label for i, label in MODELS if i == mid), mid)
 DEFAULT_ENDPOINT = "https://api.anthropic.com/v1/messages"
 CLI_TIMEOUT_S = 90
 AUTH_CACHE_S = 600
 
 CREATE_NO_WINDOW = 0x08000000 if sys.platform == "win32" else 0
+
+# API tool names must match [A-Za-z0-9_-]; ours use dots ("analysis.get_sections").
+API_TOOLS = [{"name": t["name"].replace(".", "_"), "description": t["description"],
+              "input_schema": t["input_schema"]} for t in TOOL_SCHEMA]
+API_BACK = {t["name"].replace(".", "_"): t["name"] for t in TOOL_SCHEMA}
 
 
 @dataclass
@@ -110,7 +150,7 @@ class LLMConfig:
     api_key: str = ""
     model: str = ""                         # "" = backend default
     endpoint: str = DEFAULT_ENDPOINT
-    max_tokens: int = 1500
+    max_tokens: int = 16000                 # thinking is always on for the current models
     timeout_s: int = 60
     backend: str = "auto"                   # auto | cli | api | off
     claude_exe: str = ""                    # "" = search (find_claude)
@@ -132,12 +172,11 @@ class LLMConfig:
 
     @property
     def api_model(self) -> str:
-        m = (self.model or "").strip()
-        return m if m and m not in ("sonnet", "opus", "haiku") else DEFAULT_MODEL
+        return model_id(self.model)
 
     @property
     def cli_model(self) -> str:
-        return (self.model or "").strip() or DEFAULT_CLI_MODEL
+        return model_id(self.model)
 
 
 class LLMError(RuntimeError):
@@ -473,7 +512,7 @@ class LLMAgent:
         for _ in range(self.max_turns):
             data = _post(self.cfg, {
                 "model": self.cfg.api_model, "max_tokens": self.cfg.max_tokens,
-                "system": SYSTEM_PROMPT, "tools": TOOL_SCHEMA,
+                "system": SYSTEM_PROMPT, "tools": API_TOOLS,
                 "messages": self.history,
             })
             content = data.get("content", [])
@@ -485,8 +524,9 @@ class LLMAgent:
                              change_set=proposed[-1] if proposed else None, used_tools=used)
             results = []
             for b in calls:
-                used.append(b["name"])
-                out = self.tools.call(b["name"], b.get("input") or {})
+                name = API_BACK.get(b["name"], b["name"])
+                used.append(name)
+                out = self.tools.call(name, b.get("input") or {})
                 results.append({"type": "tool_result", "tool_use_id": b["id"],
                                 "content": json.dumps(out, ensure_ascii=False, default=str)[:12000]})
             self.history.append({"role": "user", "content": results})

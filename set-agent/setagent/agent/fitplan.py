@@ -59,7 +59,7 @@ class FitPlan:
             "removals": {"count": len(self.removals), "saves": fmt(self.removal_saves_s),
                          "tracks": [{"index": c.index, "track_id": c.track_id, "title": c.title,
                                      "saves": fmt(c.saves_s), "reasons": list(c.reasons)} for c in shown],
-                         "note": "展開と繋ぎへの影響が小さい順。ロックとマイルストーンは含まない"},
+                         "note": "展開と前後の曲との相性への影響が小さい順。ロックとマイルストーンは含まない"},
             "remaining_after_plan": fmt(self.remaining_s),
             "no_phrase_tracks": self.no_phrase_tracks,
             "operations": self.operations,
