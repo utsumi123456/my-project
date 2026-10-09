@@ -99,7 +99,10 @@ def stable_signature(app: Path) -> None:
     subprocess.run(["codesign", "--force", "--sign", "-", "--identifier", BUNDLE_ID,
                     "--requirements", req, str(app)], check=True)
     out = subprocess.run(["codesign", "-d", "-r-", str(app)], capture_output=True, text=True)
-    print("signature:", (out.stdout + out.stderr).strip().splitlines()[-1:])
+    dr = [l for l in (out.stdout + out.stderr).splitlines() if "designated" in l]
+    print("signature:", dr[0].strip() if dr else "(designated requirement not shown)")
+    if not dr or BUNDLE_ID not in dr[0]:
+        raise SystemExit("SetAgent.app の署名に bundle id の指定要件が入っていません（アクセシビリティの許可が保たれません）")
 
 
 def package() -> Path:
