@@ -42,6 +42,19 @@
   実機（WKWebView）で 2 テーマ × 通常/畳んだ表示を目視 → 問題なければ rekordbox-integration にマージ。
   eval_agent（実 Claude）は SYSTEM_PROMPT とツール説明を変えたので回し直す（このコンテナには Claude CLI のログインが無く未実施）。
 
+### 2.10 追従は実機で確認（2026-10-10）。再発防止とアイコン確定
+- ユーザー確認: `stable_signature()` 入りの版で追従する。
+- **再発防止**: `tests/test_build.py` が macOS ビルドの onedir・アイコン・指定要件付きの再署名を検査。`build.py` は
+  署名後に `codesign -d -r-` を読み、bundle id の指定要件が無ければビルドを止める（CI でも落ちる）。
+  **ルール: macOS のビルドから stable_signature を外さない／bundle id `jp.alphatheta.setagent` を変えない**
+  （変えると全員の許可が外れる）。更新はアプリの置き換えだけで許可が引き継がれる（はじめに.md に記載）。
+- **アイコン確定**: ユーザー添付の画像（rekordbox のアイコン、背景 #ff5000）を `assets/icon/`（png/icns/ico）に置いた。
+  白背景のスクショから、外側を透明・影と縁は半透明のオレンジとして切り出し、Apple の格子（1024 中 824）に合わせた。
+  build.py はこれを優先（CI の配布物も同じアイコン）。`tools/make_icon.py` は予備（ORANGE も #ff5000 に）。
+- **Dock**: onedir にしても Dock が古いままだった → アプリ自身が `webview.start(icon=SetAgent.png)` で Dock の
+  アイコンを設定（pywebview の cocoa が setApplicationIconImage_）。PNG は build.py が同梱。follow-check に
+  「Dock icon:」の行。**実機の Dock での見た目は未確認**（このコンテナは画面を見られない）。
+
 ### 2.9 follow-check の結果（2026-10-10 01:29、ユーザーの Mac）
 - onedir の .app で: pyobjc OK、rekordbox（pid 2271, com.pioneerdj.rekordboxdj）OK、rekordboxAgent は別に検出（読まない）、
   **アクセシビリティの許可: なし** → why=no_permission。原因: PyInstaller の ad-hoc 署名は指定要件がコードハッシュ

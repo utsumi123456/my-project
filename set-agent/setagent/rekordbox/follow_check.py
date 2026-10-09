@@ -52,6 +52,13 @@ def _mac(out: Out) -> str | None:
         out(f"     bundle: {b.bundlePath()}  id={b.bundleIdentifier()}")
     except Exception:
         pass
+    try:                          # what the running app handed the Dock (app.py: webview.start(icon=))
+        from setagent.webui.app import icon_path
+        img = AppKit.NSApplication.sharedApplication().applicationIconImage()
+        out(f"     Dock icon: {icon_path() or '(no SetAgent.png bundled)'}  "
+            f"image={'%dx%d' % tuple(img.size()) if img else 'none'}")
+    except Exception as ex:
+        out(f"     Dock icon: ? ({type(ex).__name__})")
     trusted = bool(AS.AXIsProcessTrusted())
     out(f"[{'OK' if trusted else 'NG'}] アクセシビリティの許可: {'あり' if trusted else 'なし'}")
     if not trusted:

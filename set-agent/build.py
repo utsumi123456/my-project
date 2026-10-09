@@ -50,17 +50,18 @@ def build_exe() -> None:
            "--hidden-import", "setagent.rekordbox.insights", "--hidden-import", "setagent.webui.dock",
            "--collect-all", "pyrekordbox", "--collect-all", "sqlcipher3",
            "--hidden-import", "sqlalchemy.dialects.sqlite.pysqlcipher"]
-    # the icon: rekordbox's own, recoloured as a prototype (tools/make_icon.py).
-    # assets/icon/ wins when present (made once on a Mac with rekordbox, so a CI
-    # runner without rekordbox ships the same icon); otherwise made here.
+    # the icon: assets/icon/ is the DJ's chosen icon (rekordbox's with an orange
+    # background, 2026-10-09) and wins; tools/make_icon.py is the fallback.
     fixed = ROOT / "assets" / "icon"
     if (fixed / "SetAgent.icns").exists() and (fixed / "SetAgent.ico").exists():
-        icon = {"icns": fixed / "SetAgent.icns", "ico": fixed / "SetAgent.ico"}
+        icon = {"icns": fixed / "SetAgent.icns", "ico": fixed / "SetAgent.ico", "png": fixed / "SetAgent.png"}
         print(f"icon from {fixed}")
     else:
         from tools.make_icon import write as write_icon
         icon, how = write_icon(ROOT / "build" / "icon")
         print(f"icon {how}")
+    if icon.get("png") and Path(icon["png"]).exists():    # the Dock icon the app sets at runtime
+        cmd += ["--add-data", f"{icon['png']}{os.pathsep}setagent/webui"]
     if WIN:
         cmd += ["--icon", str(icon["ico"])]
     elif MAC:

@@ -127,7 +127,23 @@ def main(playlist: str | None = None) -> None:
     # attributes to expose them to JS, and handing it a Window sends that walk
     # into an infinite recursion through .AccessibilityObject.Bounds.Empty.
     api._window = window         # so the XML export can raise a native save dialog
-    webview.start()
+    # The Dock icon, set by the running app itself (pywebview's cocoa backend calls
+    # NSApplication.setApplicationIconImage_). The bundle's .icns alone was not
+    # enough on the DJ's Mac (2026-10-09): macOS keeps showing a cached icon for an
+    # app replaced at the same path.
+    icon = icon_path()
+    webview.start(icon=icon) if icon else webview.start()
+
+
+def icon_path() -> str | None:
+    """SetAgent.png next to index.html (build.py bundles it), or the repo's assets/icon."""
+    base = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent.parent))
+    for p in (Path(index_path()).with_name("SetAgent.png"),
+              base / "setagent" / "webui" / "SetAgent.png",
+              Path(__file__).resolve().parent.parent.parent / "assets" / "icon" / "SetAgent.png"):
+        if p.exists():
+            return str(p)
+    return None
 
 
 if __name__ == "__main__":

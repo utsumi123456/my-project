@@ -32,7 +32,7 @@ from pathlib import Path
 from PIL import Image, ImageDraw
 
 SIZE = 1024
-ORANGE = (255, 106, 0)       # #ff6a00
+ORANGE = (255, 80, 0)        # #ff5000, the DJ's chosen icon (assets/icon)
 WHITE = (255, 255, 255)
 
 
