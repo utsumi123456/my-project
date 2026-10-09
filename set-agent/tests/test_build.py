@@ -51,6 +51,39 @@ class MacBuildTests(unittest.TestCase):
             self.build("designated => cdhash H\"0123abcd\"\n")
 
 
+class InstallTests(unittest.TestCase):
+    """build.py --install: quit, swap the bundle in, refresh the icon, start."""
+
+    def test_quits_swaps_refreshes_and_starts(self):
+        import shutil
+        import tempfile
+        calls = []
+
+        def run(cmd, **kw):
+            calls.append(list(cmd))
+            if cmd[0] == "ditto":                         # the copy, for real
+                shutil.copytree(cmd[1], cmd[2])
+            rc = 1 if cmd[0] == "pgrep" else 0           # the old app has quit
+            return types.SimpleNamespace(returncode=rc, stdout="", stderr="")
+
+        with tempfile.TemporaryDirectory() as d:
+            src, dest = Path(d) / "new" / "SetAgent.app", Path(d) / "Applications" / "SetAgent.app"
+            (src / "Contents").mkdir(parents=True)
+            (src / "Contents" / "new").write_text("1")
+            (dest / "Contents").mkdir(parents=True)
+            (dest / "Contents" / "old").write_text("1")
+            with mock.patch.object(build.subprocess, "run", run), mock.patch("builtins.print"):
+                build.install_mac(src, dest)
+            self.assertTrue((dest / "Contents" / "new").exists())
+            self.assertFalse((dest / "Contents" / "old").exists())
+            self.assertFalse(dest.with_name(".SetAgent.app.new").exists())
+        order = [c[0] for c in calls]
+        self.assertEqual(order[0], "osascript")                       # quit first
+        self.assertLess(order.index("ditto"), order.index("killall"))
+        self.assertEqual(calls[-1][0], "open")                        # start last
+        self.assertIn(["killall", "Dock"], calls)
+
+
 class IconAssetTests(unittest.TestCase):
     def test_the_chosen_icon_is_committed_and_found_at_runtime(self):
         from PIL import Image

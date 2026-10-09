@@ -2,6 +2,7 @@
 
   python build.py           build + lay out dist/
   python build.py --skip    lay out only (reuse build/exe/)
+  python build.py --install macOS: also replace /Applications/SetAgent.app and start it
 
 Windows: dist/SetAgent.exe  (one file, double-click) next to dist/はじめに.md.
 macOS:   dist/SetAgent-macOS.zip holding SetAgent.app (PyInstaller --windowed),
@@ -14,6 +15,7 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).parent
@@ -137,7 +139,51 @@ def main() -> int:
     if "--skip" not in sys.argv:
         build_exe()
     package()
+    if "--install" in sys.argv:
+        if not MAC:
+            print("--install は macOS 用です（Windows は dist/SetAgent.exe を置き換えてください）")
+            return 1
+        install_mac()
     return 0
+
+
+INSTALLED = Path("/Applications/SetAgent.app")
+LSREGISTER = ("/System/Library/Frameworks/CoreServices.framework/Frameworks/"
+              "LaunchServices.framework/Support/lsregister")
+
+
+def install_mac(src: Path = APP, dest: Path = INSTALLED) -> None:
+    """Quit the running Set Agent, swap in the new bundle, refresh the icon, start it.
+
+    The Accessibility permission carries over (stable_signature), so nothing has
+    to be granted again. The swap copies next to the old bundle first and only
+    then replaces it, so a failed copy leaves the installed app as it was."""
+    if not src.exists():
+        raise SystemExit(f"{src} がありません。先にビルドしてください")
+    # 1. quit politely (the panel saves its window position on close), then make sure
+    subprocess.run(["osascript", "-e", f'tell application id "{BUNDLE_ID}" to quit'],
+                   capture_output=True)
+    exe = str(dest / "Contents" / "MacOS" / "SetAgent")
+    for _ in range(20):
+        if subprocess.run(["pgrep", "-f", exe], capture_output=True).returncode != 0:
+            break
+        time.sleep(0.5)
+    else:
+        subprocess.run(["pkill", "-f", exe], capture_output=True)
+        time.sleep(1)
+    # 2. swap
+    staged = dest.with_name(".SetAgent.app.new")
+    shutil.rmtree(staged, ignore_errors=True)
+    subprocess.run(["ditto", str(src), str(staged)], check=True)
+    shutil.rmtree(dest, ignore_errors=True)
+    staged.rename(dest)
+    # 3. the icon: re-register the bundle and restart the Dock, which otherwise keeps
+    #    showing the icon it cached for the app that used to be at this path
+    subprocess.run([LSREGISTER, "-f", str(dest)], capture_output=True)
+    subprocess.run(["killall", "Dock"], capture_output=True)
+    # 4. start
+    subprocess.run(["open", str(dest)], check=True)
+    print(f"installed: {dest}（起動しました）")
 
 
 if __name__ == "__main__":

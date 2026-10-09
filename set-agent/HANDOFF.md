@@ -43,6 +43,8 @@
   eval_agent（実 Claude）は SYSTEM_PROMPT とツール説明を変えたので回し直す（このコンテナには Claude CLI のログインが無く未実施）。
 
 ### 2.10 追従は実機で確認（2026-10-10）。再発防止とアイコン確定
+- **Mac の更新は 1 コマンド**: `.venv/bin/python build.py --install`（テスト→ビルド→起動中の Set Agent を終了→
+  /Applications/SetAgent.app を置き換え→lsregister と Dock の再起動でアイコン更新→起動）。許可はそのまま引き継がれる。
 - ユーザー確認: `stable_signature()` 入りの版で追従する。
 - **再発防止**: `tests/test_build.py` が macOS ビルドの onedir・アイコン・指定要件付きの再署名を検査。`build.py` は
   署名後に `codesign -d -r-` を読み、bundle id の指定要件が無ければビルドを止める（CI でも落ちる）。
