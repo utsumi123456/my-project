@@ -36,7 +36,8 @@ class IconTests(unittest.TestCase):
             paths, _ = M.write(Path(t))
             for k in ("png", "icns", "ico"):
                 self.assertTrue(paths[k].stat().st_size > 1000, k)
-            self.assertIn((256, 256), Image.open(paths["ico"]).info["sizes"])
+            with Image.open(paths["ico"]) as ico:
+                self.assertIn((256, 256), ico.info["sizes"])
 
 
 if __name__ == "__main__":

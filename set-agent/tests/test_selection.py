@@ -43,6 +43,7 @@ class MatchTests(unittest.TestCase):
             ('s4','3','a',0),('s5','3','b',0);
         """)
         self.fp = S.Fingerprints.build(con)
+        con.close()                 # Windows cannot delete an open database in tearDown
 
     def tearDown(self):
         self.tmp.cleanup()

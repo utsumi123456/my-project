@@ -11,13 +11,16 @@ from tests import rbfixture
 from tools.decrypt_masterdb import decrypt
 
 HAVE, WHY = wb.available()
+_OPEN: list[sqlite3.Connection] = []   # closed in tearDown: Windows cannot delete an open database
 
 
 def plain(master: Path, d: Path) -> sqlite3.Connection:
     out = d / f"plain-{len(list(d.glob('plain-*')))}.db"
     wal = master.with_name("master.db-wal")
     decrypt(master, out, wal=wal if wal.exists() else None)
-    return sqlite3.connect(out)
+    con = sqlite3.connect(out)
+    _OPEN.append(con)
+    return con
 
 
 @unittest.skipUnless(HAVE, WHY)
@@ -31,6 +34,8 @@ class WritebackTests(unittest.TestCase):
         self.writer = wb.Writer(self.backups, running=lambda: False, live=[])
 
     def tearDown(self):
+        while _OPEN:
+            _OPEN.pop().close()
         self.tmp.cleanup()
 
     def plan(self, ids, name="acid 60"):
