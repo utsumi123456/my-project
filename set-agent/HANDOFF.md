@@ -44,6 +44,8 @@
 
 ### 2.10 追従は実機で確認（2026-10-10）。再発防止とアイコン確定
 - **ユーザー確認（2026-10-10）: 新しいアイコン（Applications・Dock）になっている。追従も問題ない。**
+- screen mirroring の QR が右下で切れていた（segno の固定 234px を 216px の枠に入れていた）→ `omitsize=True` で
+  viewBox に。**ユーザー確認済み（2026-10-10）**。
   残り: PR #4 を rekordbox-integration にマージするか（ユーザー判断）／Windows 実機での追従（UIA）は未検証。
 - **Mac の更新は 1 コマンド**: `.venv/bin/python build.py --install`（テスト→ビルド→起動中の Set Agent を終了→
   /Applications/SetAgent.app を置き換え→lsregister と Dock の再起動でアイコン更新→起動）。許可はそのまま引き継がれる。
