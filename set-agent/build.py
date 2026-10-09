@@ -44,8 +44,25 @@ def build_exe() -> None:
            "--hidden-import", "setagent.rekordbox.insights", "--hidden-import", "setagent.webui.dock",
            "--collect-all", "pyrekordbox", "--collect-all", "sqlcipher3",
            "--hidden-import", "sqlalchemy.dialects.sqlite.pysqlcipher"]
+    # the icon: rekordbox's own, recoloured as a prototype (tools/make_icon.py).
+    # assets/icon/ wins when present (made once on a Mac with rekordbox, so a CI
+    # runner without rekordbox ships the same icon); otherwise made here.
+    fixed = ROOT / "assets" / "icon"
+    if (fixed / "SetAgent.icns").exists() and (fixed / "SetAgent.ico").exists():
+        icon = {"icns": fixed / "SetAgent.icns", "ico": fixed / "SetAgent.ico"}
+        print(f"icon from {fixed}")
+    else:
+        from tools.make_icon import write as write_icon
+        icon, how = write_icon(ROOT / "build" / "icon")
+        print(f"icon {how}")
     if WIN:
-        cmd += ["--hidden-import", "webview.platforms.winforms", "--hidden-import", "clr_loader"]
+        cmd += ["--icon", str(icon["ico"])]
+    elif MAC:
+        cmd += ["--icon", str(icon["icns"])]
+    if WIN:
+        cmd += ["--hidden-import", "webview.platforms.winforms", "--hidden-import", "clr_loader",
+                # following rekordbox (selection.py): UI Automation through comtypes, imported lazily
+                "--hidden-import", "comtypes.client", "--collect-submodules", "comtypes"]
     elif MAC:
         # pywebview drives WKWebView through pyobjc; PyInstaller cannot see the lazy import
         cmd += ["--hidden-import", "webview.platforms.cocoa", "--osx-bundle-identifier", "jp.alphatheta.setagent",

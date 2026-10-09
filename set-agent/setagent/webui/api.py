@@ -548,10 +548,19 @@ class Api:
     def rescan(self) -> dict:
         if not self.lib:
             return {"error": "ライブラリが開かれていません"}
+        # the files' signature *before* reading them: the panel's baseline for the
+        # next change. Taking it on the next poll instead lost any rekordbox edit made
+        # while this reload ran (adding tracks one by one in quick succession).
+        sig = self.library_changed()
         self.lib.rescan()
         self._fp = self._fingerprints()
-        return self._load({"playlist_id": self.playlist_id,
-                           "playlist": self.draft.name if self.draft else None})
+        s = self._load({"playlist_id": self.playlist_id,
+                        "playlist": self.draft.name if self.draft else None})
+        # playlists made or renamed in rekordbox since boot: the picker (and following
+        # into a brand-new playlist) needs the fresh list, not the one boot() sent
+        s["playlist_items"] = self._playlist_items()
+        s["lib_sig"] = sig
+        return s
 
     # ------------------------------------------------------ change detection
     # Read-only loop (2026-09-16): the DJ edits in rekordbox, Set Agent follows.
@@ -819,7 +828,7 @@ class Api:
     def rb_selection(self) -> dict:
         """The playlist on screen in rekordbox. Off the worker thread: it reads
         the accessibility tree and an immutable fingerprint table only."""
-        r = selection.read(self._fp, prefer=self.playlist_id)
+        r = selection.read(self._fp, prefer=self.playlist_id, budget=selection.WALK_POLL_S)
         r["current"] = self.playlist_id
         r["changed"] = bool(r.get("playlist_id")) and r["playlist_id"] != self.playlist_id
         return r

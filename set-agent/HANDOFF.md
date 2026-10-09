@@ -42,6 +42,34 @@
   実機（WKWebView）で 2 テーマ × 通常/畳んだ表示を目視 → 問題なければ rekordbox-integration にマージ。
   eval_agent（実 Claude）は SYSTEM_PROMPT とツール説明を変えたので回し直す（このコンテナには Claude CLI のログインが無く未実施）。
 
+### 2.7 アイコン・追従の不具合・配布（クラウドセッション、2026-10-09）
+ユーザー依頼: アイコンを rekordbox のアイコン基調のプロトタイプ配色に／rekordbox の選択が反映されない不具合の修正と、
+実際の使い方での不具合・表示・使い勝手の検証／PC のアプリを更新して配布できる状態に。**このセッションは Linux コンテナで
+Mac・rekordbox に触れないため、AX の実読み取りとアプリの入れ替えは未実施（下の「Mac でやること」）。**
+- **アイコン**: `tools/make_icon.py`。ビルド時に、インストール済みの rekordbox.app の .icns を読み、暗部→アンバー #f5a800・
+  明部→カーボン #0f0e12 の 2 色に置き換え、足元にカーボンの「PROTO」帯。rekordbox の画像はリポジトリに入れない。
+  rekordbox が無い環境（CI・Windows）は同じ配色のレコードの代替図案。`assets/icon/` があればそれを優先（`build.py`）。
+  これまでアイコン指定が無く、PyInstaller 既定のアイコンだった。
+- **追従が止まる不具合（推定原因・要実機確認）**: 2.6 で入れた AX 走査の 1.5 秒上限。旧走査は深さ優先で、曲リスト
+  （行×セルの要素）に先に入り、長いリストでは毎回上限を超え why="busy" → パネルは黙って表示を据え置き＝追従しない。
+  → `selection.find_status`: 幅優先、表・行・セル等（_SKIP_ROLES）には入らない、深さ 6 まで。見つけた要素を記憶して
+  次回から 1 回の AX 呼び出しで読む（15 秒ごとに走査し直し）。上限は boot 1.5 秒・ポーリング 4 秒。
+- **見つけて直した不具合**（E2E: 本物の UI＋Api、AX の読み取りだけ差し替え。14 シナリオ全通過）:
+  - rekordbox で**新しく作ったプレイリスト**に追従できず、1.2 秒ごとに元のプレイリストを読み直し続けた
+    （選択ボックスの選択肢が boot 時のまま → `reload()` が古い値を読む）。→ id で読む `reload(id)`、rescan が
+    `playlist_items` を返して選択肢を更新、読めない id は再試行しない（followFailed）。
+  - 読み直し中の rekordbox の編集が失われる競合: 読み直し後の基準を次のポーリング（最大 5 秒後）で取っていたため、
+    その間に曲を足すと反映されなかった。→ `rescan()` が読む前のファイル署名 `lib_sig` を返し、それを基準にする。
+  - 追従できない状態が見えなかった: コレクション・検索・インテリジェントプレイリスト表示中や rekordbox 解析中も ■ のまま。
+    → □ にして名前・■ のホバーで理由。busy は 4 回（約 5 秒）続いたら表示。許可が無いときは settings に印。
+  - 幅 300px でエージェントの send ボタンが切れる（`.dw-ask input` に min-width:0）。2 テーマ×4 幅×5 画面で他にはみ出しなし。
+  - Windows 版に comtypes が入っておらず、追従が常に unsupported（requirements と build.py に追加。実機未検証）。
+- 未対応（仕様）: インテリジェントプレイリストは Set Agent 全体で未対応（djmdSongPlaylist に曲が無い）。上記の表示で明示のみ。
+- テスト 276 OK（selection の走査 5・アイコン 3 を追加）。
+- **Mac でやること**: `git pull` → `.venv/bin/python build.py` → `dist/SetAgent-macOS.zip` の .app を /Applications に置き換え
+  （アクセシビリティ許可は作り直しで外れるのでオフ→オン）→ rekordbox でプレイリストを次々クリックして追従を確認
+  （長いプレイリスト・解析中も）。CI でも同じアイコンにするなら `python -m tools.make_icon assets/icon` をコミット。
+
 ### 2.6 進捗（MacBook-Pro、2026-10-09 未明）
 - PR #3 はマージ済み（`5bd2cd1`）。eval_agent acid を実 Claude で再実行 → **11/11**（128s）。
 - 実機レビューでの追加修正:
