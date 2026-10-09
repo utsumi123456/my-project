@@ -143,10 +143,13 @@ def lan_ip() -> str:
 
 def qr_svg(text: str) -> str:
     """The QR code as an inline SVG, dark modules on white with a quiet zone so
-    phone cameras read it off a dark panel."""
+    phone cameras read it off a dark panel. omitsize: a viewBox instead of a
+    fixed width/height, so the CSS size scales the whole code -- with a fixed
+    234px drawing in a 216px box the right and bottom edge, quiet zone and a
+    finder pattern included, were cut off (2026-10-10)."""
     import segno
     return segno.make(text, error="m").svg_inline(scale=6, border=3, dark="#000",
-                                                  light="#fff")
+                                                  light="#fff", omitsize=True)
 
 
 def inject(html: str) -> str:
