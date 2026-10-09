@@ -168,12 +168,10 @@ def _mac_status_text(budget: float = WALK_BOOT_S) -> tuple[str | None, str]:
         return None, "unsupported"
     if not AS.AXIsProcessTrusted():
         return None, "no_permission"
-    pids = [int(a.processIdentifier()) for a in AppKit.NSWorkspace.sharedWorkspace().runningApplications()
-            if (a.localizedName() or "") == "rekordbox"]
+    pids = mac_rekordbox_pids(AppKit)
     if not pids:
         _found.clear()
         return None, "not_running"
-    pid = pids[0]
 
     # A busy rekordbox (analysing, loading a library) answers AX calls late, and each
     # call waits up to 6s by default; a walk of dozens of calls then held boot() --
@@ -184,30 +182,50 @@ def _mac_status_text(budget: float = WALK_BOOT_S) -> tuple[str | None, str]:
         pass
 
     now = time.monotonic()
-    hit = _found.get(pid)
-    if hit and now - hit[1] < _RECHECK_S:
-        err, v = AS.AXUIElementCopyAttributeValue(hit[0], "AXValue", None)
-        if not err and is_status(v):
-            return str(v).strip(), "ok"
-    _found.pop(pid, None)
+    for pid in pids:
+        hit = _found.get(pid)
+        if hit and now - hit[1] < _RECHECK_S:
+            err, v = AS.AXUIElementCopyAttributeValue(hit[0], "AXValue", None)
+            if not err and is_status(v):
+                return str(v).strip(), "ok"
+        _found.pop(pid, None)
 
     def attr(e, a):
         err, v = AS.AXUIElementCopyAttributeValue(e, a, None)
         return None if err else v
 
-    app = AS.AXUIElementCreateApplication(pid)
-    try:
-        AS.AXUIElementSetMessagingTimeout(app, _AX_CALL_S)
-    except Exception:
-        pass
-    try:
-        el, text = find_status(attr(app, "AXWindows") or [], attr, now + budget)
-    except WalkTimeout:
-        return None, "busy"
-    if el is None:
-        return None, "not_found"
-    _found[pid] = (el, time.monotonic())
-    return text, "ok"
+    deadline = now + budget
+    for pid in pids:                          # normally one; a helper process has no windows
+        app = AS.AXUIElementCreateApplication(pid)
+        try:
+            AS.AXUIElementSetMessagingTimeout(app, _AX_CALL_S)
+        except Exception:
+            pass
+        try:
+            el, text = find_status(attr(app, "AXWindows") or [], attr, deadline)
+        except WalkTimeout:
+            return None, "busy"
+        if el is not None:
+            _found[pid] = (el, time.monotonic())
+            return text, "ok"
+    return None, "not_found"
+
+
+REKORDBOX_BUNDLE_IDS = ("com.pioneerdj.rekordboxdj",)
+
+
+def mac_rekordbox_pids(AppKit) -> list[int]:
+    """rekordbox's process, the app itself first. Matched by its bundle id or its
+    exact name, never by prefix: rekordbox ships helper apps (rekordboxAgent...)
+    that have no browser and would be read instead."""
+    apps = AppKit.NSWorkspace.sharedWorkspace().runningApplications()
+    first, rest = [], []
+    for a in apps:
+        name = str(a.localizedName() or "")
+        bid = str(a.bundleIdentifier() or "")
+        if bid in REKORDBOX_BUNDLE_IDS or name == "rekordbox":
+            (first if a.activationPolicy() == 0 else rest).append(int(a.processIdentifier()))
+    return first + rest
 
 
 def _win_status_text() -> tuple[str | None, str]:

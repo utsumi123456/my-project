@@ -42,6 +42,24 @@
   実機（WKWebView）で 2 テーマ × 通常/畳んだ表示を目視 → 問題なければ rekordbox-integration にマージ。
   eval_agent（実 Claude）は SYSTEM_PROMPT とツール説明を変えたので回し直す（このコンテナには Claude CLI のログインが無く未実施）。
 
+### 2.8 実機レビュー後（クラウドセッション、2026-10-09 夜）
+ユーザー報告: アプリのアイコンは変わった（rekordbox の .icns から生成できている）。
+問題 1: それでも rekordbox の選択が反映されない／問題 2: アイコンは rekordbox のデザインのまま背景だけオレンジ、PROTO 文字なし／
+問題 3: Dock のアイコンが作ったアイコンにならない。
+- **問題 3（原因確定）**: macOS 版が PyInstaller の onefile。.app の中身はランチャーで、Python を一時フォルダに展開して
+  別プロセスとして起動する → Dock にはそのプロセス（汎用アイコン）が出る。`build.py` を macOS だけ `--onedir`（普通の .app）に。
+- **問題 1**: 原因はまだ実機で確定できない。有力: 上と同じ onefile の子プロセスに対して、アクセシビリティ許可が
+  SetAgent.app と結びつかない（許可はオンに見えても AXIsProcessTrusted が false → 何も読めない）。onedir で解消する見込み。
+  切り分け用に **`--follow-check`**（`setagent/rekordbox/follow_check.py`）と settings の **check** ボタンを追加:
+  許可・rekordbox のプロセス・AX ツリー（幅優先、ステータス行に印）・解釈・照合を順に調べ、`follow-check.txt` に保存。
+  settings の rekordbox 欄に追従状態の文言も常時表示。rekordbox の検出は完全一致の名前か bundle id
+  （`com.pioneerdj.rekordboxdj`、推定）で、rekordboxAgent 等のヘルパーを読まない。複数あれば窓のあるものから。
+- **問題 2**: `tools/make_icon.py` を作り直し。黒→オレンジ #ff6a00 の直写像（白・形・縁はそのまま）、PROTO 帯なし、
+  余白に焼き込まれた影は塗らない（不透明部分だけ）。ユーザー添付の画像で見た目を確認済み。
+- テスト: 全件 OK（+ macOS 経路を偽の AppKit/ApplicationServices で 4 件、アイコン 3 件）。追従 E2E 14/14、レイアウト 0 件。
+- **Mac でやること**: `git pull` → `build.py` → .app を入れ替え → アクセシビリティをオフ→オン → rekordbox で切り替え。
+  ダメなら settings → check の結果（または `/Applications/SetAgent.app/Contents/MacOS/SetAgent --follow-check`）を見る。
+
 ### 2.7 アイコン・追従の不具合・配布（クラウドセッション、2026-10-09）
 ユーザー依頼: アイコンを rekordbox のアイコン基調のプロトタイプ配色に／rekordbox の選択が反映されない不具合の修正と、
 実際の使い方での不具合・表示・使い勝手の検証／PC のアプリを更新して配布できる状態に。**このセッションは Linux コンテナで

@@ -31,7 +31,13 @@ def build_exe() -> None:
     ui = ROOT / "setagent" / "webui" / "index.html"
     if not ui.exists():
         raise SystemExit(f"{ui} がありません。UI を同梱できません")
-    cmd = [sys.executable, "-m", "PyInstaller", "--onefile", "--windowed", "--clean", "--noconfirm",
+    # macOS: a real .app bundle (onedir). In onefile mode the bundle only holds a
+    # launcher that unpacks Python into a temp folder and starts it as a second
+    # process -- the Dock shows that process with a generic icon instead of ours,
+    # and macOS can attribute the Accessibility permission (rekordbox following)
+    # to it rather than to SetAgent.app. Windows keeps its single .exe.
+    layout = "--onedir" if MAC else "--onefile"
+    cmd = [sys.executable, "-m", "PyInstaller", layout, "--windowed", "--clean", "--noconfirm",
            "--name", "SetAgent", "--paths", ".",
            "--distpath", str(WORK), "--workpath", str(ROOT / "build" / "pyinstaller"),
            "--add-data", f"{ui}{os.pathsep}setagent/webui",

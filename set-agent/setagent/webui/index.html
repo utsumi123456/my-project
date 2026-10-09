@@ -1755,6 +1755,8 @@ async function openSettings(refresh){
      <p class="sec-title">rekordbox</p>
      ${needFollow ? `<div class="fresh"><span class="meta">選んでいるプレイリストを読むには許可が必要です</span>
        <button class="btn primary" id="fFollow">allow</button></div>` : ""}
+     <div class="fresh"><span class="meta">${esc((FOLLOW_SAY[FOLLOW] || [0, 0, "rekordbox の選択を読めません"])[2])}</span>
+       <button class="btn" id="fCheck" title="追従の各段階（許可・rekordbox・画面の読み取り・照合）を調べて結果を出します">check</button></div>
      <div class="fresh"><span class="meta" id="freshTxt"></span><button class="btn" id="rescan"></button></div>
      <div class="field"><span>dock</span><select id="fDock">
        ${DOCK_MODES.map(([v, l]) => `<option value="${v}"${(ST && ST.dock && ST.dock.mode) === v ? " selected" : ""}>${l}</option>`).join("")}
@@ -1788,6 +1790,14 @@ async function openSettings(refresh){
     if(r && r.error){ toast(r.error); return; }
     DOCK = r; renderDock(r);
     $("fDockNote").textContent = dockNote();
+  });
+  $("fCheck").addEventListener("click", async ()=>{
+    closeModal(); toast("checking…");
+    const r = await window.pywebview.api.follow_check();
+    if(!r || r.error){ toast((r && r.error) || "調べられませんでした"); return; }
+    modal("follow check",
+      `<p class="hint">この内容は ${esc(r.path)} にも保存しました。うまく追従しないときは、このファイルを送ってください。</p>
+       <pre>${esc(r.text)}</pre>`, [{label:"close", primary:true}]);
   });
   const ff = $("fFollow");
   if(ff) ff.addEventListener("click", async ()=>{

@@ -833,6 +833,17 @@ class Api:
         r["changed"] = bool(r.get("playlist_id")) and r["playlist_id"] != self.playlist_id
         return r
 
+    def follow_check(self) -> dict:
+        """settings > check follow: the step-by-step report (follow_check.py)."""
+        try:
+            from setagent.rekordbox.follow_check import run
+            import contextlib, io
+            with contextlib.redirect_stdout(io.StringIO()):
+                path = run()
+            return {"text": path.read_text(encoding="utf-8"), "path": str(path)}
+        except Exception as e:
+            return {"error": f"{type(e).__name__}: {e}"}
+
     def request_follow_permission(self) -> dict:
         return {"ok": selection.request_permission()}
 

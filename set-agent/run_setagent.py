@@ -4,6 +4,7 @@
   SetAgent.exe --playlist acid  open a specific playlist
   SetAgent.exe --classic        the old tkinter canvas, as a fallback
   SetAgent.exe --doctor         environment check (shown in a dialog too)
+  SetAgent --follow-check       why the panel is not following rekordbox (writes follow-check.txt)
 
 The WebView2 runtime ships with Windows 10/11, so the default path needs no
 install on a teammate's PC. --classic stays in the bundle for the machine that
@@ -25,6 +26,9 @@ def _playlist_arg(argv) -> str | None:
 
 def main() -> int:
     argv = sys.argv[1:]
+    if "--follow-check" in argv:                  # why the panel is not following rekordbox
+        from setagent.rekordbox.follow_check import main as follow_check
+        return follow_check()
     if "--compat" in argv:                        # rekordbox compatibility report, no window
         from tools.probe_compat import main as compat
         return compat([a for a in argv if a != "--compat"])
