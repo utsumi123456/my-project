@@ -13,6 +13,8 @@ pyinstaller==6.22.2
 # pywebview's Windows backend (WebView2 via WinForms)
 pythonnet==3.1.0; sys_platform == "win32"
 clr_loader==0.3.1; sys_platform == "win32"
+# following rekordbox's selection on Windows reads its status line through UI Automation
+comtypes==1.4.11; sys_platform == "win32"
 # pywebview's macOS backend (WKWebView via pyobjc); pulled in by pywebview[qt]? no -- explicit here
 pyobjc-core; sys_platform == "darwin"
 pyobjc-framework-Cocoa; sys_platform == "darwin"

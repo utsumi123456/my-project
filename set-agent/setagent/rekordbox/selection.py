@@ -103,10 +103,64 @@ class Fingerprints:
 # ------------------------------------------------------------------ reading
 
 _AX_CALL_S = 0.5     # one accessibility call
-_AX_WALK_S = 1.5     # the whole walk for the status line
+WALK_BOOT_S = 1.5    # boot() holds the "loading library" curtain: keep it short
+WALK_POLL_S = 4.0    # the 1.2s follow poll runs off the worker; one slow walk is fine
+_RECHECK_S = 15.0    # re-walk now and then even when the remembered element answers
+
+# Roles whose children are rows of data, never the status line. rekordbox's
+# track list is one of these, with an element per visible row and cell; the
+# first version descended into it depth-first and could spend the whole walk
+# budget there on a long list, which then read as "busy" on every poll and the
+# panel silently stopped following (2026-10-09).
+_SKIP_ROLES = frozenset({"AXTable", "AXOutline", "AXList", "AXRow", "AXCell",
+                         "AXColumn", "AXGrid", "AXBrowser", "AXMenuBar", "AXMenu"})
+_MAX_DEPTH = 6
 
 
-def _mac_status_text() -> tuple[str | None, str]:
+class WalkTimeout(Exception):
+    pass
+
+
+def is_status(v) -> bool:
+    s = str(v or "").strip()
+    return bool(s) and bool(_SIZE.search(s)) and bool(_NUMS.match(s))
+
+
+def find_status(roots, attr, deadline: float, clock=time.monotonic):
+    """Breadth-first search for the status line under `roots`.
+
+    `attr(element, name)` returns an AX attribute or None. Breadth-first
+    because the status line sits a few levels under the window while the
+    data views are deep and wide; data views are not entered at all. Returns
+    (element, text) or (None, None); raises WalkTimeout past `deadline`."""
+    level = list(roots)
+    for _ in range(_MAX_DEPTH + 1):
+        nxt = []
+        for e in level:
+            if clock() > deadline:
+                raise WalkTimeout
+            role = attr(e, "AXRole")
+            if role == "AXStaticText":
+                v = attr(e, "AXValue")
+                if is_status(v):
+                    return e, str(v).strip()
+                continue
+            if role in _SKIP_ROLES:
+                continue
+            nxt.extend(attr(e, "AXChildren") or [])
+        if not nxt:
+            break
+        level = nxt
+    return None, None
+
+
+# pid -> (status-line element, when it was found). Reading one remembered
+# element is a single AX call; the walk only runs when it stops answering,
+# rekordbox restarts, or now and then in case rekordbox rebuilt its view.
+_found: dict[int, tuple[object, float]] = {}
+
+
+def _mac_status_text(budget: float = WALK_BOOT_S) -> tuple[str | None, str]:
     try:
         import AppKit
         import ApplicationServices as AS
@@ -114,9 +168,9 @@ def _mac_status_text() -> tuple[str | None, str]:
         return None, "unsupported"
     if not AS.AXIsProcessTrusted():
         return None, "no_permission"
-    pids = [int(a.processIdentifier()) for a in AppKit.NSWorkspace.sharedWorkspace().runningApplications()
-            if (a.localizedName() or "") == "rekordbox"]
+    pids = mac_rekordbox_pids(AppKit)
     if not pids:
+        _found.clear()
         return None, "not_running"
 
     # A busy rekordbox (analysing, loading a library) answers AX calls late, and each
@@ -126,39 +180,52 @@ def _mac_status_text() -> tuple[str | None, str]:
         AS.AXUIElementSetMessagingTimeout(AS.AXUIElementCreateSystemWide(), _AX_CALL_S)
     except Exception:
         pass
-    deadline = time.monotonic() + _AX_WALK_S
+
+    now = time.monotonic()
+    for pid in pids:
+        hit = _found.get(pid)
+        if hit and now - hit[1] < _RECHECK_S:
+            err, v = AS.AXUIElementCopyAttributeValue(hit[0], "AXValue", None)
+            if not err and is_status(v):
+                return str(v).strip(), "ok"
+        _found.pop(pid, None)
 
     def attr(e, a):
-        if time.monotonic() > deadline:
-            raise TimeoutError
         err, v = AS.AXUIElementCopyAttributeValue(e, a, None)
         return None if err else v
 
-    def find(e, depth):
-        for c in attr(e, "AXChildren") or []:
-            if attr(c, "AXRole") == "AXStaticText":
-                v = attr(c, "AXValue")
-                if v and _SIZE.search(str(v)) and _NUMS.match(str(v).strip()):
-                    return str(v)
-            if depth < 3:
-                r = find(c, depth + 1)
-                if r:
-                    return r
-        return None
-
-    app = AS.AXUIElementCreateApplication(pids[0])
-    try:
-        AS.AXUIElementSetMessagingTimeout(app, _AX_CALL_S)
-    except Exception:
-        pass
-    try:
-        for w in attr(app, "AXWindows") or []:
-            t = find(w, 0)
-            if t:
-                return t, "ok"
-    except TimeoutError:
-        return None, "busy"
+    deadline = now + budget
+    for pid in pids:                          # normally one; a helper process has no windows
+        app = AS.AXUIElementCreateApplication(pid)
+        try:
+            AS.AXUIElementSetMessagingTimeout(app, _AX_CALL_S)
+        except Exception:
+            pass
+        try:
+            el, text = find_status(attr(app, "AXWindows") or [], attr, deadline)
+        except WalkTimeout:
+            return None, "busy"
+        if el is not None:
+            _found[pid] = (el, time.monotonic())
+            return text, "ok"
     return None, "not_found"
+
+
+REKORDBOX_BUNDLE_IDS = ("com.pioneerdj.rekordboxdj",)
+
+
+def mac_rekordbox_pids(AppKit) -> list[int]:
+    """rekordbox's process, the app itself first. Matched by its bundle id or its
+    exact name, never by prefix: rekordbox ships helper apps (rekordboxAgent...)
+    that have no browser and would be read instead."""
+    apps = AppKit.NSWorkspace.sharedWorkspace().runningApplications()
+    first, rest = [], []
+    for a in apps:
+        name = str(a.localizedName() or "")
+        bid = str(a.bundleIdentifier() or "")
+        if bid in REKORDBOX_BUNDLE_IDS or name == "rekordbox":
+            (first if a.activationPolicy() == 0 else rest).append(int(a.processIdentifier()))
+    return first + rest
 
 
 def _win_status_text() -> tuple[str | None, str]:
@@ -182,8 +249,8 @@ def _win_status_text() -> tuple[str | None, str]:
         for i in range(texts.Length):
             el = texts.GetElement(i)
             for v in (el.CurrentName, _uia_value(el, UIA)):
-                if v and _SIZE.search(v) and _NUMS.match(v.strip()):
-                    return v, "ok"
+                if is_status(v):
+                    return v.strip(), "ok"
         return None, "not_found"
     except Exception:
         return None, "not_found"
@@ -197,11 +264,11 @@ def _uia_value(el, UIA) -> str:
         return ""
 
 
-def status_text() -> tuple[str | None, str]:
-    """(text, why). why: ok | no_permission | not_running | not_found | unsupported"""
+def status_text(budget: float = WALK_BOOT_S) -> tuple[str | None, str]:
+    """(text, why). why: ok | busy | no_permission | not_running | not_found | unsupported"""
     try:
         if sys.platform == "darwin":
-            return _mac_status_text()
+            return _mac_status_text(budget)
         if sys.platform.startswith("win"):
             return _win_status_text()
     except Exception:
@@ -209,20 +276,32 @@ def status_text() -> tuple[str | None, str]:
     return None, "unsupported"
 
 
+ACCESSIBILITY_PANE = "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
+
+
 def request_permission() -> bool:
-    """macOS: show the system prompt that adds Set Agent to Accessibility."""
+    """macOS: add Set Agent to the Accessibility list (the system prompt) and open
+    that pane, so the DJ lands on the switch instead of hunting for it."""
     if sys.platform != "darwin":
         return True
     try:
         import ApplicationServices as AS
-        return bool(AS.AXIsProcessTrustedWithOptions({AS.kAXTrustedCheckOptionPrompt: True}))
+        ok = bool(AS.AXIsProcessTrustedWithOptions({AS.kAXTrustedCheckOptionPrompt: True}))
     except Exception:
-        return False
+        ok = False
+    if not ok:
+        try:
+            import subprocess
+            subprocess.Popen(["open", ACCESSIBILITY_PANE])
+        except Exception:
+            pass
+    return ok
 
 
-def read(fp: Fingerprints | None, prefer: str | None = None) -> dict:
-    """{playlist_id, name, ambiguous, why, text}. playlist_id None = keep what is shown."""
-    text, why = status_text()
+def read(fp: Fingerprints | None, prefer: str | None = None, budget: float | None = None) -> dict:
+    """{playlist_id, name, ambiguous, why, text}. playlist_id None = keep what is shown.
+    `budget`: seconds the accessibility walk may take (default: the short boot budget)."""
+    text, why = status_text() if budget is None else status_text(budget)
     out = {"playlist_id": None, "name": "", "ambiguous": False, "why": why, "text": text or ""}
     if why != "ok" or fp is None:
         return out

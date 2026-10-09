@@ -42,6 +42,79 @@
   実機（WKWebView）で 2 テーマ × 通常/畳んだ表示を目視 → 問題なければ rekordbox-integration にマージ。
   eval_agent（実 Claude）は SYSTEM_PROMPT とツール説明を変えたので回し直す（このコンテナには Claude CLI のログインが無く未実施）。
 
+### 2.10 追従は実機で確認（2026-10-10）。再発防止とアイコン確定
+- **ユーザー確認（2026-10-10）: 新しいアイコン（Applications・Dock）になっている。追従も問題ない。**
+- screen mirroring の QR が右下で切れていた（segno の固定 234px を 216px の枠に入れていた）→ `omitsize=True` で
+  viewBox に。**ユーザー確認済み（2026-10-10）**。
+  残り: PR #4 を rekordbox-integration にマージするか（ユーザー判断）／Windows 実機での追従（UIA）は未検証。
+- **Mac の更新は 1 コマンド**: `.venv/bin/python build.py --install`（テスト→ビルド→起動中の Set Agent を終了→
+  /Applications/SetAgent.app を置き換え→lsregister と Dock の再起動でアイコン更新→起動）。許可はそのまま引き継がれる。
+- ユーザー確認: `stable_signature()` 入りの版で追従する。
+- **再発防止**: `tests/test_build.py` が macOS ビルドの onedir・アイコン・指定要件付きの再署名を検査。`build.py` は
+  署名後に `codesign -d -r-` を読み、bundle id の指定要件が無ければビルドを止める（CI でも落ちる）。
+  **ルール: macOS のビルドから stable_signature を外さない／bundle id `jp.alphatheta.setagent` を変えない**
+  （変えると全員の許可が外れる）。更新はアプリの置き換えだけで許可が引き継がれる（はじめに.md に記載）。
+- **アイコン確定**: ユーザー添付の画像（rekordbox のアイコン、背景 #ff5000）を `assets/icon/`（png/icns/ico）に置いた。
+  白背景のスクショから、外側を透明・影と縁は半透明のオレンジとして切り出し、Apple の格子（1024 中 824）に合わせた。
+  build.py はこれを優先（CI の配布物も同じアイコン）。`tools/make_icon.py` は予備（ORANGE も #ff5000 に）。
+- **Dock**: onedir にしても Dock が古いままだった → アプリ自身が `webview.start(icon=SetAgent.png)` で Dock の
+  アイコンを設定（pywebview の cocoa が setApplicationIconImage_）。PNG は build.py が同梱。follow-check に
+  「Dock icon:」の行。**実機の Dock での見た目は未確認**（このコンテナは画面を見られない）。
+
+### 2.9 follow-check の結果（2026-10-10 01:29、ユーザーの Mac）
+- onedir の .app で: pyobjc OK、rekordbox（pid 2271, com.pioneerdj.rekordboxdj）OK、rekordboxAgent は別に検出（読まない）、
+  **アクセシビリティの許可: なし** → why=no_permission。原因: PyInstaller の ad-hoc 署名は指定要件がコードハッシュ
+  → ビルドのたびに別アプリ扱いで、システム設定でオンに見えても効かない。
+- 対処: `build.py` の `stable_signature()` で `designated => identifier "jp.alphatheta.setagent"` を付けて再署名
+  （以後のビルドでも許可が保たれる見込み。実機未確認）。allow ボタンはアクセシビリティの設定画面を直接開く。
+  今回だけは、一覧の古い SetAgent を「−」で削除してから入れ直す必要がある。
+
+### 2.8 実機レビュー後（クラウドセッション、2026-10-09 夜）
+ユーザー報告: アプリのアイコンは変わった（rekordbox の .icns から生成できている）。
+問題 1: それでも rekordbox の選択が反映されない／問題 2: アイコンは rekordbox のデザインのまま背景だけオレンジ、PROTO 文字なし／
+問題 3: Dock のアイコンが作ったアイコンにならない。
+- **問題 3（原因確定）**: macOS 版が PyInstaller の onefile。.app の中身はランチャーで、Python を一時フォルダに展開して
+  別プロセスとして起動する → Dock にはそのプロセス（汎用アイコン）が出る。`build.py` を macOS だけ `--onedir`（普通の .app）に。
+- **問題 1**: 原因はまだ実機で確定できない。有力: 上と同じ onefile の子プロセスに対して、アクセシビリティ許可が
+  SetAgent.app と結びつかない（許可はオンに見えても AXIsProcessTrusted が false → 何も読めない）。onedir で解消する見込み。
+  切り分け用に **`--follow-check`**（`setagent/rekordbox/follow_check.py`）と settings の **check** ボタンを追加:
+  許可・rekordbox のプロセス・AX ツリー（幅優先、ステータス行に印）・解釈・照合を順に調べ、`follow-check.txt` に保存。
+  settings の rekordbox 欄に追従状態の文言も常時表示。rekordbox の検出は完全一致の名前か bundle id
+  （`com.pioneerdj.rekordboxdj`、推定）で、rekordboxAgent 等のヘルパーを読まない。複数あれば窓のあるものから。
+- **問題 2**: `tools/make_icon.py` を作り直し。黒→オレンジ #ff6a00 の直写像（白・形・縁はそのまま）、PROTO 帯なし、
+  余白に焼き込まれた影は塗らない（不透明部分だけ）。ユーザー添付の画像で見た目を確認済み。
+- テスト: 全件 OK（+ macOS 経路を偽の AppKit/ApplicationServices で 4 件、アイコン 3 件）。追従 E2E 14/14、レイアウト 0 件。
+- **Mac でやること**: `git pull` → `build.py` → .app を入れ替え → アクセシビリティをオフ→オン → rekordbox で切り替え。
+  ダメなら settings → check の結果（または `/Applications/SetAgent.app/Contents/MacOS/SetAgent --follow-check`）を見る。
+
+### 2.7 アイコン・追従の不具合・配布（クラウドセッション、2026-10-09）
+ユーザー依頼: アイコンを rekordbox のアイコン基調のプロトタイプ配色に／rekordbox の選択が反映されない不具合の修正と、
+実際の使い方での不具合・表示・使い勝手の検証／PC のアプリを更新して配布できる状態に。**このセッションは Linux コンテナで
+Mac・rekordbox に触れないため、AX の実読み取りとアプリの入れ替えは未実施（下の「Mac でやること」）。**
+- **アイコン**: `tools/make_icon.py`。ビルド時に、インストール済みの rekordbox.app の .icns を読み、暗部→アンバー #f5a800・
+  明部→カーボン #0f0e12 の 2 色に置き換え、足元にカーボンの「PROTO」帯。rekordbox の画像はリポジトリに入れない。
+  rekordbox が無い環境（CI・Windows）は同じ配色のレコードの代替図案。`assets/icon/` があればそれを優先（`build.py`）。
+  これまでアイコン指定が無く、PyInstaller 既定のアイコンだった。
+- **追従が止まる不具合（推定原因・要実機確認）**: 2.6 で入れた AX 走査の 1.5 秒上限。旧走査は深さ優先で、曲リスト
+  （行×セルの要素）に先に入り、長いリストでは毎回上限を超え why="busy" → パネルは黙って表示を据え置き＝追従しない。
+  → `selection.find_status`: 幅優先、表・行・セル等（_SKIP_ROLES）には入らない、深さ 6 まで。見つけた要素を記憶して
+  次回から 1 回の AX 呼び出しで読む（15 秒ごとに走査し直し）。上限は boot 1.5 秒・ポーリング 4 秒。
+- **見つけて直した不具合**（E2E: 本物の UI＋Api、AX の読み取りだけ差し替え。14 シナリオ全通過）:
+  - rekordbox で**新しく作ったプレイリスト**に追従できず、1.2 秒ごとに元のプレイリストを読み直し続けた
+    （選択ボックスの選択肢が boot 時のまま → `reload()` が古い値を読む）。→ id で読む `reload(id)`、rescan が
+    `playlist_items` を返して選択肢を更新、読めない id は再試行しない（followFailed）。
+  - 読み直し中の rekordbox の編集が失われる競合: 読み直し後の基準を次のポーリング（最大 5 秒後）で取っていたため、
+    その間に曲を足すと反映されなかった。→ `rescan()` が読む前のファイル署名 `lib_sig` を返し、それを基準にする。
+  - 追従できない状態が見えなかった: コレクション・検索・インテリジェントプレイリスト表示中や rekordbox 解析中も ■ のまま。
+    → □ にして名前・■ のホバーで理由。busy は 4 回（約 5 秒）続いたら表示。許可が無いときは settings に印。
+  - 幅 300px でエージェントの send ボタンが切れる（`.dw-ask input` に min-width:0）。2 テーマ×4 幅×5 画面で他にはみ出しなし。
+  - Windows 版に comtypes が入っておらず、追従が常に unsupported（requirements と build.py に追加。実機未検証）。
+- 未対応（仕様）: インテリジェントプレイリストは Set Agent 全体で未対応（djmdSongPlaylist に曲が無い）。上記の表示で明示のみ。
+- テスト 276 OK（selection の走査 5・アイコン 3 を追加）。
+- **Mac でやること**: `git pull` → `.venv/bin/python build.py` → `dist/SetAgent-macOS.zip` の .app を /Applications に置き換え
+  （アクセシビリティ許可は作り直しで外れるのでオフ→オン）→ rekordbox でプレイリストを次々クリックして追従を確認
+  （長いプレイリスト・解析中も）。CI でも同じアイコンにするなら `python -m tools.make_icon assets/icon` をコミット。
+
 ### 2.6 進捗（MacBook-Pro、2026-10-09 未明）
 - PR #3 はマージ済み（`5bd2cd1`）。eval_agent acid を実 Claude で再実行 → **11/11**（128s）。
 - 実機レビューでの追加修正:

@@ -43,6 +43,7 @@ class MatchTests(unittest.TestCase):
             ('s4','3','a',0),('s5','3','b',0);
         """)
         self.fp = S.Fingerprints.build(con)
+        con.close()                 # Windows cannot delete an open database in tearDown
 
     def tearDown(self):
         self.tmp.cleanup()
@@ -73,6 +74,69 @@ class MatchTests(unittest.TestCase):
             self.assertEqual((r["playlist_id"], r["ambiguous"]), ("1", True))
         finally:
             S.status_text = orig
+
+
+class FakeAX:
+    """A stand-in for rekordbox's accessibility tree, with a clock that ticks per call."""
+
+    def __init__(self, tree, cost=0.01):
+        self.tree, self.cost, self.t, self.calls = tree, cost, 0.0, 0
+
+    def clock(self):
+        return self.t
+
+    def attr(self, e, a):
+        self.calls += 1
+        self.t += self.cost
+        return {"AXRole": e.get("role"), "AXValue": e.get("value"), "AXChildren": e.get("kids")}[a]
+
+
+def node(role, *kids, value=None):
+    return {"role": role, "value": value, "kids": list(kids)}
+
+
+def rekordbox_window(rows=2000, status="96 トラック, 10 時間 55 分, 1.5 GB"):
+    """Track list first (as in rekordbox's tree), the status line further along."""
+    table = node("AXTable", *[node("AXRow", node("AXCell", node("AXStaticText", value=f"Track {i}")),
+                                   node("AXCell", node("AXStaticText", value="128.00")))
+                              for i in range(rows)])
+    browser = node("AXGroup", node("AXScrollArea", table),
+                   node("AXGroup", node("AXStaticText", value=status)))
+    return node("AXWindow", node("AXGroup", node("AXStaticText", value="PERFORMANCE")), browser)
+
+
+class WalkTests(unittest.TestCase):
+    def test_finds_the_status_line_past_a_long_track_list(self):
+        ax = FakeAX([rekordbox_window(rows=5000)])
+        el, text = S.find_status(ax.tree, ax.attr, deadline=1.5, clock=ax.clock)
+        self.assertEqual(text, "96 トラック, 10 時間 55 分, 1.5 GB")
+        self.assertLess(ax.calls, 40)          # the table is never entered
+
+    def test_a_track_title_that_looks_like_a_status_line_is_not_read(self):
+        win = rekordbox_window(rows=3)
+        win["kids"][1]["kids"][0]["kids"][0]["kids"][0]["kids"][0]["kids"][0]["value"] = "12 tracks, 8 min, 1.0 GB"
+        ax = FakeAX([win])
+        self.assertEqual(S.find_status(ax.tree, ax.attr, 1.5, ax.clock)[1], "96 トラック, 10 時間 55 分, 1.5 GB")
+
+    def test_too_slow_says_busy_not_found(self):
+        ax = FakeAX([rekordbox_window()], cost=1.0)
+        with self.assertRaises(S.WalkTimeout):
+            S.find_status(ax.tree, ax.attr, deadline=1.5, clock=ax.clock)
+
+    def test_no_status_line(self):
+        ax = FakeAX([node("AXWindow", node("AXGroup", node("AXStaticText", value="PERFORMANCE")))])
+        self.assertEqual(S.find_status(ax.tree, ax.attr, 1.5, ax.clock), (None, None))
+
+    def test_read_passes_the_poll_budget(self):
+        seen = []
+        orig = S.status_text
+        S.status_text = lambda budget=S.WALK_BOOT_S: (seen.append(budget), (None, "busy"))[1]
+        try:
+            self.assertEqual(S.read(None, budget=S.WALK_POLL_S)["why"], "busy")
+            S.read(None)
+        finally:
+            S.status_text = orig
+        self.assertEqual(seen, [S.WALK_POLL_S, S.WALK_BOOT_S])
 
 
 if __name__ == "__main__":

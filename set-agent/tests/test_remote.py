@@ -95,7 +95,12 @@ class RemoteServerTest(unittest.TestCase):
     def test_url_and_qr(self):
         url = self.srv.url()
         self.assertTrue(url.endswith(f":{self.srv.port}/?k={self.srv.key}"))
-        self.assertIn("<svg", remote.qr_svg(url))
+        svg = remote.qr_svg(url)
+        self.assertIn("<svg", svg)
+        # scales to the CSS box instead of being cut by it (right/bottom edge lost, 2026-10-10)
+        head = svg[:svg.index(">")]
+        self.assertIn("viewBox=", head)
+        self.assertNotIn("width=", head)
 
 
 class LanIpTest(unittest.TestCase):

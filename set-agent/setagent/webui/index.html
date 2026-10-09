@@ -250,7 +250,8 @@ select:focus-visible,input:focus-visible{outline:1px solid var(--target);outline
 .msg.agent{color:var(--ink-2)}
 .msg.meta{color:var(--ink-3);font-size:11px;font-weight:400}
 .dw-ask{display:flex;gap:var(--s2);flex:none}
-.dw-ask input{flex:1;background:var(--raised);color:var(--ink);border:1px solid var(--line);
+.dw-ask .btn{flex:none}
+.dw-ask input{flex:1;min-width:0;background:var(--raised);color:var(--ink);border:1px solid var(--line);
   border-radius:0;padding:7px 9px;font-size:13px}
 .cand{width:100%;display:grid;grid-template-columns:1fr 54px 44px 56px;gap:var(--s2);
   align-items:center;background:var(--raised);border:1px solid var(--line-soft);
@@ -743,9 +744,7 @@ async function boot(){
   setTheme(b.theme);
   PRESET_LABEL = b.preset_labels || {}; PRESET_HELP = b.preset_help || {};
   $("setBpm").value = b.set_bpm ? String(b.set_bpm) : "";
-  $("pl").innerHTML = (b.playlist_items || []).map(p =>
-    `<option value="${esc(p.id)}">${esc(p.path)}</option>`).join("");
-  if(b.playlist_id) $("pl").value = b.playlist_id;
+  fillPicker(b.playlist_items, b.playlist_id);
   FOLLOW = (b.follow || {}).why || "";
   LEVEL = b.level || "light";
   $("levelSeg").innerHTML = (b.levels || []).map(l =>
@@ -803,12 +802,19 @@ function targetSeconds(){
   return m ? (+m[1])*60 + (+m[2]) : 3600;
 }
 
-async function reload(){
+function fillPicker(items, id){
+  $("pl").innerHTML = (items || []).map(p =>
+    `<option value="${esc(p.id)}">${esc(p.path)}</option>`).join("");
+  if(id) $("pl").value = id;
+}
+/* id: load this playlist (following rekordbox); default: the picker's choice */
+async function reload(id){
+  if(typeof id !== "string") id = null;      /* never an Event from a listener */
   $("cTitle").textContent = "building the set…";
   $("cMsg").textContent = "フレーズ解析を読んで再生範囲を決めています。";
   $("curtain").hidden = false;
   const s = await window.pywebview.api.load({
-    playlist_id: $("pl").value, preset: $("preset").value,
+    playlist_id: id || $("pl").value, preset: $("preset").value,
     cap32: $("cap32").checked, target_s: targetSeconds(),
   });
   LOADED_AT = new Date();
@@ -817,6 +823,7 @@ async function reload(){
 
 function apply(s, firstPaint){
   if(!s){ return; }
+  if(s.playlist_items) fillPicker(s.playlist_items, s.playlist_id);
   /* only boot/load failures take over the screen; an ordinary refusal is a toast */
   if(s.fatal){ fail("load failed", s.error, s.detail); return; }
   if(s.error && !s.tracks){ toast(s.error); return; }
@@ -985,14 +992,25 @@ function renderHero(){
 
 /* ---- the playlist rekordbox is showing ---- */
 let FOLLOW = "", LEVEL = "light", LEVEL_HELP = {};
+/* why -> what the dot says. "reading" = the status line can be read at all
+   (the picker stays hidden); "on" = what is shown is what rekordbox shows. */
+const FOLLOW_SAY = {
+  ok:            [true,  true,  "rekordbox の選択に追従中"],
+  no_match:      [true,  false, "rekordbox で表示中のリストはプレイリストではありません（コレクション・検索・インテリジェントプレイリストなど）。最後のプレイリストを表示しています"],
+  busy:          [true,  false, "rekordbox が応答しません（解析中など）。最後のプレイリストを表示しています"],
+  no_permission: [false, false, "選んでいるプレイリストを読むには許可が必要です（settings → allow）"],
+  not_running:   [false, false, "rekordbox が起動していません"],
+};
 function renderHead(){
   $("plTitle").textContent = ST.playlist || "—";
-  const on = FOLLOW === "ok" || FOLLOW === "no_match";
+  const [reading, on, say] = FOLLOW_SAY[FOLLOW] || [false, false, "rekordbox の選択を読めません"];
   $("followDot").className = "dot" + (on ? "" : " off");
-  $("followDot").title = on ? "rekordbox の選択に追従中" : "rekordbox の選択を読めません（設定）";
+  $("followDot").title = say;
+  $("plTitle").title = say;
   /* without the live selection, the DJ picks the playlist here */
-  $("pl").hidden = on || REMOTE ? true : false;
+  $("pl").hidden = reading || REMOTE ? true : false;
   $("plTitle").hidden = !$("pl").hidden;
+  $("settings").classList.toggle("hasnew", FOLLOW === "no_permission" || FRESH.state === "stale");
 }
 
 /* ---- the few numbers beside the length ---- */
@@ -1204,7 +1222,7 @@ let FRESH = {state: "fresh", rb: null};   /* fresh | stale */
    The one case that needs the DJ -- a change held back because this app has
    unapplied trials -- lights the settings button instead. */
 function renderFresh(){
-  $("settings").classList.toggle("hasnew", FRESH.state === "stale");
+  $("settings").classList.toggle("hasnew", FRESH.state === "stale" || FOLLOW === "no_permission");
   const txt = $("freshTxt"), b = $("rescan");
   if(!txt || !b) return;                      /* the sheet is not open */
   const at = LOADED_AT ? LOADED_AT.toLocaleTimeString("ja-JP", {hour:"2-digit", minute:"2-digit"}) : "—";
@@ -1251,7 +1269,8 @@ async function refreshFromRekordbox(note){
   $("curtain").hidden = false; $("cTitle").textContent = "reloading from rekordbox…";
   $("cMsg").textContent = "master.db と -wal を読み直してセットを組み直します。";
   const s = await window.pywebview.api.rescan();
-  LOADED_AT = new Date(); FRESH.state = "fresh"; LIB_SIG = null;
+  LOADED_AT = new Date(); FRESH.state = "fresh"; LIB_SIG = (s && s.lib_sig) || null;
+  followFailed = null;                 /* a reread library may know it now */
   apply(s, true);
   if(note && s && s.tracks) toast(note);
 }
@@ -1736,6 +1755,8 @@ async function openSettings(refresh){
      <p class="sec-title">rekordbox</p>
      ${needFollow ? `<div class="fresh"><span class="meta">選んでいるプレイリストを読むには許可が必要です</span>
        <button class="btn primary" id="fFollow">allow</button></div>` : ""}
+     <div class="fresh"><span class="meta">${esc((FOLLOW_SAY[FOLLOW] || [0, 0, "rekordbox の選択を読めません"])[2])}</span>
+       <button class="btn" id="fCheck" title="追従の各段階（許可・rekordbox・画面の読み取り・照合）を調べて結果を出します">check</button></div>
      <div class="fresh"><span class="meta" id="freshTxt"></span><button class="btn" id="rescan"></button></div>
      <div class="field"><span>dock</span><select id="fDock">
        ${DOCK_MODES.map(([v, l]) => `<option value="${v}"${(ST && ST.dock && ST.dock.mode) === v ? " selected" : ""}>${l}</option>`).join("")}
@@ -1770,10 +1791,19 @@ async function openSettings(refresh){
     DOCK = r; renderDock(r);
     $("fDockNote").textContent = dockNote();
   });
+  $("fCheck").addEventListener("click", async ()=>{
+    closeModal(); toast("checking…");
+    const r = await window.pywebview.api.follow_check();
+    if(!r || r.error){ toast((r && r.error) || "調べられませんでした"); return; }
+    modal("follow check",
+      `<p class="hint">この内容は ${esc(r.path)} にも保存しました。うまく追従しないときは、このファイルを送ってください。</p>
+       <pre>${esc(r.text)}</pre>`, [{label:"close", primary:true}]);
+  });
   const ff = $("fFollow");
   if(ff) ff.addEventListener("click", async ()=>{
     await window.pywebview.api.request_follow_permission();
-    toast("システム設定で Set Agent をオンにしてください");
+    /* a SetAgent already in the list may belong to an earlier build: remove it first */
+    toast("アクセシビリティで SetAgent をオンにしてください（既にあるときは「−」で削除してから入れ直す）");
   });
   fillBackups();
   $("rescan").addEventListener("click", ()=>{ closeModal(); refreshFromRekordbox(null); });
@@ -1843,9 +1873,9 @@ $("minimap").addEventListener("pointerdown", e=>{ dragging = true; jump(e.client
 window.addEventListener("pointermove", e=>{ if(dragging) jump(e.clientX); });
 window.addEventListener("pointerup", ()=>{ dragging = false; });
 
-$("pl").addEventListener("change", reload);
+$("pl").addEventListener("change", ()=> reload());
 $("preset").addEventListener("change", ()=>{ $("cap32Lbl").hidden = !capApplies(); reload(); });
-$("cap32").addEventListener("change", reload);
+$("cap32").addEventListener("change", ()=> reload());
 $("target").addEventListener("change", async ()=>
   apply(await window.pywebview.api.set_target(targetSeconds())));
 $("curve").addEventListener("change", async ()=>
@@ -1858,20 +1888,27 @@ function setTheme(t){
 }
 
 /* ---- follow the playlist rekordbox is showing (selection.py) ---- */
-let following = false;
+let following = false, followBusy = 0, followFailed = null;
 async function pollFollow(){
   if(REMOTE || following || !ST || !$("curtain").hidden) return;
   following = true;
   try {
     const r = await window.pywebview.api.rb_selection();
     if(!r) return;
-    /* a slow answer from a busy rekordbox says nothing about the selection: keep what is shown */
-    const was = FOLLOW; if(r.why !== "busy") FOLLOW = r.why;
+    /* a slow answer from a busy rekordbox says nothing about the selection: keep what is
+       shown -- but say so once it lasts (~5s), so a stalled follow is never silent */
+    followBusy = r.why === "busy" ? followBusy + 1 : 0;
+    const was = FOLLOW;
+    if(r.why !== "busy" || followBusy >= 4) FOLLOW = r.why;
     if(was !== FOLLOW) renderHead();
     const busy = !$("modal").hidden || (ST.agent && ST.agent.pending) || (PUB && PUB.active);
-    if(r.changed && !busy){
+    /* load by id, not through the picker: a playlist made in rekordbox after boot is
+       not among the picker's options until the library is reread, and loading the
+       picker's value instead reloaded the old playlist every poll (2026-10-09) */
+    if(r.changed && !busy && r.playlist_id !== followFailed){
+      await reload(r.playlist_id);
+      followFailed = ST && ST.playlist_id === r.playlist_id ? null : r.playlist_id;
       if([...$("pl").options].some(o => o.value === r.playlist_id)) $("pl").value = r.playlist_id;
-      await reload();
     }
   } catch(e){ /* nothing to say */ }
   finally { following = false; }
