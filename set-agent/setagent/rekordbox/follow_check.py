@@ -55,8 +55,16 @@ def _mac(out: Out) -> str | None:
     trusted = bool(AS.AXIsProcessTrusted())
     out(f"[{'OK' if trusted else 'NG'}] アクセシビリティの許可: {'あり' if trusted else 'なし'}")
     if not trusted:
-        out("     システム設定 > プライバシーとセキュリティ > アクセシビリティ で SetAgent をオフ→オン"
-            "（アプリを入れ替えると、オンのままでも効かなくなります）")
+        out("     システム設定 > プライバシーとセキュリティ > アクセシビリティ で、SetAgent を「−」で一度削除し、"
+            "Set Agent の settings > allow で入れ直してオンにしてください。"
+            "（オンに見えていても、以前のビルドに対する許可だと効きません）")
+        try:
+            import subprocess
+            r = subprocess.run(["codesign", "-d", "-r-", AppKit.NSBundle.mainBundle().bundlePath()],
+                               capture_output=True, text=True, timeout=5)
+            out("     signature: " + " ".join((r.stdout + r.stderr).split())[-160:])
+        except Exception:
+            pass
 
     apps = AppKit.NSWorkspace.sharedWorkspace().runningApplications()
     rb = [a for a in apps if "rekordbox" in str(a.localizedName() or "").lower()

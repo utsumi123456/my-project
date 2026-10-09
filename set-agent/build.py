@@ -71,7 +71,7 @@ def build_exe() -> None:
                 "--hidden-import", "comtypes.client", "--collect-submodules", "comtypes"]
     elif MAC:
         # pywebview drives WKWebView through pyobjc; PyInstaller cannot see the lazy import
-        cmd += ["--hidden-import", "webview.platforms.cocoa", "--osx-bundle-identifier", "jp.alphatheta.setagent",
+        cmd += ["--hidden-import", "webview.platforms.cocoa", "--osx-bundle-identifier", BUNDLE_ID,
                 # dock (B): window geometry (Quartz) and, for "split", moving rekordbox (Accessibility)
                 "--hidden-import", "Quartz", "--hidden-import", "ApplicationServices",
                 "--hidden-import", "PyObjCTools.AppHelper"]
@@ -80,6 +80,26 @@ def build_exe() -> None:
     cmd.append("run_setagent.py")
     print(" ".join(cmd))
     subprocess.run(cmd, cwd=ROOT, check=True)
+    if MAC:
+        stable_signature(APP)
+
+
+BUNDLE_ID = "jp.alphatheta.setagent"
+
+
+def stable_signature(app: Path) -> None:
+    """Re-sign the bundle ad hoc, but with a designated requirement that names
+    only the bundle id. macOS keys the Accessibility permission (rekordbox
+    following, docking's split) to that requirement; PyInstaller's default ad-hoc
+    signature pins it to the code hash, so every rebuild was a new app to macOS
+    and the permission silently stopped applying while the switch still showed
+    on (2026-10-09, follow-check: "許可: なし"). With this, granting it once holds
+    across rebuilds. No Developer ID needed."""
+    req = f'=designated => identifier "{BUNDLE_ID}"'
+    subprocess.run(["codesign", "--force", "--sign", "-", "--identifier", BUNDLE_ID,
+                    "--requirements", req, str(app)], check=True)
+    out = subprocess.run(["codesign", "-d", "-r-", str(app)], capture_output=True, text=True)
+    print("signature:", (out.stdout + out.stderr).strip().splitlines()[-1:])
 
 
 def package() -> Path:

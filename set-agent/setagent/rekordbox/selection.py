@@ -276,15 +276,26 @@ def status_text(budget: float = WALK_BOOT_S) -> tuple[str | None, str]:
     return None, "unsupported"
 
 
+ACCESSIBILITY_PANE = "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
+
+
 def request_permission() -> bool:
-    """macOS: show the system prompt that adds Set Agent to Accessibility."""
+    """macOS: add Set Agent to the Accessibility list (the system prompt) and open
+    that pane, so the DJ lands on the switch instead of hunting for it."""
     if sys.platform != "darwin":
         return True
     try:
         import ApplicationServices as AS
-        return bool(AS.AXIsProcessTrustedWithOptions({AS.kAXTrustedCheckOptionPrompt: True}))
+        ok = bool(AS.AXIsProcessTrustedWithOptions({AS.kAXTrustedCheckOptionPrompt: True}))
     except Exception:
-        return False
+        ok = False
+    if not ok:
+        try:
+            import subprocess
+            subprocess.Popen(["open", ACCESSIBILITY_PANE])
+        except Exception:
+            pass
+    return ok
 
 
 def read(fp: Fingerprints | None, prefer: str | None = None, budget: float | None = None) -> dict:

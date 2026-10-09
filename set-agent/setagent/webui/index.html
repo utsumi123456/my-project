@@ -1802,7 +1802,8 @@ async function openSettings(refresh){
   const ff = $("fFollow");
   if(ff) ff.addEventListener("click", async ()=>{
     await window.pywebview.api.request_follow_permission();
-    toast("システム設定で Set Agent をオンにしてください");
+    /* a SetAgent already in the list may belong to an earlier build: remove it first */
+    toast("アクセシビリティで SetAgent をオンにしてください（既にあるときは「−」で削除してから入れ直す）");
   });
   fillBackups();
   $("rescan").addEventListener("click", ()=>{ closeModal(); refreshFromRekordbox(null); });

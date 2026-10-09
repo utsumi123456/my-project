@@ -42,6 +42,14 @@
   実機（WKWebView）で 2 テーマ × 通常/畳んだ表示を目視 → 問題なければ rekordbox-integration にマージ。
   eval_agent（実 Claude）は SYSTEM_PROMPT とツール説明を変えたので回し直す（このコンテナには Claude CLI のログインが無く未実施）。
 
+### 2.9 follow-check の結果（2026-10-10 01:29、ユーザーの Mac）
+- onedir の .app で: pyobjc OK、rekordbox（pid 2271, com.pioneerdj.rekordboxdj）OK、rekordboxAgent は別に検出（読まない）、
+  **アクセシビリティの許可: なし** → why=no_permission。原因: PyInstaller の ad-hoc 署名は指定要件がコードハッシュ
+  → ビルドのたびに別アプリ扱いで、システム設定でオンに見えても効かない。
+- 対処: `build.py` の `stable_signature()` で `designated => identifier "jp.alphatheta.setagent"` を付けて再署名
+  （以後のビルドでも許可が保たれる見込み。実機未確認）。allow ボタンはアクセシビリティの設定画面を直接開く。
+  今回だけは、一覧の古い SetAgent を「−」で削除してから入れ直す必要がある。
+
 ### 2.8 実機レビュー後（クラウドセッション、2026-10-09 夜）
 ユーザー報告: アプリのアイコンは変わった（rekordbox の .icns から生成できている）。
 問題 1: それでも rekordbox の選択が反映されない／問題 2: アイコンは rekordbox のデザインのまま背景だけオレンジ、PROTO 文字なし／
