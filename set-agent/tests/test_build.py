@@ -11,6 +11,7 @@ Two regressions this guards (2026-10-09, both seen on the DJ's Mac):
 """
 import types
 import unittest
+from pathlib import Path
 from unittest import mock
 
 import build
@@ -39,8 +40,9 @@ class MacBuildTests(unittest.TestCase):
         pyi = next(c for c in calls if "PyInstaller" in c)
         self.assertIn("--onedir", pyi)
         self.assertNotIn("--onefile", pyi)
-        self.assertTrue(pyi[pyi.index("--icon") + 1].endswith("assets/icon/SetAgent.icns"))
-        self.assertTrue(any(a.startswith(str(build.ROOT / "assets" / "icon" / "SetAgent.png")) for a in pyi))
+        icons = build.ROOT / "assets" / "icon"
+        self.assertEqual(Path(pyi[pyi.index("--icon") + 1]), icons / "SetAgent.icns")   # Path: \\ on Windows
+        self.assertTrue(any(a.startswith(str(icons / "SetAgent.png")) for a in pyi))
         sign = next(c for c in calls if c[:2] == ["codesign", "--force"])
         self.assertIn('=designated => identifier "jp.alphatheta.setagent"', sign)
 
