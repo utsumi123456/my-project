@@ -63,7 +63,7 @@ def _mac(out: Out) -> str | None:
     out(f"[{'OK' if trusted else 'NG'}] アクセシビリティの許可: {'あり' if trusted else 'なし'}")
     if not trusted:
         out("     システム設定 > プライバシーとセキュリティ > アクセシビリティ で、SetAgent を「−」で一度削除し、"
-            "Set Agent の settings > allow で入れ直してオンにしてください。"
+            "setagent_proto の settings > allow access で入れ直してオンにしてください。"
             "（オンに見えていても、以前のビルドに対する許可だと効きません）")
         try:
             import subprocess
@@ -127,7 +127,7 @@ def _mac(out: Out) -> str | None:
 
 def run() -> Path:
     out = Out()
-    out(f"Set Agent follow-check  {time.strftime('%Y-%m-%d %H:%M:%S')}")
+    out(f"setagent_proto follow-check  {time.strftime('%Y-%m-%d %H:%M:%S')}")
     out(f"     {platform.platform()}  python {sys.version.split()[0]}  frozen={getattr(sys, 'frozen', False)}")
     out(f"     executable: {sys.executable}")
     text = None
@@ -143,7 +143,7 @@ def run() -> Path:
 
     t0 = time.monotonic()
     t, why = selection.status_text(selection.WALK_POLL_S)
-    out(f"[{'OK' if t else 'NG'}] Set Agent が使う読み取り: why={why} ({(time.monotonic() - t0) * 1000:.0f} ms) text={t!r}")
+    out(f"[{'OK' if t else 'NG'}] setagent_proto が使う読み取り: why={why} ({(time.monotonic() - t0) * 1000:.0f} ms) text={t!r}")
     text = t or text
     st = selection.parse(text) if text else None
     out(f"[{'OK' if st else 'NG'}] ステータス行の解釈: {st and (st.tracks, st.minutes, round(st.size_mib, 1), st.size_step)}")

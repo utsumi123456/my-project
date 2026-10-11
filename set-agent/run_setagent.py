@@ -44,7 +44,7 @@ def main() -> int:
         traceback.print_exc()
         try:
             import tkinter.messagebox as mb
-            mb.showwarning("Set Agent",
+            mb.showwarning("setagent_proto",
                            f"新しい画面を開けなかった（{type(ex).__name__}: {ex}）。\n"
                            "従来の画面で起動する。--classic を付ければ次回から直接開ける。")
         except Exception:

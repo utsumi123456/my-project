@@ -478,12 +478,11 @@ class Docker:
                     rb = sp.rekordbox
                     self.note = ""
                 elif r == "denied":
-                    self.note = ("rekordbox のウィンドウを動かす許可がありません。macOS は システム設定 → "
-                                 "プライバシーとセキュリティ → アクセシビリティ で Set Agent を許可してください")
+                    self.note = "アクセシビリティの許可なし"
                 else:
-                    self.note = "この環境では rekordbox を縮められません。横か内側に付けます"
+                    self.note = "split 不可"
             else:
-                self.note = "画面が狭く rekordbox を縮められません。内側に付けます"
+                self.note = "画面が狭いため inside"
         pl = plan(rb, pw, screens, "side" if mode == "split" else mode)
         if pl is None:
             return

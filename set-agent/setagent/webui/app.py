@@ -106,6 +106,9 @@ def index_path() -> str:
     raise FileNotFoundError("index.html が見つからない（ビルドに同梱されていない可能性）")
 
 
+APP_NAME = "setagent_proto"
+
+
 def main(playlist: str | None = None) -> None:
     api = Api(playlist)
     # 2026-09-16: Set Agent is a read-only panel the DJ keeps beside rekordbox.
@@ -113,7 +116,7 @@ def main(playlist: str | None = None) -> None:
     # ~400px) where the DJ last left it; the detail view is a click away and
     # the window can be widened. Going frameless is the next overlay step.
     window = webview.create_window(
-        "Set Agent",
+        APP_NAME,
         index_path(),
         js_api=api,
         min_size=MIN_SIZE,

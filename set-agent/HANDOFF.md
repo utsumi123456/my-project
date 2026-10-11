@@ -42,6 +42,22 @@
   実機（WKWebView）で 2 テーマ × 通常/畳んだ表示を目視 → 問題なければ rekordbox-integration にマージ。
   eval_agent（実 Claude）は SYSTEM_PROMPT とツール説明を変えたので回し直す（このコンテナには Claude CLI のログインが無く未実施）。
 
+### 2.11 stop-describing-ui と改名 setagent_proto（2026-10-11、クラウドセッション）
+- 依頼: [artouc/stop-describing-ui](https://github.com/artouc/stop-describing-ui) の規則で UI を改善／名前を setagent_proto に／
+  確認なしで配布可能まで。
+- **UI の文言（9 規則）**: 機能・画面の説明のツールチップを全廃（set/detail/agent/settings、帯、密度、ミニマップ、各レーン、
+  BPM 変化点、ピル、右クリックメニュー）。読み込み中の内部処理の説明（復号・WAL）を削除。動詞を具体化
+  （build→preview、add→add change、check→diagnose、allow→allow access、stop→stop mirroring、reload→reload library）。
+  介入度の説明は最重要の結果だけ（曲は変わりません／目標の尺まで曲を足し引き／曲順を組み直し）。追従状態も短文。
+  空の状態は何も出さない（BPM 変化点なし、バックアップなし→見出しごと非表示、ドック不可→欄ごと非表示）。
+  `→` と `·` の区切りを全廃 → CSS のアイコン `.to`（三角）と間隔 `.sp`、範囲は en ダッシュ。複数文の注意は
+  `.ln`（■）/ `.ln.warn`（アンバーの三角）の 1 行ずつ。フレーズ色の説明文は色見本に。Windows のファイアウォール注意は Windows だけ。
+- **改名**: 窓・アプリ・配布物の名前を setagent_proto（`build.py` の `NAME`）。`/Applications/setagent_proto.app`、
+  `setagent_proto-macOS.zip`、`setagent_proto.exe`、CI の artifact 名。`--install` は旧 `SetAgent.app` を消す。
+  **変えていないもの**: bundle id `jp.alphatheta.setagent`（許可が保たれる）、設定フォルダ `~/.config/SetAgent`、
+  rekordbox 側の書き出し先フォルダ「Set Agent」（既存の書き出しと照合のため）、アイコンのファイル名。
+- テスト 284 OK、追従 E2E 14/14、レイアウト 0 件（2 テーマ × 4 幅 × 5 画面）。
+
 ### 2.10 追従は実機で確認（2026-10-10）。再発防止とアイコン確定
 - **ユーザー確認（2026-10-10）: 新しいアイコン（Applications・Dock）になっている。追従も問題ない。**
 - screen mirroring の QR が右下で切れていた（segno の固定 234px を 216px の枠に入れていた）→ `omitsize=True` で

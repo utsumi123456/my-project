@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
-<title>Set Agent</title>
+<title>setagent_proto</title>
 <style>
 /* avoid-ai-design-ignore-file: SD2 -- teenage engineering catalogue palette (five neutrals); red/amber are
    state colours (over / under), blue is only the text-link colour, and the phrase hues are rekordbox 7's.
@@ -499,6 +499,17 @@ select{-webkit-appearance:none;appearance:none;padding-right:24px!important;
   background-color:var(--raised);color:var(--ink);border:1px solid var(--line);font-size:14px;
   text-overflow:ellipsis}
 .insight{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--s2);margin:0}
+/* icon-led lines (stop-describing-ui rule 9): no prose paragraphs, no symbol separators */
+.ln{display:flex;align-items:baseline;gap:var(--s2);margin:var(--s2) 0 0;font-size:13px;color:var(--ink-2)}
+.ln::before{content:"";flex:none;width:7px;height:7px;background:var(--ink-3);transform:translateY(-1px)}
+.ln.warn::before{width:9px;height:8px;background:var(--caution);clip-path:polygon(50% 0,100% 100%,0 100%)}
+.ln:empty{display:none}
+.to{display:inline-block;width:6px;height:8px;margin:0 5px;background:currentColor;opacity:.6;
+  clip-path:polygon(0 0,100% 50%,0 100%);vertical-align:0}
+.sp{display:inline-block;width:12px}
+.swatches{display:flex;flex-wrap:wrap;gap:var(--s2) var(--s3);margin-top:var(--s3);font-size:12px;color:var(--ink-2)}
+.swatches span{display:inline-flex;align-items:center;gap:6px}
+.swatches i{display:inline-block;width:10px;height:10px}
 .insight div{border:1px solid var(--line-soft);background:var(--raised);padding:var(--s2) var(--s3)}
 .insight dt{font-size:11px;color:var(--ink-3)} .insight dd{margin:2px 0 0;font-size:15px}
 .insight dd.warn{color:var(--caution-ink)}
@@ -535,14 +546,14 @@ select{-webkit-appearance:none;appearance:none;padding-right:24px!important;
   <div class="bar">
     <div class="seg views" role="group" aria-label="表示">
       <button type="button" data-view="main" aria-pressed="true"
-        title="セット画面: 予測時間と、目標に合わせるための候補">set</button>
+        >set</button>
       <button type="button" data-view="detail" aria-pressed="false"
-        title="詳細画面: 曲ごとの尺と展開（エネルギー）の対応、区間の予算">detail</button>
+        >detail</button>
     </div>
     <span class="spacer"></span>
     <button class="btn glyph" id="collapseBtn" hidden aria-label="畳む" title="畳む">⇥</button>
-    <button class="btn" id="agentBtn" title="チャット">agent</button>
-    <button class="btn" id="settings" title="設定">settings</button>
+    <button class="btn" id="agentBtn">agent</button>
+    <button class="btn" id="settings">settings</button>
   </div>
 
   <!-- ===== main view (Tier 1 only) ===== -->
@@ -551,7 +562,7 @@ select{-webkit-appearance:none;appearance:none;padding-right:24px!important;
   <section class="main" id="main">
     <div>
       <div class="pl-head">
-        <span class="dot" id="followDot" title="rekordbox で選んでいるプレイリスト"></span>
+        <span class="dot" id="followDot"></span>
         <h1 id="plTitle">—</h1>
         <select id="pl" hidden aria-label="プレイリスト"></select>
       </div>
@@ -566,10 +577,10 @@ select{-webkit-appearance:none;appearance:none;padding-right:24px!important;
       <div class="bpmv" id="bpmv" hidden>
         <div id="cpList"></div>
         <div class="addcp">
-          <select id="cpTrack" title="この曲から BPM を変える"></select>
-          <span class="meta" id="cpFrom" title="この変化点の直前まで効いている BPM"></span>
-          <input type="text" id="cpBpm" placeholder="BPM" title="この曲からの BPM">
-          <button class="btn" id="cpAdd" title="変化点を追加">add</button>
+          <select id="cpTrack" aria-label="曲"></select>
+          <span class="meta" id="cpFrom"></span>
+          <input type="text" id="cpBpm" placeholder="BPM" aria-label="BPM">
+          <button class="btn" id="cpAdd">add change</button>
         </div>
       </div>
     </div>
@@ -578,7 +589,7 @@ select{-webkit-appearance:none;appearance:none;padding-right:24px!important;
       <p class="eyebrow">predicted</p>
       <div class="hero" id="hero">—</div>
       <div class="gap-sub" id="heroSub"></div>
-      <div class="bullet-track" title="予測時間（塗り）と目標（縦線）。目標を越えた分は赤">
+      <div class="bullet-track">
         <div class="bullet-fill" id="bFill"></div>
         <div class="bullet-over" id="bOver"></div>
         <div class="bullet-tick" id="bTick"></div>
@@ -592,7 +603,7 @@ select{-webkit-appearance:none;appearance:none;padding-right:24px!important;
       <div class="imp-head">
         <p class="eyebrow" style="margin:0">improve</p>
         <div class="seg" role="group" aria-label="介入度" id="levelSeg"></div>
-        <button class="btn primary" id="impMake" type="button">build</button>
+        <button class="btn primary" id="impMake" type="button">preview</button>
       </div>
       <p class="imp-help" id="impHelp"></p>
       <div id="impRes"></div>
@@ -602,22 +613,22 @@ select{-webkit-appearance:none;appearance:none;padding-right:24px!important;
   <!-- ===== detail view (Tier 2: on demand) ===== -->
   <section class="detail" id="detail" hidden>
   <div class="transport">
-    <div class="seg" role="group" aria-label="時間軸の密度" title="時間軸の密度。全体=1分36px / 詳細=1分96px（曲名が出ます）。どちらも横スクロール">
+    <div class="seg" role="group" aria-label="時間軸の密度">
       <button type="button" data-zoom="section" aria-pressed="true">fit</button>
       <button type="button" data-zoom="detail" aria-pressed="false">zoom</button>
     </div>
     <span class="meta" id="density"></span>
-    <div class="minimap" id="minimap" title="セット全体の縮図。クリックやドラッグで表示位置を移動"><div class="mm-view" id="mmView"></div></div>
+    <div class="minimap" id="minimap"><div class="mm-view" id="mmView"></div></div>
   </div>
 
   <div class="scroll" id="scroll">
     <div class="canvas" id="canvas">
-      <div class="lane-h" title="曲の並びと尺。幅＝再生時間。ダブルクリックでその曲のフレーズ構成を表示。ドラッグで並べ替え、端をドラッグで範囲を詰める試行">tracks</div>
+      <div class="lane-h">tracks</div>
       <div class="ruler" id="ruler"></div>
       <div class="tracks" id="tracks"></div>
-      <div class="lane-h" title="実測の展開（フレーズ解析から）と、Curve で選んだ目標カーブ（点線）。点はドラッグ、ダブルクリックで追加、右クリックで削除">energy</div>
+      <div class="lane-h">energy</div>
       <div class="energy" id="energy"></div>
-      <div class="lane-h" title="マイルストーンで区切った区間ごとの曲数・尺・目標との過不足">sections</div>
+      <div class="lane-h">sections</div>
       <div class="sections" id="sections"></div>
     </div>
   </div>
@@ -633,7 +644,7 @@ select{-webkit-appearance:none;appearance:none;padding-right:24px!important;
 
   <div class="foot">
     <div>
-      <p class="eyebrow" title="選んだ曲の位置・再生尺・BPM・フレーズ">selected</p>
+      <p class="eyebrow">selected</p>
       <div id="selTitle" style="font-weight:600;font-size:13px">—</div>
       <dl class="kv" id="selKv"></dl>
     </div>
@@ -641,7 +652,7 @@ select{-webkit-appearance:none;appearance:none;padding-right:24px!important;
   </section>
 </div>
 
-<div class="mini" id="mini" aria-label="Set Agent">
+<div class="mini" id="mini" aria-label="setagent_proto">
   <button class="btn" id="expandBtn" title="広げる" aria-label="広げる">⇤</button>
   <div class="lbl" id="miniL">—</div>
   <div class="t" id="miniT">—</div>
@@ -653,7 +664,7 @@ select{-webkit-appearance:none;appearance:none;padding-right:24px!important;
 <div class="curtain" id="curtain">
   <div class="box">
     <h1 id="cTitle">loading library…</h1>
-    <p id="cMsg">rekordbox の master.db を復号して開いています。初回は少し時間がかかります。</p>
+    <p id="cMsg"></p>
     <pre id="cDetail" hidden></pre>
     <button class="btn primary" id="cRetry" hidden>retry</button>
   </div>
@@ -702,8 +713,10 @@ const PH_COLOR = {intro:"var(--ph-intro)", up:"var(--ph-up)", chorus:"var(--ph-c
 let ST = null, BOOT = null, mode = "section", toastTimer = null;
 let VIEW = "main", LOADED_AT = null;
 let PRESET_LABEL = {}, PRESET_HELP = {};
+/* before -> after, and a gap between items: an icon and spacing, never a symbol (rule 9) */
+const TO = '<i class="to" aria-label="to"></i>', SEP = '<span class="sp"></span>';
 const plabel = k => PRESET_LABEL[k] || k;
-const popt = k => `<option value="${esc(k)}" title="${esc(PRESET_HELP[k] || "")}">${esc(plabel(k))}</option>`;
+const popt = k => `<option value="${esc(k)}">${esc(plabel(k))}</option>`;
 /* the drop cap only means something when the preset is built around drops */
 const capApplies = () => ["one_drop", "two_drop"].includes($("preset").value);
 
@@ -736,7 +749,7 @@ function fail(title, msg, detail){
 async function boot(){
   const b = await window.pywebview.api.boot();
   if(b.error){
-    fail("can't open the library", b.error + "\n\nrekordbox を一度起動してライブラリを作成してから、もう一度お試しください。",
+    fail("can't open the library", b.error + "\n\nrekordbox を一度起動してください",
          b.detail);
     return;
   }
@@ -811,7 +824,7 @@ function fillPicker(items, id){
 async function reload(id){
   if(typeof id !== "string") id = null;      /* never an Event from a listener */
   $("cTitle").textContent = "building the set…";
-  $("cMsg").textContent = "フレーズ解析を読んで再生範囲を決めています。";
+  $("cMsg").textContent = "";
   $("curtain").hidden = false;
   const s = await window.pywebview.api.load({
     playlist_id: id || $("pl").value, preset: $("preset").value,
@@ -880,7 +893,7 @@ function renderAgent(){
   if(a.model && $("model").value !== a.model) $("model").value = a.model;
   /* only a problem is worth a line: the connection itself is not news */
   $("agentStatus").hidden = !!a.connected;
-  $("agentStatus").textContent = a.connected ? "" : "Claude に接続していません（簡易モードで答えます）";
+  $("agentStatus").textContent = a.connected ? "" : "Claude 未接続";
 
   const c = $("chat");
   const atBottom = c.scrollHeight - c.scrollTop - c.clientHeight < 40;
@@ -890,7 +903,7 @@ function renderAgent(){
   if(atBottom) c.scrollTop = c.scrollHeight;
 
   $("askHints").innerHTML = HINTS.map(h =>
-    `<a href="#" class="hintq" data-q="${esc(h)}">${esc(h)}</a>`).join(" · ");
+    `<a href="#" class="hintq" data-q="${esc(h)}">${esc(h)}</a>`).join(SEP);
 
   $("cands").innerHTML = !(a.candidates || []).length ? "" :
     `<p class="sec-title">candidates</p><div class="cand-list">` +
@@ -954,10 +967,8 @@ function renderHero(){
      plus the tempo the prediction assumes, since that is what stretches it */
   const chain = [ST.set_bpm, ...(ST.bpm_changes || []).map(c => c.bpm)].filter(v => v != null);
   const bpm = chain.length
-    ? `<span class="pill bpm" title="${ST.set_bpm_auto
-          ? "プレイリストの BPM 中央値でかける前提の予測です。Target BPM に数字を入れると置き換わります"
-          : "この BPM でかける前提の予測です"}">${chain.join(" → ")} bpm${ST.set_bpm_auto ? " · auto" : ""}</span>`
-    : `<span class="pill bpm" title="BPM が分からないため、各曲を原曲の BPM でかける前提の予測です">original bpm</span>`;
+    ? `<span class="pill bpm">${chain.join(TO)} bpm${ST.set_bpm_auto ? SEP + "auto" : ""}</span>`
+    : `<span class="pill bpm">original bpm</span>`;
   $("heroSub").innerHTML = pill + bpm + `<span class="cnt">${trk(ST.tracks.length)}</span>`;
   renderBpmVar();
 
@@ -995,15 +1006,15 @@ let FOLLOW = "", LEVEL = "light", LEVEL_HELP = {};
 /* why -> what the dot says. "reading" = the status line can be read at all
    (the picker stays hidden); "on" = what is shown is what rekordbox shows. */
 const FOLLOW_SAY = {
-  ok:            [true,  true,  "rekordbox の選択に追従中"],
-  no_match:      [true,  false, "rekordbox で表示中のリストはプレイリストではありません（コレクション・検索・インテリジェントプレイリストなど）。最後のプレイリストを表示しています"],
-  busy:          [true,  false, "rekordbox が応答しません（解析中など）。最後のプレイリストを表示しています"],
-  no_permission: [false, false, "選んでいるプレイリストを読むには許可が必要です（settings → allow）"],
-  not_running:   [false, false, "rekordbox が起動していません"],
+  ok:            [true,  true,  "rekordbox に追従中"],
+  no_match:      [true,  false, "rekordbox でプレイリスト以外を表示中"],
+  busy:          [true,  false, "rekordbox が応答しません"],
+  no_permission: [false, false, "アクセシビリティの許可なし"],
+  not_running:   [false, false, "rekordbox 未起動"],
 };
 function renderHead(){
   $("plTitle").textContent = ST.playlist || "—";
-  const [reading, on, say] = FOLLOW_SAY[FOLLOW] || [false, false, "rekordbox の選択を読めません"];
+  const [reading, on, say] = FOLLOW_SAY[FOLLOW] || [false, false, "rekordbox を読めません"];
   $("followDot").className = "dot" + (on ? "" : " off");
   $("followDot").title = say;
   $("plTitle").title = say;
@@ -1040,12 +1051,12 @@ function renderImproved(){
   const busy = PUB && PUB.active;
   box.innerHTML = `<div class="imp-res">
       <div class="top"><span class="t">${esc(a.total)}</span>${pill}
-        <span class="meta">${esc(m.label)} · ${trk(a.tracks)}</span></div>
+        <span class="meta">${esc(m.label)}${SEP}${trk(a.tracks)}</span></div>
       <div class="cnts"><span>add <b>${c.add}</b></span><span>remove <b>${c.remove}</b></span>
-        <span>move <b>${c.move}</b></span><span>clashes <b>${b.rough} → ${a.rough}</b></span></div>
+        <span>move <b>${c.move}</b></span><span>clashes <b>${b.rough}${TO}${a.rough}</b></span></div>
       ${m.changes.length ? `<ul class="chg">${m.changes.map(x =>
           `<li><span class="k ${x.kind}">${KIND[x.kind]}</span><span class="n" title="${esc(x.title)}">${esc(x.title)}</span>
-           <span class="x">${esc(x.detail || "")}</span></li>`).join("")}</ul>` : `<p class="imp-help">${esc(m.note || "no changes")}</p>`}
+           <span class="x">${esc(x.detail || "")}</span></li>`).join("")}</ul>` : `<p class="imp-help">${esc(m.note || "")}</p>`}
       <div class="acts">
         <button class="btn primary" id="impWrite" ${m.changes.length && !REMOTE ? "" : "disabled"}>${busy ? "exporting…" : "export to rekordbox"}</button>
         <button class="btn" id="impDrop">discard</button>
@@ -1164,9 +1175,9 @@ function openCtx(x, y, i){
   const isMile = !!t.milestone, locked = (t.locks || []).includes("position");
   const c = $("ctx");
   c.innerHTML = `<div class="h">${i + 1}. ${esc(t.title)}</div>
-    <button data-act="mile" class="${isMile ? "on" : ""}" title="改善版でもこの曲を要として残します">${isMile ? "unset milestone" : "milestone"}</button>
+    <button data-act="mile" class="${isMile ? "on" : ""}">${isMile ? "unset milestone" : "milestone"}</button>
     <button data-act="time" >target time…${t.milestone_s != null ? ` (${fmt(t.milestone_s)})` : ""}</button>
-    <button data-act="lock" class="${locked ? "on" : ""}" title="改善版でもこの位置から動かしません">${locked ? "unlock" : "lock"}</button>`;
+    <button data-act="lock" class="${locked ? "on" : ""}">${locked ? "unlock" : "lock"}</button>`;
   c.hidden = false;
   const W = 220, H = c.offsetHeight || 120;
   c.style.left = Math.max(4, Math.min(x, innerWidth - W - 4)) + "px";
@@ -1204,7 +1215,7 @@ $("ctx").addEventListener("click", async e=>{
     [{label:"cancel"},
      {label:"set", primary:true, close:false, run: async ()=>{
         const secs = parseMmss($("fTime").value);
-        if(secs == null){ toast("mm:ss で入力してください"); return; }
+        if(secs == null){ toast("mm:ss"); return; }
         closeModal();
         apply(await window.pywebview.api.set_milestone(i, secs));
      }}]);
@@ -1228,7 +1239,7 @@ function renderFresh(){
   const at = LOADED_AT ? LOADED_AT.toLocaleTimeString("ja-JP", {hour:"2-digit", minute:"2-digit"}) : "—";
   txt.textContent = FRESH.state === "stale" ? "rekordbox changed" : `loaded ${at}`;
   b.className = FRESH.state === "stale" ? "btn primary" : "btn";
-  b.textContent = "reload";
+  b.textContent = "reload library";
 }
 
 /* Automatic refresh (§5-1): poll master.db / -wal, and check on every window
@@ -1257,7 +1268,7 @@ async function pollLibrary(){
         return;
       }
       if(FRESH.state !== "stale")
-        toast("rekordbox changed · reload in settings");
+        toast("rekordbox changed");
       FRESH.state = "stale";
     }
     LIB_SIG = c;
@@ -1267,7 +1278,7 @@ async function pollLibrary(){
 }
 async function refreshFromRekordbox(note){
   $("curtain").hidden = false; $("cTitle").textContent = "reloading from rekordbox…";
-  $("cMsg").textContent = "master.db と -wal を読み直してセットを組み直します。";
+  $("cMsg").textContent = "";
   const s = await window.pywebview.api.rescan();
   LOADED_AT = new Date(); FRESH.state = "fresh"; LIB_SIG = (s && s.lib_sig) || null;
   followFailed = null;                 /* a reread library may know it now */
@@ -1295,9 +1306,8 @@ function renderReality(){
   r.className = "reality crit";
   const pct = sum ? (sum/over*100) : 0;
   const scale = v => Math.max(2, v/over*100);
-  r.innerHTML = `<h3>削り代だけでは届きません</h3>
-    <p>テンポ調整で稼げるのは全曲あわせて <b>${fmt(sum)}</b>。超過 <b>${fmt(over)}</b> の
-       <b>${pct.toFixed(1)}%</b> です。曲を外す必要があります。</p>
+  r.innerHTML = `<h3>曲を外す必要があります</h3>
+      <p class="ln">テンポ調整で <b>${fmt(sum)}</b>（超過 <b>${fmt(over)}</b> の <b>${pct.toFixed(1)}%</b>）</p>
     <div class="wf">` +
     trims.slice(0,8).map(t=>`<div class="wf-row">
         <span class="wf-name" title="${esc(t.title)}">${esc(t.title)}</span>
@@ -1336,9 +1346,9 @@ function renderLanes(){
     h += `<div class="trk${t.i % 2 ? " alt" : ""}" tabindex="0" data-i="${t.i}" data-sel="${t.i === ST.selected ? 1 : 0}"
             style="left:${x.toFixed(1)}px;width:${w.toFixed(1)}px"
             title="${esc(t.title)}
-${fmt(t.start_s)} → ${fmt(t.end_s)}  再生 ${fmt(t.play_s)}
-${t.bpm} BPM${t.set_tempo !== t.bpm ? " → " + t.set_tempo : ""} · ${esc(plabel(t.preset))}${t.locks.length ? " · ロック: " + esc(t.locks.join(",")) : ""}
-${t.phrases.length ? "ダブルクリックでフレーズ構成" : "フレーズ解析なし"}">${inner}` +
+${fmt(t.start_s)}–${fmt(t.end_s)}  再生 ${fmt(t.play_s)}
+${t.bpm} BPM${t.set_tempo !== t.bpm ? "  set " + t.set_tempo : ""}  ${esc(plabel(t.preset))}${t.locks.length ? "  lock " + esc(t.locks.join(" ")) : ""}
+${t.phrases.length ? "" : "フレーズ解析なし"}">${inner}` +
          /* "No. title" on every block at both densities (2026-09-17). The label
             ellipsises to the block's width; a block too narrow for even one
             glyph plus the ellipsis gets none, so a row of lone "…" never appears */
@@ -1487,7 +1497,7 @@ window.addEventListener("pointerup", async ()=>{
   apply(await window.pywebview.api.move_curve_point(d.i, d.at.pos, d.at.energy));
 });
 $("energy").addEventListener("dblclick", async e=>{
-  if(!ST.curve || !ST.curve.length){ toast("先に目標カーブを選んでください"); return; }
+  if(!ST.curve || !ST.curve.length){ toast("curve を選択"); return; }
   if(e.target.closest(".knob")) return;
   const c = curveAt(e.clientX, e.clientY); if(!c) return;
   apply(await window.pywebview.api.add_curve_point(c.pos, c.energy));
@@ -1509,9 +1519,9 @@ function renderSections(W, k){
       <div class="sec-n" title="${esc(s.name)}">${esc(s.name)}</div>
       <div class="sec-b"><div class="sec-f" style="width:${(ratio*100).toFixed(1)}%"></div>
         ${has?`<div class="sec-t" style="left:98%"></div>`:""}</div>
-      <div class="sec-v">${s.tracks} tracks · ${fmt(s.actual_s)}` +
-        (diff == null ? " · no target"
-          : ` · <span class="${diff>0?"o":"u"}">${diff>0?"+":"−"}${fmt(Math.abs(diff))}</span>`) +
+      <div class="sec-v">${s.tracks} tracks${SEP}${fmt(s.actual_s)}` +
+        (diff == null ? ""
+          : `${SEP}<span class="${diff>0?"o":"u"}">${diff>0?"+":"−"}${fmt(Math.abs(diff))}</span>`) +
       `</div></div>`;
   }).join("");
 }
@@ -1562,13 +1572,13 @@ function renderSelected(){
     return;
   }
   $("selTitle").textContent = `${t.i+1}. ${t.title}`;
-  const ph = t.phrases.length ? t.phrases.map(p=>p.label).join(" → ") : "none";
+  const ph = t.phrases.length ? t.phrases.map(p=>esc(p.label)).join(TO) : "";
   $("selKv").innerHTML =
-    `<dt>position</dt><dd>${fmt(t.start_s)} → ${fmt(t.end_s)}</dd>
+    `<dt>position</dt><dd>${fmt(t.start_s)}–${fmt(t.end_s)}</dd>
      <dt>play</dt><dd>${fmt(t.play_s)}</dd>
-     <dt>BPM</dt><dd>${t.bpm}${t.set_tempo !== t.bpm ? " → " + t.set_tempo + " (set)" : ""}</dd>
+     <dt>BPM</dt><dd>${t.bpm}${t.set_tempo !== t.bpm ? TO + t.set_tempo : ""}</dd>
      <dt>Mix</dt><dd>${esc(plabel(t.preset))}</dd>
-     <dt>phrases</dt><dd style="white-space:normal">${esc(ph)}
+     <dt>phrases</dt><dd style="white-space:normal">${ph}
        ${t.phrases.length ? ` <a href="#" class="hintq" id="selPhrases">show</a>` : ""}</dd>`;
 }
 
@@ -1624,13 +1634,14 @@ function showPhrases(i){
         background:${PH_COLOR[p.group] || "var(--ph-verse)"}"></div>`).join("");
     body = `<div class="ph-list">` + t.phrases.map(p =>
       `<span class="lg"><i class="sw" style="background:${PH_COLOR[p.group] || "var(--ph-verse)"}"></i>${esc(p.label)}<b>${fmt(p.start_s)}–${fmt(p.end_s)}</b></span>`).join("") + `</div>
-      <p class="hint">色は rekordbox のフレーズ色と同じ意味です（Intro 橙 / Up 紫 / Chorus 緑 / Down 茶 / Outro 青 / Verse 灰）</p>`;
+      <div class="swatches">${[["intro", "--ph-intro"], ["up", "--ph-up"], ["chorus", "--ph-chorus"], ["down", "--ph-down"], ["outro", "--ph-outro"], ["verse", "--ph-verse"]]
+        .map(([n, v]) => `<span><i style="background:var(${v})"></i>${n}</span>`).join("")}</div>`;
   } else {
     strip = `<div class="none"></div>`;
-    body = `<p>この曲にはフレーズ解析がありません。rekordbox の環境設定 &gt; 解析 で「フレーズ」をオンにして再解析すると出ます。</p>`;
+    body = `<p class="ln">rekordbox の解析設定でフレーズをオンにして再解析</p>`;
   }
   modal(`${i + 1}. ${t.title}`,
-    `<p class="hint">${fmt(t.start_s)} → ${fmt(t.end_s)} · play ${fmt(t.play_s)} · ${t.bpm} bpm · ${esc(plabel(t.preset))}</p>
+    `<p class="hint">${fmt(t.start_s)}–${fmt(t.end_s)}${SEP}play ${fmt(t.play_s)}${SEP}${t.bpm} bpm${SEP}${esc(plabel(t.preset))}</p>
      <div class="phrase-strip">${strip}</div>${body}`,
     [{label: "close"}]);
 }
@@ -1665,7 +1676,7 @@ function bpmBefore(idx){
 function renderCpFrom(){
   const from = bpmBefore(+$("cpTrack").value || 0);
   /* avoid-ai-design-ignore: CP3 -- "140 →" is the from-value of a from→to field, not a button label */
-  $("cpFrom").textContent = from != null ? `${from} →` : "";
+  $("cpFrom").innerHTML = from != null ? `${from}${TO}` : "";
 }
 function renderBpmVar(){
   /* the field always shows the BPM the prediction uses; "自動" marks the playlist median */
@@ -1673,7 +1684,7 @@ function renderBpmVar(){
   if(document.activeElement !== f) f.value = ST.set_bpm != null ? String(ST.set_bpm) : "";
   f.classList.toggle("auto", !!ST.set_bpm_auto);
   $("setBpmAuto").textContent = ST.set_bpm_auto && ST.set_bpm != null ? "auto" : "";
-  $("setBpmAuto").title = ST.set_bpm_auto ? "プレイリストの BPM 中央値です。数字を入れると置き換わります" : "";
+  $("setBpmAuto").title = "";
 
   const cps = ST.bpm_changes || [];
   if(cps.length) bpmVarOpen = true;
@@ -1682,9 +1693,9 @@ function renderBpmVar(){
   if(!bpmVarOpen) return;
   $("cpList").innerHTML = cps.length ? cps.map(c =>
     `<div class="cp"><span class="t">from ${c.i + 1}. ${esc(c.title)}</span>
-       <b title="${c.from_bpm != null ? c.from_bpm + " BPM からこの BPM に" : "この曲からの BPM"}">${c.from_bpm != null ? c.from_bpm + " → " : ""}${c.bpm} BPM</b>
-       <button class="btn" data-cp="${c.i}" title="この変化点を外す">remove</button></div>`).join("")
-    : `<p class="none-yet">まだ変化点がありません。下で「この曲から何 BPM」を追加してください</p>`;
+       <b>${c.from_bpm != null ? c.from_bpm + TO : ""}${c.bpm} BPM</b>
+       <button class="btn" data-cp="${c.i}">remove</button></div>`).join("")
+    : "";
   const sel = $("cpTrack"), keep = sel.value;
   sel.innerHTML = ST.tracks.map(t => `<option value="${t.i}">${t.i + 1}. ${esc(t.title)}</option>`).join("");
   if(keep && [...sel.options].some(o => o.value === keep)) sel.value = keep;
@@ -1702,7 +1713,7 @@ $("bpmVar").addEventListener("change", async ()=>{
 });
 $("cpAdd").addEventListener("click", async ()=>{
   const v = $("cpBpm").value.trim();
-  if(!v){ toast("この曲からの BPM を入力してください"); return; }
+  if(!v){ toast("BPM を入力"); return; }
   apply(await window.pywebview.api.set_bpm_change(+$("cpTrack").value, v));
   $("cpBpm").value = "";
 });
@@ -1724,15 +1735,15 @@ function connHtml(s){
   const c = s.cli || {};
   const seat = c.subscription === "enterprise" ? "企業アカウント" : (c.subscription || "ログイン済み");
   if(s.mode === "cli")
-    return `<span class="dot on"></span><span>Claude Code ${esc(c.version || "")} に接続しています（${esc(c.org || seat)}）</span>`;
+    return `<span class="dot on"></span><span>Claude Code ${esc(c.version || "")}  ${esc(c.org || seat)}</span>`;
   if(c.found && !c.logged_in)
-    return `<span class="dot warn"></span><span>Claude Code は見つかりましたが、ログインしていません</span>
-            <button class="btn" id="fLogin" title="Claude Code のログイン画面をコンソールで開きます。会社のアカウントでログインしてください">log in</button>`;
+    return `<span class="dot warn"></span><span>Claude Code</span>
+         <button class="btn" id="fLogin">log in to Claude</button>`;
   if(!c.found && s.backend !== "off")
-    return `<span class="dot"></span><span>Claude Code が見つかりません。Claude Desktop を入れてログインすると、キーなしで使えます</span>`;
+    return `<span class="dot"></span><span>Claude Code なし</span>`;
   if(s.mode === "api")
-    return `<span class="dot on"></span><span>API キーで接続しています（${esc(s.api_model)}）</span>`;
-  return `<span class="dot"></span><span>${esc(s.status || "ルールベースのアドバイザで動いています")}</span>`;
+    return `<span class="dot on"></span><span>API キー  ${esc(s.api_model)}</span>`;
+  return `<span class="dot"></span><span>${esc(s.status || "簡易モード")}</span>`;
 }
 function modelOptions(s){
   const cur = s.model || "sonnet";
@@ -1753,23 +1764,22 @@ async function openSettings(refresh){
        <option value="original"${theme === "original" ? " selected" : ""}>original</option>
        <option value="dark"${theme === "dark" ? " selected" : ""}>dark</option></select></div>
      <p class="sec-title">rekordbox</p>
-     ${needFollow ? `<div class="fresh"><span class="meta">選んでいるプレイリストを読むには許可が必要です</span>
-       <button class="btn primary" id="fFollow">allow</button></div>` : ""}
-     <div class="fresh"><span class="meta">${esc((FOLLOW_SAY[FOLLOW] || [0, 0, "rekordbox の選択を読めません"])[2])}</span>
-       <button class="btn" id="fCheck" title="追従の各段階（許可・rekordbox・画面の読み取り・照合）を調べて結果を出します">check</button></div>
+     <div class="fresh"><span class="meta">${esc((FOLLOW_SAY[FOLLOW] || [0, 0, "rekordbox を読めません"])[2])}</span>
+       ${needFollow ? `<button class="btn primary" id="fFollow">allow access</button>` : ""}
+       <button class="btn" id="fCheck">diagnose</button></div>
      <div class="fresh"><span class="meta" id="freshTxt"></span><button class="btn" id="rescan"></button></div>
-     <div class="field"><span>dock</span><select id="fDock">
+     ${(DOCK || (ST && ST.dock) || {}).available ? `<div class="field"><span>dock</span><select id="fDock">
        ${DOCK_MODES.map(([v, l]) => `<option value="${v}"${(ST && ST.dock && ST.dock.mode) === v ? " selected" : ""}>${l}</option>`).join("")}
      </select></div>
-     <p class="hint warn" id="fDockNote">${esc(dockNote())}</p>
-     <p class="sec-title">backups</p>
+     <p class="ln warn" id="fDockNote">${esc(dockNote())}</p>` : ""}
+     <p class="sec-title" id="fBackupsH">backups</p>
      <div class="bk-list" id="fBackups"><span class="meta">…</span></div>
      <p class="sec-title">agent</p>
      ${s.mode === "cli" || s.mode === "api" ? "" : `<div class="conn" id="llmConn">${connHtml(s)}
        <button class="btn" id="fRecheck">recheck</button></div>`}
      <div class="field"><span>notices</span><select id="fNotify">
        ${NOTIFY.map(([v, l]) => `<option value="${v}"${lvl === v ? " selected" : ""}>${l}</option>`).join("")}</select></div>
-     <div class="field"><span>api key (optional)${s.masked ? " · " + esc(s.masked) : ""}</span>
+     <div class="field"><span>api key${s.masked ? SEP + esc(s.masked) : ""}</span>
        <input type="password" id="fKey" placeholder="${s.configured ? "leave blank to keep" : "sk-ant-…"}"></div>
      <p class="sec-title">screen mirroring</p>
      <div class="fresh"><button class="btn" id="fPhone">show QR</button></div>`,
@@ -1785,7 +1795,7 @@ async function openSettings(refresh){
   $("fTheme").addEventListener("change", async ()=>{
     const t = $("fTheme").value; setTheme(t); await window.pywebview.api.set_prefs(t, null);
   });
-  $("fDock").addEventListener("change", async ()=>{
+  if($("fDock")) $("fDock").addEventListener("change", async ()=>{
     const r = await window.pywebview.api.set_dock($("fDock").value);
     if(r && r.error){ toast(r.error); return; }
     DOCK = r; renderDock(r);
@@ -1794,16 +1804,16 @@ async function openSettings(refresh){
   $("fCheck").addEventListener("click", async ()=>{
     closeModal(); toast("checking…");
     const r = await window.pywebview.api.follow_check();
-    if(!r || r.error){ toast((r && r.error) || "調べられませんでした"); return; }
+    if(!r || r.error){ toast((r && r.error) || "diagnose failed"); return; }
     modal("follow check",
-      `<p class="hint">この内容は ${esc(r.path)} にも保存しました。うまく追従しないときは、このファイルを送ってください。</p>
+      `<p class="meta">${esc(r.path)}</p>
        <pre>${esc(r.text)}</pre>`, [{label:"close", primary:true}]);
   });
   const ff = $("fFollow");
   if(ff) ff.addEventListener("click", async ()=>{
     await window.pywebview.api.request_follow_permission();
     /* a SetAgent already in the list may belong to an earlier build: remove it first */
-    toast("アクセシビリティで SetAgent をオンにしてください（既にあるときは「−」で削除してから入れ直す）");
+    toast("アクセシビリティで setagent_proto をオン");
   });
   fillBackups();
   $("rescan").addEventListener("click", ()=>{ closeModal(); refreshFromRekordbox(null); });
@@ -1813,7 +1823,7 @@ async function openSettings(refresh){
   const lg = $("fLogin");
   if(lg) lg.addEventListener("click", async ()=>{
     const r = await window.pywebview.api.claude_login();
-    toast(r.ok ? "ログインしたら「再確認」を押してください" : r.error);
+    toast(r.ok ? "ログイン後に recheck" : r.error);
   });
 }
 $("settings").addEventListener("click", ()=> openSettings(false));
@@ -1821,20 +1831,17 @@ $("settings").addEventListener("click", ()=> openSettings(false));
 /* PC: start the LAN server and show the QR code (webui/remote.py) */
 async function openPhone(ip){
   const r = await window.pywebview.api.remote_start(ip || null);
-  if(!r || r.error){ toast((r && r.error) || "iPhone 用のサーバを起動できません"); return; }
+  if(!r || r.error){ toast((r && r.error) || "screen mirroring failed"); return; }
   modal("screen mirroring",
     `<div class="qr">${r.qr}</div>
-     <p class="hint">iPhone を PC と同じ Wi-Fi につなぎ、カメラでこの QR コードを読み取ってください。
-        Safari でこのセットが開きます。どちらで操作しても両方に反映されます。</p>
-     ${r.loopback ? `<p class="hint">この PC のネットワークのアドレスが分かりません。Wi-Fi か LAN につながっているか確認してください。</p>` : ""}
+     <p class="ln">同じ Wi-Fi の iPhone のカメラで読み取り</p>
+     ${r.loopback ? `<p class="ln warn">Wi-Fi 未接続</p>` : ""}
      <p class="meta qrUrl">${esc(r.url)}</p>
-     ${(r.ips || []).length > 1 ? `<div class="fresh"><span class="meta">つながらないときは別のアドレスで:</span>
+     ${(r.ips || []).length > 1 ? `<div class="fresh"><span class="meta">other networks</span>
        ${r.ips.filter(a => a !== r.ip).map(a =>
-         `<button class="btn" data-ip="${esc(a)}" title="この PC の別のネットワーク（${esc(a)}）を QR に入れます">${esc(a)}</button>`).join("")}</div>` : ""}
-     <p class="hint">つながらないときは、Windows の「ファイアウォールの警告」で Set Agent を
-        プライベート ネットワークに許可してください。QR コードには接続キーが入っているので、
-        読み取っていない端末からは開けません。</p>`,
-    [{label:"stop", danger:true, run: async ()=>{
+         `<button class="btn" data-ip="${esc(a)}">${esc(a)}</button>`).join("")}</div>` : ""}
+     ${/Win/.test(navigator.userAgent) ? `<p class="ln warn">Windows ファイアウォールでプライベート ネットワークを許可</p>` : ""}`,
+    [{label:"stop mirroring", danger:true, run: async ()=>{
         await window.pywebview.api.remote_stop(); toast("screen mirroring stopped"); }},
      {label:"close", primary:true}]);
   $("mBody").querySelectorAll("[data-ip]").forEach(b =>
@@ -1846,8 +1853,8 @@ function openRemoteSettings(){
   modal("settings",
     `<p class="sec-title" style="margin-top:0">rekordbox</p>
      <div class="fresh"><span class="meta" id="freshTxt"></span>
-       <button class="btn" id="rescan" title="rekordbox の master.db と -wal を PC で今すぐ読み直します"></button></div>
-     <p class="hint">この画面は PC の Set Agent をそのまま映しています。Claude の接続や API キーの設定は PC で行ってください。</p>`,
+       <button class="btn" id="rescan"></button></div>
+     <p class="ln">Claude と API キーは PC で設定</p>`,
     [{label:"close", primary:true}]);
   renderFresh();
   $("rescan").addEventListener("click", ()=>{ closeModal(); refreshFromRekordbox(null); });
@@ -1919,7 +1926,7 @@ const DOCK_MODES = [["side", "side"], ["inside", "inside"], ["split", "split"], 
 let DOCK = null;
 function dockNote(){
   const d = DOCK || (ST && ST.dock) || {};
-  if(!d.available) return "この環境では使えません";
+  if(!d.available) return "";
   return d.note || "";
 }
 function renderDock(d){
@@ -1941,7 +1948,7 @@ $("expandBtn").addEventListener("click", ()=> setCollapsed(false));
 /* ---- write-back (A): rekordbox へ ---- */
 /* The DJ's button is the only path that writes. The agent can put a card in
    the drawer; the card opens this same sheet. */
-const HOW_LABEL = {now:"now", when_closed:"when rekordbox quits", quit_write_relaunch:"quit · export · relaunch"};
+const HOW_LABEL = {now:"now", when_closed:"when rekordbox quits", quit_write_relaunch:"quit, export, relaunch"};
 const STATE_LABEL = {queued:"queued", waiting:"waiting for rekordbox to quit", quitting:"quitting rekordbox",
                      writing:"writing", relaunching:"relaunching rekordbox"};
 let PUB = null, PUB_WAIT = false, pubTimer = null;
@@ -1974,14 +1981,13 @@ async function pollPublish(){
   if(p.needs_force){ confirmForce(); return; }
   if(p.state === "cancelled"){ toast("export cancelled"); }
   else if(last && last.ok){
-    toast(`exported "${last.name}"` + (last.error ? ` · ${last.error}` : ""));
+    toast(`exported "${last.name}"` + (last.error ? `  ${last.error}` : ""));
   } else if(last){ toast("export failed: " + last.error); }
   apply(await window.pywebview.api.state());
 }
 function confirmForce(){
   modal("rekordbox didn't quit",
-    `<p>rekordbox に確認が出ていないか見てください。</p>
-     <p class="hint warn">強制終了すると、保存していない変更が失われることがあります。</p>`,
+    `<p class="ln warn">rekordbox の保存していない変更は失われます</p>`,
     [{label:"cancel", primary:true},
      {label:"force quit & export", danger:true, run: ()=> submitPublish(PUB_NAME, "quit_write_relaunch", true)}]);
 }
@@ -1999,25 +2005,25 @@ function pubBody(pv){
   const p = pv.plan, rb = pv.rekordbox_running;
   const skip = (p.skipped || []).length
     ? `<p class="pub-skip">skipped ${p.skipped.length}: ${p.skipped.map(x => esc(x.title || x.track_id)).join("、")}</p>` : "";
-  return `<div class="field"><span>name · Set Agent folder</span>
+  return `<div class="field"><span>playlist name</span>
             <input type="text" id="pubName" value="${esc(p.name)}" maxlength="120"></div>
-     <p id="pubText">${p.replaces ? "replaces" : "new playlist"} · ${p.track_ids.length} tracks</p>
+     <p id="pubText">${p.replaces ? "replaces" : "new playlist"}${SEP}${p.track_ids.length} tracks</p>
      ${skip}
-     <div class="pub-state"><span class="dot${rb ? " rb" : ""}"></span>${rb ? "rekordbox is running" : "書き込む前にバックアップを取ります"}</div>`;
+     ${rb ? `<div class="pub-state"><span class="dot rb"></span>rekordbox is running</div>` : ""}`;
 }
 async function openPublish(name){
-  if(REMOTE){ toast("rekordbox への書き込みは PC の Set Agent で行ってください"); return; }
+  if(REMOTE){ toast("export は PC で"); return; }
   const st = await window.pywebview.api.publish_status();
   if(st && st.active){
     modal("export",
-      `<p>${esc(st.name)} · ${st.tracks} tracks · ${esc(STATE_LABEL[st.state] || st.state)} (${esc(HOW_LABEL[st.how] || "")})</p>`,
+      `<p>${esc(st.name)}${SEP}${st.tracks} tracks${SEP}${esc(STATE_LABEL[st.state] || st.state)}${SEP}${esc(HOW_LABEL[st.how] || "")}</p>`,
       [{label:"close", primary:true},
        ...(st.state === "waiting" || st.state === "queued" ? [{label:"cancel export", danger:true, run: async ()=>{
           const r = await window.pywebview.api.publish_cancel(); renderPublish(r); }}] : [])]);
     return;
   }
   const pv = await window.pywebview.api.publish_preview(name || null);
-  if(!pv || !pv.available){ toast((pv && pv.error) || "書き込みは使えません"); return; }
+  if(!pv || !pv.available){ toast((pv && pv.error) || "export unavailable"); return; }
   const rb = pv.rekordbox_running;
   const go = how => ({close:true, run: ()=> submitPublish(PUB_NAME, how, false)});
   modal("export to rekordbox", pubBody(pv), rb
@@ -2032,7 +2038,7 @@ async function openPublish(name){
     pubPrevTimer = setTimeout(async ()=>{
       const q = await window.pywebview.api.publish_preview(PUB_NAME);
       if(q && q.available && !$("modal").hidden && $("pubText"))
-        $("pubText").textContent = `${q.plan.replaces ? "replaces" : "new playlist"} · ${q.plan.track_ids.length} tracks`;
+        $("pubText").innerHTML = `${q.plan.replaces ? "replaces" : "new playlist"}${SEP}${q.plan.track_ids.length} tracks`;
     }, 300);
   });
 }
@@ -2054,7 +2060,7 @@ async function fillBackups(){
   let r;
   try { r = await window.pywebview.api.backups(); } catch(e){ box.textContent = ""; return; }
   const list = (r && r.backups) || [];
-  if(!list.length){ box.innerHTML = `<span class="meta">none yet</span>`; return; }
+  if(!list.length){ box.innerHTML = ""; const h = $("fBackupsH"); if(h) h.hidden = true; return; }
   box.innerHTML = list.map(b => `<div class="bk-row"><span>${esc(b.created.replace("T", " "))}
       <span class="meta">${esc(b.reason)}</span></span>
       <button class="btn" data-bk="${esc(b.id)}">restore</button></div>`).join("");
@@ -2062,7 +2068,8 @@ async function fillBackups(){
     const id = btn.dataset.bk;
     closeModal();
     modal("restore this backup?",
-      `<p>rekordbox のライブラリをこの時点に戻します。それ以降の rekordbox での変更も戻ります。rekordbox を閉じてから実行してください。</p>`,
+      `<p class="ln warn">この時点以降の rekordbox の変更は消えます</p>
+       <p class="ln">rekordbox を閉じてから</p>`,
       [{label:"cancel", primary:true},
        {label:"restore", danger:true, run: async ()=>{
           const x = await window.pywebview.api.restore_backup(id);

@@ -39,9 +39,10 @@ LEVELS = ("light", "standard", "bold")
 LEVEL_LABEL = {"light": "light", "standard": "standard", "bold": "bold"}
 # What each level does to the running order (prep). Never say "つなぎ" here:
 # mixing is what the DJ does during the set, not what Set Agent does.
-LEVEL_HELP = {"light": "曲は変えず、キーや BPM の相性が悪い並びだけ近くの曲と入れ替えます",
-              "standard": "light に加えて、目標の尺に合うように曲を足し引きします",
-              "bold": "展開と隣り合う曲の相性に合わせて、曲順を組み直します"}
+# One line each: the consequence that matters most (stop-describing-ui rule 3).
+LEVEL_HELP = {"light": "曲は変わりません",
+              "standard": "目標の尺まで曲を足し引き",
+              "bold": "曲順を組み直し"}
 
 # "rough" = two neighbours in the running order that clash (shown as "clashes")
 ROUGH_KEY = 3            # Camelot steps that count as a clash
@@ -317,7 +318,7 @@ def _diff(old: list[str], new: list[str], tools, info: dict) -> list[Change]:
                 times = tools.followers(prev).get(tid, 0) if hasattr(tools, "followers") else 0
                 if times:
                     why.append(f"played after prev ×{times}")
-            out.append(Change("add", tid, title(tid), f"#{i + 1} · " + " · ".join(why) if why else f"#{i + 1}"))
+            out.append(Change("add", tid, title(tid), f"#{i + 1}  " + "  ".join(why) if why else f"#{i + 1}"))
     for tid in old:
         if tid not in sn:
             out.append(Change("remove", tid, title(tid), ""))
@@ -330,7 +331,7 @@ def _diff(old: list[str], new: list[str], tools, info: dict) -> list[Change]:
         stay = _lis([pos_old[t] for t in kept_new])
         for i, t in enumerate(kept_new):
             if i not in stay:
-                out.append(Change("move", t, title(t), f"#{old.index(t) + 1} → #{new.index(t) + 1}"))
+                out.append(Change("move", t, title(t), f"#{old.index(t) + 1} to #{new.index(t) + 1}"))
     return out
 
 
