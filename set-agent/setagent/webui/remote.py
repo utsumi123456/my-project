@@ -38,7 +38,7 @@ ALLOWED = frozenset({
     "ask", "insert_candidate", "set_item_approved", "apply_pending", "reject_pending",
     "artwork", "library_changed", "sync_rev", "make_improved", "discard_improved",
 })
-PC_ONLY = "この操作は PC の Set Agent で行ってください"
+PC_ONLY = "PC で操作"
 
 # Injected ahead of the page's own script. It stands in for pywebview's bridge:
 # same names, same promise-returning calls, and the same "pywebviewready" event.
@@ -76,10 +76,10 @@ SHIM = """<meta name="viewport" content="width=device-width, initial-scale=1, vi
 
 FORBIDDEN_PAGE = """<!doctype html><html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Set Agent</title></head>
+<title>setagent_proto</title></head>
 <body style="background:#0d1014;color:#e6e6e6;font-family:Arial,sans-serif;padding:24px">
-<p>接続キーが無効です。</p>
-<p>PC の Set Agent で「設定 → screen mirroring → show QR」を開き、表示された QR コードをカメラで読み取ってください。</p>
+<p>接続キーが無効です</p>
+<p>PC の setagent_proto の QR を読み取り</p>
 </body></html>"""
 
 

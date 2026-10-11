@@ -2,10 +2,10 @@
 
   python build.py           build + lay out dist/
   python build.py --skip    lay out only (reuse build/exe/)
-  python build.py --install macOS: also replace /Applications/SetAgent.app and start it
+  python build.py --install macOS: also replace /Applications/setagent_proto.app and start it
 
-Windows: dist/SetAgent.exe  (one file, double-click) next to dist/はじめに.md.
-macOS:   dist/SetAgent-macOS.zip holding SetAgent.app (PyInstaller --windowed),
+Windows: dist/setagent_proto.exe  (one file, double-click) next to dist/はじめに.md.
+macOS:   dist/setagent_proto-macOS.zip holding setagent_proto.app (PyInstaller --windowed),
          built on a Mac or by the GitHub Actions workflow (.github/workflows/build.yml).
 PyInstaller's own output goes under build/ so dist/ never holds two builds.
 """
@@ -23,8 +23,11 @@ DIST = ROOT / "dist"
 WORK = ROOT / "build" / "exe"
 WIN = sys.platform.startswith("win")
 MAC = sys.platform == "darwin"
-EXE = WORK / ("SetAgent.exe" if WIN else "SetAgent")
-APP = WORK / "SetAgent.app"
+# The app's name (2026-10-11: "setagent_proto"). The bundle id below is NOT derived
+# from it and must not change: macOS keys the Accessibility permission to it.
+NAME = "setagent_proto"
+EXE = WORK / (f"{NAME}.exe" if WIN else NAME)
+APP = WORK / f"{NAME}.app"
 
 
 def build_exe() -> None:
@@ -37,10 +40,10 @@ def build_exe() -> None:
     # launcher that unpacks Python into a temp folder and starts it as a second
     # process -- the Dock shows that process with a generic icon instead of ours,
     # and macOS can attribute the Accessibility permission (rekordbox following)
-    # to it rather than to SetAgent.app. Windows keeps its single .exe.
+    # to it rather than to the .app. Windows keeps its single .exe.
     layout = "--onedir" if MAC else "--onefile"
     cmd = [sys.executable, "-m", "PyInstaller", layout, "--windowed", "--clean", "--noconfirm",
-           "--name", "SetAgent", "--paths", ".",
+           "--name", NAME, "--paths", ".",
            "--distpath", str(WORK), "--workpath", str(ROOT / "build" / "pyinstaller"),
            "--add-data", f"{ui}{os.pathsep}setagent/webui",
            "--hidden-import", "tools.decrypt_masterdb",
@@ -105,7 +108,7 @@ def stable_signature(app: Path) -> None:
     dr = [l for l in (out.stdout + out.stderr).splitlines() if "designated" in l]
     print("signature:", dr[0].strip() if dr else "(designated requirement not shown)")
     if not dr or BUNDLE_ID not in dr[0]:
-        raise SystemExit("SetAgent.app の署名に bundle id の指定要件が入っていません（アクセシビリティの許可が保たれません）")
+        raise SystemExit(f"{NAME}.app の署名に bundle id の指定要件が入っていません（アクセシビリティの許可が保たれません）")
 
 
 def package() -> Path:
@@ -118,7 +121,7 @@ def package() -> Path:
             old.unlink()                        # dist/ is exactly what gets handed out
     if MAC:
         # an .app is a folder; hand out a zip (ditto keeps the bundle's attributes)
-        out = DIST / "SetAgent-macOS.zip"
+        out = DIST / f"{NAME}-macOS.zip"
         subprocess.run(["ditto", "-c", "-k", "--keepParent", str(src), str(out)], check=True)
     else:
         out = DIST / src.name
@@ -141,13 +144,14 @@ def main() -> int:
     package()
     if "--install" in sys.argv:
         if not MAC:
-            print("--install は macOS 用です（Windows は dist/SetAgent.exe を置き換えてください）")
+            print(f"--install は macOS 用です（Windows は dist/{NAME}.exe を置き換えてください）")
             return 1
         install_mac()
     return 0
 
 
-INSTALLED = Path("/Applications/SetAgent.app")
+INSTALLED = Path(f"/Applications/{NAME}.app")
+OLD_NAMES = ("SetAgent.app",)          # earlier names of the same app (same bundle id), removed on install
 LSREGISTER = ("/System/Library/Frameworks/CoreServices.framework/Frameworks/"
               "LaunchServices.framework/Support/lsregister")
 
@@ -163,20 +167,27 @@ def install_mac(src: Path = APP, dest: Path = INSTALLED) -> None:
     # 1. quit politely (the panel saves its window position on close), then make sure
     subprocess.run(["osascript", "-e", f'tell application id "{BUNDLE_ID}" to quit'],
                    capture_output=True)
-    exe = str(dest / "Contents" / "MacOS" / "SetAgent")
+    olds = [dest.with_name(n) for n in OLD_NAMES]
+    exes = [str(dest / "Contents" / "MacOS" / NAME)] + [str(o / "Contents" / "MacOS" / o.stem) for o in olds]
+    running = lambda: any(subprocess.run(["pgrep", "-f", e], capture_output=True).returncode == 0 for e in exes)
     for _ in range(20):
-        if subprocess.run(["pgrep", "-f", exe], capture_output=True).returncode != 0:
+        if not running():
             break
         time.sleep(0.5)
     else:
-        subprocess.run(["pkill", "-f", exe], capture_output=True)
+        for e in exes:
+            subprocess.run(["pkill", "-f", e], capture_output=True)
         time.sleep(1)
     # 2. swap
-    staged = dest.with_name(".SetAgent.app.new")
+    staged = dest.with_name(f".{dest.name}.new")
     shutil.rmtree(staged, ignore_errors=True)
     subprocess.run(["ditto", str(src), str(staged)], check=True)
     shutil.rmtree(dest, ignore_errors=True)
     staged.rename(dest)
+    for o in olds:                    # the app under its old name: one icon in Launchpad, not two
+        if o.exists():
+            shutil.rmtree(o, ignore_errors=True)
+            subprocess.run([LSREGISTER, "-u", str(o)], capture_output=True)
     # 3. the icon: re-register the bundle and restart the Dock, which otherwise keeps
     #    showing the icon it cached for the app that used to be at this path
     subprocess.run([LSREGISTER, "-f", str(dest)], capture_output=True)

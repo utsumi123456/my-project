@@ -39,6 +39,9 @@ class MacBuildTests(unittest.TestCase):
         calls = self.build('designated => identifier "jp.alphatheta.setagent"\n')
         pyi = next(c for c in calls if "PyInstaller" in c)
         self.assertIn("--onedir", pyi)
+        self.assertEqual(pyi[pyi.index("--name") + 1], "setagent_proto")
+        # renamed, but the bundle id -- what the Accessibility permission is keyed to -- is not
+        self.assertEqual(pyi[pyi.index("--osx-bundle-identifier") + 1], "jp.alphatheta.setagent")
         self.assertNotIn("--onefile", pyi)
         icons = build.ROOT / "assets" / "icon"
         self.assertEqual(Path(pyi[pyi.index("--icon") + 1]), icons / "SetAgent.icns")   # Path: \\ on Windows
@@ -67,7 +70,9 @@ class InstallTests(unittest.TestCase):
             return types.SimpleNamespace(returncode=rc, stdout="", stderr="")
 
         with tempfile.TemporaryDirectory() as d:
-            src, dest = Path(d) / "new" / "SetAgent.app", Path(d) / "Applications" / "SetAgent.app"
+            src, dest = Path(d) / "new" / "setagent_proto.app", Path(d) / "Applications" / "setagent_proto.app"
+            old = dest.with_name("SetAgent.app")                  # the app under its earlier name
+            (old / "Contents").mkdir(parents=True)
             (src / "Contents").mkdir(parents=True)
             (src / "Contents" / "new").write_text("1")
             (dest / "Contents").mkdir(parents=True)
@@ -76,7 +81,8 @@ class InstallTests(unittest.TestCase):
                 build.install_mac(src, dest)
             self.assertTrue((dest / "Contents" / "new").exists())
             self.assertFalse((dest / "Contents" / "old").exists())
-            self.assertFalse(dest.with_name(".SetAgent.app.new").exists())
+            self.assertFalse(dest.with_name(".setagent_proto.app.new").exists())
+            self.assertFalse(old.exists())
         order = [c[0] for c in calls]
         self.assertEqual(order[0], "osascript")                       # quit first
         self.assertLess(order.index("ditto"), order.index("killall"))

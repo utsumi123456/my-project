@@ -1,13 +1,13 @@
 # 他の PC への配布手順（2026-09-17）
 
-チームの PC に Set Agent を入れて、動くことを確かめるまでの手順。配布物は **1 ファイル**で、
+チームの PC に setagent_proto を入れて、動くことを確かめるまでの手順。配布物は **1 ファイル**で、
 インストールは不要です。
 
 ## 0. いちばん簡単な渡し方（Release のリンク）
 
 相手に送るリンクはこれ 1 つ: **https://github.com/utsumi123456/my-project/releases/latest**
-（開いて `SetAgent.exe` をクリック → ダウンロード。Mac は `SetAgent-macOS.zip`）。
-直接リンク: `https://github.com/utsumi123456/my-project/releases/download/v1.0/SetAgent.exe`
+（開いて `setagent_proto.exe` をクリック → ダウンロード。Mac は `setagent_proto-macOS.zip`）。
+直接リンク: `https://github.com/utsumi123456/my-project/releases/latest/download/setagent_proto.exe`
 
 リポジトリは **public**（2026-09-17 19:10 に切り替え、ユーザー決定）。リンクはログインなしで開け、
 直接リンクは 302 でファイルに飛ぶことを確認済み。
@@ -17,8 +17,8 @@
 
 | OS | 何を渡すか | どこから |
 |---|---|---|
-| Windows 10/11 | `SetAgent.exe` ＋ `はじめに.md` | この PC の `set-agent\dist\`（`python build.py` の出力）か、GitHub Actions の artifact **SetAgent-windows** |
-| macOS | `SetAgent-macOS.zip`（中に `SetAgent.app`）＋ `はじめに.md` | GitHub Actions の artifact **SetAgent-macos**（Windows からは Mac 版を作れないため） |
+| Windows 10/11 | `setagent_proto.exe` ＋ `はじめに.md` | この PC の `set-agent\dist\`（`python build.py` の出力）か、GitHub Actions の artifact **setagent_proto-windows** |
+| macOS | `setagent_proto-macOS.zip`（中に `setagent_proto.app`）＋ `はじめに.md` | GitHub Actions の artifact **setagent_proto-macos**（Windows からは Mac 版を作れないため） |
 
 GitHub Actions は `main` への push ごとに両 OS でビルドします（`.github/workflows/build.yml`）。
 `v1.0` のようなタグを push すると GitHub Release にも同じファイルが付きます。
@@ -30,7 +30,7 @@ artifact は リポジトリ → Actions → 最新の「build set-agent」→ A
   検証済みは 7.2.14。最新 7.2.17 まで、リリースノート上はライブラリ形式の変更なし（未実機）。
 - Windows: WebView2 ランタイム（Windows 10/11 に標準搭載。無ければ `--classic` で旧 UI が開く）。
 - macOS: 追加なし（WKWebView を使う）。**未署名アプリ**なので初回は Gatekeeper に止められる。
-  Finder で右クリック →「開く」、または `xattr -dr com.apple.quarantine SetAgent.app`。
+  Finder で右クリック →「開く」、または `xattr -dr com.apple.quarantine setagent_proto.app`。
 - AI エージェントを使うなら **Claude Desktop に会社のアカウントでログイン**していること
   （API キーは不要。ログインが無ければルールベースのアドバイザで全機能が動く）。
 
@@ -39,7 +39,7 @@ artifact は リポジトリ → Actions → 最新の「build set-agent」→ A
 1. **互換性チェック**（ウィンドウなし。rekordbox の版・DB の復号・列・フレーズ解析・アートワークを確認）
 
    ```
-   SetAgent.exe --compat
+   setagent_proto.exe --compat
    ```
 
    すべて `PASS` なら次へ。`FAIL` があれば、その行と rekordbox の版を報告してください。
@@ -48,7 +48,7 @@ artifact は リポジトリ → Actions → 最新の「build set-agent」→ A
 2. **環境診断**（設定・作業フォルダ・プレイリスト数・フレーズ解析の割合）
 
    ```
-   SetAgent.exe --doctor
+   setagent_proto.exe --doctor
    ```
 
 3. **起動**して `はじめに.md` の手順どおりに触る。設定シートに Claude の接続状態が出ます。
